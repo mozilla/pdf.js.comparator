@@ -1,0 +1,22 @@
+{
+  "jars": [
+    "icepdf-cheerpj-patches.jar",
+    "icepdf-core.jar",
+    "icepdf-fonts.jar",
+    "bcprov-jdk18on.jar",
+    "bcpkix-jdk18on.jar",
+    "bcutil-jdk18on.jar",
+    "imageio-tiff.jar",
+    "imageio-core.jar",
+    "imageio-metadata.jar",
+    "common-lang.jar",
+    "common-io.jar",
+    "common-image.jar",
+    "fontbox.jar",
+    "pdfbox-io.jar",
+    "commons-logging.jar",
+    "jbig2-imageio.jar",
+    "jai-imageio-core.jar",
+    "jai-imageio-jpeg2000.jar"
+  ]
+}
