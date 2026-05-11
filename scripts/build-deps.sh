@@ -342,6 +342,7 @@ renderer_emcc_flags() {
 -s ERROR_ON_UNDEFINED_SYMBOLS=1
 -s NO_EXIT_RUNTIME=1
 -s MALLOC=emmalloc
+-s SUPPORT_LONGJMP=emscripten
 -s ASSERTIONS=0
 EOF
 }

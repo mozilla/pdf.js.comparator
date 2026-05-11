@@ -67,6 +67,7 @@ if [ ! -f "${WASM_PREFIX}/lib/libmupdf.a" ] || \
         OS=wasm \
         build=release \
         XCFLAGS="-O2 -fno-exceptions -DTOFU=0 -DTOFU_CJK=0 \
+            -sSUPPORT_LONGJMP=emscripten \
             -I${WASM_PREFIX}/include -I${WASM_PREFIX}/include/freetype2 \
             -I${WASM_PREFIX}/include/openjpeg-2.5" \
         USE_SYSTEM_FREETYPE=yes \

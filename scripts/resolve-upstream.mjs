@@ -160,17 +160,31 @@ function writeOutputs(target, outputs) {
 }
 
 async function resolveCairo() {
-  const cairoTag = latestGitTag(
-    "https://gitlab.freedesktop.org/cairo/cairo.git",
-    "refs/tags/*",
-    /^\d+\.\d+\.\d+$/,
-  );
-  const popplerTag = latestGitTag(
-    "https://gitlab.freedesktop.org/poppler/poppler.git",
-    "refs/tags/poppler-*",
-    /^poppler-\d+\.\d+\.\d+$/,
-    (tag) => tag.replace(/^poppler-/, ""),
-  );
+  // poppler 26.x trips an `invalid application of sizeof to an incomplete
+  // type 'Array'` static_assert in libc++'s unique_ptr against the current
+  // emsdk. Pin to the last known-good tags and gate the live resolve
+  // behind an env var until upstream/poppler is fixable.
+  let cairoTag = process.env.CAIRO_TAG || "1.18.2";
+  let popplerTag = process.env.POPPLER_TAG || "poppler-24.10.0";
+  if (process.env.CAIRO_RESOLVE_FROM_WEB === "1") {
+    try {
+      cairoTag = latestGitTag(
+        "https://gitlab.freedesktop.org/cairo/cairo.git",
+        "refs/tags/*",
+        /^\d+\.\d+\.\d+$/,
+      );
+      popplerTag = latestGitTag(
+        "https://gitlab.freedesktop.org/poppler/poppler.git",
+        "refs/tags/poppler-*",
+        /^poppler-\d+\.\d+\.\d+$/,
+        (tag) => tag.replace(/^poppler-/, ""),
+      );
+    } catch (err) {
+      console.warn(
+        `cairo: web resolve failed (${err.message}); using ${cairoTag}/${popplerTag}`,
+      );
+    }
+  }
   return {
     fingerprint: `cairo=${cairoTag};poppler=${popplerTag}`,
     values: {
@@ -181,11 +195,22 @@ async function resolveCairo() {
 }
 
 async function resolveMupdf() {
-  const ref = latestGitTag(
-    "https://github.com/ArtifexSoftware/mupdf.git",
-    "refs/tags/*",
-    /^\d+\.\d+\.\d+$/,
-  );
+  // Pin by default. mupdf 1.27 builds fine against the current emsdk once
+  // the SUPPORT_LONGJMP=emscripten flag is in place (see build-mupdf.sh /
+  // renderer_emcc_flags), but we keep an opt-in toggle so the auto-bump
+  // doesn't fire on every cron tick until we want it to.
+  let ref = process.env.MUPDF_REF || "1.24.10";
+  if (process.env.MUPDF_RESOLVE_FROM_WEB === "1") {
+    try {
+      ref = latestGitTag(
+        "https://github.com/ArtifexSoftware/mupdf.git",
+        "refs/tags/*",
+        /^\d+\.\d+\.\d+$/,
+      );
+    } catch (err) {
+      console.warn(`mupdf: web resolve failed (${err.message}); using ${ref}`);
+    }
+  }
   return {
     fingerprint: `mupdf=${ref}`,
     values: {
