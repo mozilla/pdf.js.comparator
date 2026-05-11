@@ -1,0 +1,104 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Mozilla Foundation
+#
+# Local replacement for peaceiris/actions-gh-pages@... — Mozilla's GitHub
+# enterprise policy only allows actions matching ./**. Reproduces the
+# `keep_files: true` semantic: existing entries in the gh-pages branch are
+# preserved, files under the destination subpath are overlaid with the
+# source's contents.
+
+name: Publish to gh-pages
+description: |
+  Overlay a directory onto the gh-pages branch under an optional destination
+  subpath and push. Files already on gh-pages that are not in the source
+  remain untouched (matches peaceiris/actions-gh-pages keep_files=true).
+
+inputs:
+  source:
+    description: Path (workspace-relative) whose contents are published.
+    required: true
+  destination:
+    description: Subpath within gh-pages to publish under. Empty = root.
+    required: false
+    default: ""
+  github-token:
+    description: Token with contents:write scope on the repository.
+    required: true
+  commit-message:
+    description: Optional commit message override.
+    required: false
+    default: ""
+  user-name:
+    required: false
+    default: "github-actions[bot]"
+  user-email:
+    required: false
+    default: "41898282+github-actions[bot]@users.noreply.github.com"
+
+runs:
+  using: composite
+  steps:
+    - name: Publish via git push
+      shell: bash
+      env:
+        SOURCE: ${{ inputs.source }}
+        DEST: ${{ inputs.destination }}
+        GH_TOKEN: ${{ inputs.github-token }}
+        COMMIT_MESSAGE: ${{ inputs.commit-message }}
+        GIT_USER_NAME: ${{ inputs.user-name }}
+        GIT_USER_EMAIL: ${{ inputs.user-email }}
+      run: |
+        set -euo pipefail
+
+        # Resolve the source dir against the workspace; bail early if it
+        # doesn't exist so the error is obvious.
+        src="${GITHUB_WORKSPACE}/${SOURCE}"
+        if [ ! -d "${src}" ]; then
+          echo "source directory does not exist: ${src}" >&2
+          exit 1
+        fi
+
+        # Use a worktree so we don't disturb the caller's checkout.
+        worktree="$(mktemp -d)"
+        if git ls-remote --exit-code "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+                refs/heads/gh-pages >/dev/null 2>&1; then
+          # Fetch the existing branch into a detached worktree, then create
+          # the branch locally so push --set-upstream isn't needed.
+          git -c "http.https://github.com/.extraheader=" \
+              fetch --depth 1 \
+              "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+              gh-pages
+          git worktree add --force "${worktree}" FETCH_HEAD
+          git -C "${worktree}" checkout -B gh-pages
+        else
+          # First publish: create the branch as an orphan with an empty
+          # tree so the initial commit is well-formed.
+          git worktree add --detach --force "${worktree}" HEAD
+          git -C "${worktree}" checkout --orphan gh-pages
+          git -C "${worktree}" rm -rf . >/dev/null 2>&1 || true
+        fi
+
+        # Overlay the new content. keep_files=true semantics: don't touch
+        # entries already in gh-pages that aren't in source.
+        target="${worktree}"
+        if [ -n "${DEST}" ]; then
+          target="${worktree}/${DEST}"
+          mkdir -p "${target}"
+        fi
+        cp -R "${src}/." "${target}/"
+
+        cd "${worktree}"
+        git config user.name "${GIT_USER_NAME}"
+        git config user.email "${GIT_USER_EMAIL}"
+        git add -A
+        if git diff --staged --quiet; then
+          echo "No changes to publish."
+          exit 0
+        fi
+        msg="${COMMIT_MESSAGE:-Publish ${DEST:-site} from ${GITHUB_SHA}}"
+        git commit -m "${msg}"
+        # Push via x-access-token form so the runner doesn't need a global
+        # git credential helper configured.
+        git push \
+          "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+          gh-pages

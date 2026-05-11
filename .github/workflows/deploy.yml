@@ -19,7 +19,7 @@ on:
   workflow_dispatch:
 
 # Default to no permissions; the build job grants the narrow contents:
-# write it needs for peaceiris/actions-gh-pages to push the assembled site.
+# write it needs for the local publish-to-gh-pages action.
 permissions: {}
 
 concurrency:
@@ -34,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions:
-      contents: write # peaceiris/actions-gh-pages pushes to gh-pages
+      contents: write # local publish-to-gh-pages action pushes to gh-pages
     env:
       DOCKER_BUILDKIT: "1"
       # Defaults for resolve-upstream's pdfium/butteraugli/flip resolvers
@@ -131,11 +131,11 @@ jobs:
           touch site/.nojekyll
 
       - name: Publish complete site to gh-pages
-        uses: peaceiris/actions-gh-pages@4f9cc6602d3f66b9c108549d475ec49e8ef4d45e
+        # Local action — Mozilla's enterprise policy disallows
+        # peaceiris/actions-gh-pages. Overlays ./site onto gh-pages root,
+        # preserving everything per-renderer workflows already published
+        # (artifacts not under ./site that already exist on gh-pages stay).
+        uses: ./.github/actions/publish-to-gh-pages
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./site
-          # Keep artifacts that the per-renderer workflows just published
-          # to out/<name>/ — they don't appear in `./site` on every deploy
-          # run because we only rebuild changed inputs.
-          keep_files: true
+          source: site
+          github-token: ${{ secrets.GITHUB_TOKEN }}

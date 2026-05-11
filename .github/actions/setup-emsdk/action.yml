@@ -1,0 +1,61 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Mozilla Foundation
+#
+# Local replacement for mymindstorm/setup-emsdk@... — Mozilla's GitHub
+# enterprise policy only allows actions matching ./** (local), so we clone
+# the emsdk repo ourselves, install + activate the requested version, and
+# expose emcc/em++/emar/python via $GITHUB_PATH and $GITHUB_ENV.
+
+name: Set up emsdk
+description: |
+  Clone, install, and activate the Emscripten SDK. After running, emcc /
+  em++ / emar / emconfigure / emcmake / emmake are on PATH for subsequent
+  steps, and the EMSDK / EMSDK_NODE env vars are set.
+
+inputs:
+  version:
+    description: Emsdk version to install (e.g. 3.1.74, or "latest").
+    required: false
+    default: latest
+  install-dir:
+    description: Where to clone the emsdk tree.
+    required: false
+    default: ${{ github.workspace }}/.emsdk
+
+runs:
+  using: composite
+  steps:
+    - name: Install emsdk
+      shell: bash
+      env:
+        EMSDK_VERSION: ${{ inputs.version }}
+        EMSDK_DIR: ${{ inputs.install-dir }}
+      run: |
+        set -euo pipefail
+        if [ ! -d "${EMSDK_DIR}/.git" ]; then
+          git clone --depth 1 https://github.com/emscripten-core/emsdk.git "${EMSDK_DIR}"
+        else
+          git -C "${EMSDK_DIR}" fetch --depth 1 origin main
+          git -C "${EMSDK_DIR}" checkout --force FETCH_HEAD
+        fi
+        cd "${EMSDK_DIR}"
+        ./emsdk install "${EMSDK_VERSION}"
+        ./emsdk activate "${EMSDK_VERSION}"
+        # Source the env script then export the resolved variables to
+        # subsequent steps. emsdk_env.sh prepends to PATH, but those
+        # changes don't survive the step boundary unless we push them
+        # through $GITHUB_PATH / $GITHUB_ENV explicitly.
+        # shellcheck source=/dev/null
+        . ./emsdk_env.sh
+        {
+          echo "EMSDK=${EMSDK}"
+          echo "EMSDK_NODE=${EMSDK_NODE}"
+          [ -n "${EM_CONFIG:-}" ] && echo "EM_CONFIG=${EM_CONFIG}"
+        } >> "${GITHUB_ENV}"
+        {
+          echo "${EMSDK}"
+          echo "${EMSDK}/upstream/emscripten"
+          echo "${EMSDK}/upstream/bin"
+          [ -n "${EMSDK_NODE:-}" ] && echo "$(dirname "${EMSDK_NODE}")"
+        } >> "${GITHUB_PATH}"
+        emcc --version | head -n1

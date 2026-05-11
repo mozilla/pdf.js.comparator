@@ -70,7 +70,7 @@ on:
         default: ""
 
 # Default to no permissions; the build job grants the narrow write scope it
-# actually needs (peaceiris/actions-gh-pages pushes to refs/heads/gh-pages).
+# actually needs (the local publish-to-gh-pages action pushes to gh-pages).
 permissions: {}
 
 jobs:
@@ -79,7 +79,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.timeout }}
     permissions:
-      contents: write # peaceiris/actions-gh-pages pushes to gh-pages
+      contents: write # local publish-to-gh-pages action pushes to gh-pages
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
@@ -106,11 +106,10 @@ jobs:
         with:
           node-version: "22"
 
-      - uses: mymindstorm/setup-emsdk@6ab9eb1bda2574c4ddb79809fc9247783eaf9021
+      - uses: ./.github/actions/setup-emsdk
         if: inputs.needs_emsdk && steps.upstream.outputs.changed == 'true'
         with:
           version: latest
-          actions-cache-folder: "emsdk-cache"
 
       - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9
         if: inputs.needs_java && steps.upstream.outputs.changed == 'true'
@@ -154,9 +153,8 @@ jobs:
 
       - name: Publish to gh-pages/out/${{ inputs.name }}/
         if: steps.upstream.outputs.changed == 'true'
-        uses: peaceiris/actions-gh-pages@4f9cc6602d3f66b9c108549d475ec49e8ef4d45e
+        uses: ./.github/actions/publish-to-gh-pages
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./out/${{ inputs.name }}
-          destination_dir: out/${{ inputs.name }}
-          keep_files: true
+          source: out/${{ inputs.name }}
+          destination: out/${{ inputs.name }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}

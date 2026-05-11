@@ -26,7 +26,7 @@
 # Use the floating `:latest` tag so we automatically pick up the newest
 # Ubuntu base, which is what carries a meson >= 1.3 (cairo requires it).
 # Pinning a specific emsdk regressed meson to 0.61 from Ubuntu 22.04.
-# The matching mymindstorm/setup-emsdk in workflows also uses `latest`.
+# The matching .github/actions/setup-emsdk also resolves `latest`.
 FROM emscripten/emsdk:latest AS base
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
