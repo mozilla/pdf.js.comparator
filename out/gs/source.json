@@ -1,0 +1,6 @@
+{
+  "name": "ghostscript",
+  "package": "ghostscript-wasm-esm",
+  "version": "1.0.1",
+  "fingerprint": "ghostscript-wasm-esm=1.0.1"
+}
