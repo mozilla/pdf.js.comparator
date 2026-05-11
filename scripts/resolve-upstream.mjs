@@ -39,20 +39,20 @@ function run(command, args, { silent = false } = {}) {
 }
 
 async function fetchText(url) {
-  try {
-    const response = await fetch(url, {
-      headers: {
-        "user-agent": "pdf.js.comparator GitHub Actions sync",
-      },
-    });
-    if (response.ok) {
-      return response.text();
-    }
-  } catch {
-    // Fall through to curl. Some upstreams have certificate chains that Node's
-    // bundled trust store rejects locally, while the runner's curl accepts.
+  // Use a browser-like user-agent — xpdfreader.com (and other Cloudflare-
+  // fronted upstreams) 403 anything that looks bot-y. The fetch in Node 22
+  // (undici) handles modern TLS cleanly, so no curl fallback is needed.
+  const response = await fetch(url, {
+    headers: {
+      "user-agent":
+        "Mozilla/5.0 (compatible; pdf.js.comparator/1.0; +https://github.com/mozilla/pdf.js.comparator)",
+      accept: "*/*",
+    },
+  });
+  if (!response.ok) {
+    throw new Error(`fetch ${url} → HTTP ${response.status}`);
   }
-  return run("curl", ["-fsSL", url]);
+  return response.text();
 }
 
 async function fetchJson(url) {
@@ -195,11 +195,29 @@ async function resolveMupdf() {
 }
 
 async function resolveXpdf() {
-  const html = await fetchText("https://www.xpdfreader.com/download.html");
-  const versions = [
-    ...html.matchAll(/xpdf-(\d+\.\d+(?:\.\d+)?)\.tar\.gz/g),
-  ].map((match) => match[1]);
-  const version = latestVersion([...new Set(versions)]);
+  // xpdfreader.com serves an incomplete TLS chain (missing the AlphaSSL
+  // intermediate), so both Node's fetch and the runner's curl reject it.
+  // Browsers AIA-walk to fetch the missing cert; we don't have a clean way
+  // to do that, and xpdf bumps roughly once a year. Pin the version, allow
+  // an XPDF_VERSION env override for manual bumps, and only auto-resolve
+  // when explicitly opted in.
+  const fallback = "4.06";
+  let version = process.env.XPDF_VERSION || fallback;
+  if (process.env.XPDF_RESOLVE_FROM_WEB === "1") {
+    try {
+      const html = await fetchText("https://www.xpdfreader.com/download.html");
+      const versions = [
+        ...html.matchAll(/xpdf-(\d+\.\d+(?:\.\d+)?)\.tar\.gz/g),
+      ].map((match) => match[1]);
+      if (versions.length) {
+        version = latestVersion([...new Set(versions)]);
+      }
+    } catch (err) {
+      console.warn(
+        `xpdf: web resolve failed (${err.message}); using ${version}`,
+      );
+    }
+  }
   return {
     fingerprint: `xpdf=${version}`,
     values: {

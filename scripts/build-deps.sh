@@ -21,7 +21,17 @@
 
 set -euo pipefail
 
-WASM_PREFIX="${WASM_PREFIX:-/emsdk/upstream/emscripten/cache/sysroot}"
+# In the docker build the base image sets EMSDK=/emsdk and WASM_PREFIX is
+# overridden via ENV. On a CI runner (or local non-docker invocation), our
+# setup-emsdk action sets EMSDK to a workspace-relative path; fall back to
+# its sysroot so we don't try to write into a root-owned /emsdk directory.
+if [ -z "${WASM_PREFIX:-}" ]; then
+    if [ -n "${EMSDK:-}" ]; then
+        WASM_PREFIX="${EMSDK}/upstream/emscripten/cache/sysroot"
+    else
+        WASM_PREFIX="${SRC_DIR:-/src}/.wasm-sysroot"
+    fi
+fi
 SRC_DIR="${SRC_DIR:-/src}"
 PKG_CONFIG_PATH="${WASM_PREFIX}/lib/pkgconfig"
 PKG_CONFIG_LIBDIR="${WASM_PREFIX}/lib/pkgconfig"
