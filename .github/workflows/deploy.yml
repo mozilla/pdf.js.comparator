@@ -2,24 +2,28 @@
 # Copyright (c) 2026 Mozilla Foundation
 name: Build and deploy GitHub Pages
 
+# Lightweight deploy: each per-renderer workflow (cairo.yml, mupdf.yml, …)
+# already builds and publishes its own out/<name>/ to gh-pages with
+# keep_files: true. This workflow only republishes the small handwritten
+# pieces — index.html / harness.html / workers/ — plus the JS lint gates.
+# It no longer rebuilds every renderer through Docker, which used to take
+# ~60-90 min per push.
+
 on:
   push:
     branches: [main]
     paths:
-      - "Dockerfile"
       - "build.js"
-      - "docker/**"
+      - "eslint.config.mjs"
       - "harness.html"
       - "package-lock.json"
       - "package.json"
-      - "scripts/**"
-      - "src/**"
+      - "src/common/**"
       - "workers/**"
       - ".github/workflows/deploy.yml"
+      - ".github/actions/publish-to-gh-pages/**"
   workflow_dispatch:
 
-# Default to no permissions; the build job grants the narrow contents:
-# write it needs for the local publish-to-gh-pages action.
 permissions: {}
 
 concurrency:
@@ -32,14 +36,9 @@ jobs:
   build-and-deploy:
     name: Build and deploy site
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 15
     permissions:
       contents: write # local publish-to-gh-pages action pushes to gh-pages
-    env:
-      DOCKER_BUILDKIT: "1"
-      # Defaults for resolve-upstream's pdfium/butteraugli/flip resolvers
-      # live in resolve-upstream.mjs; override here only if you need to
-      # build against something other than upstream HEAD / chromium/6800.
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
@@ -58,83 +57,19 @@ jobs:
           npm run lint
           npm run format:check
 
-      # Resolve every upstream through the shared script. Each invocation
-      # exports its outputs as UPPER_CASE env vars on $GITHUB_ENV (see
-      # scripts/resolve-upstream.mjs::writeOutputs), so the build step
-      # below just reads them via `env`.
-      - name: Resolve cairo upstream
-        run: node scripts/resolve-upstream.mjs cairo
-      - name: Resolve mupdf upstream
-        run: node scripts/resolve-upstream.mjs mupdf
-      - name: Resolve Xpdf upstream
-        run: node scripts/resolve-upstream.mjs xpdf
-      - name: Resolve Ghostscript upstream
-        run: node scripts/resolve-upstream.mjs gs
-      - name: Resolve PDFBox upstream
-        run: node scripts/resolve-upstream.mjs pdfbox
-      - name: Resolve ICEpdf upstream
-        run: node scripts/resolve-upstream.mjs icepdf
-      - name: Resolve DSSIM upstream
-        run: node scripts/resolve-upstream.mjs dssim
-      - name: Resolve pdfium upstream
-        run: node scripts/resolve-upstream.mjs pdfium
-      - name: Resolve butteraugli upstream
-        run: node scripts/resolve-upstream.mjs butteraugli
-      - name: Resolve FLIP upstream
-        run: node scripts/resolve-upstream.mjs flip
-      - name: Resolve pdf.js upstream
-        run: node scripts/resolve-upstream.mjs pdfjs
-
-      - name: Build browser artifacts
-        run: |
-          node build.js \
-            --create \
-            --compile \
-            --output site/out \
-            --build-arg "CAIRO_TAG=${CAIRO_TAG}" \
-            --build-arg "POPPLER_TAG=${POPPLER_TAG}" \
-            --build-arg "PDFJS_REF=${PDFJS_REF}" \
-            --build-arg "PDFJS_CACHE_BUST=${PDFJS_COMMIT}" \
-            --build-arg "PDFIUM_REF=${PDFIUM_REF}" \
-            --build-arg "FAST_FLOAT_REF=${FAST_FLOAT_REF}" \
-            --build-arg "ABSEIL_TAG=${ABSEIL_TAG}" \
-            --build-arg "PDFIUM_CACHE_BUST=${PDFIUM_COMMIT}-${FAST_FLOAT_COMMIT}-${ABSEIL_TAG}" \
-            --build-arg "MUPDF_REF=${MUPDF_REF}" \
-            --build-arg "MUPDF_CACHE_BUST=${MUPDF_REF}" \
-            --build-arg "XPDF_VERSION=${XPDF_VERSION}" \
-            --build-arg "XPDF_CACHE_BUST=${XPDF_VERSION}" \
-            --build-arg "BUTTERAUGLI_REF=${BUTTERAUGLI_REF}" \
-            --build-arg "BUTTERAUGLI_CACHE_BUST=${BUTTERAUGLI_COMMIT}" \
-            --build-arg "FLIP_REF=${FLIP_REF}" \
-            --build-arg "FLIP_CACHE_BUST=${FLIP_COMMIT}" \
-            --build-arg "GS_WASM_ESM_VERSION=${GS_WASM_ESM_VERSION}" \
-            --build-arg "GS_CACHE_BUST=${GS_WASM_ESM_VERSION}" \
-            --build-arg "PDFBOX_VERSION=${PDFBOX_VERSION}" \
-            --build-arg "PDFBOX_CACHE_BUST=${PDFBOX_VERSION}" \
-            --build-arg "ICEPDF_VERSION=${ICEPDF_VERSION}" \
-            --build-arg "BOUNCYCASTLE_VERSION=${BOUNCYCASTLE_VERSION}" \
-            --build-arg "TWELVEMONKEYS_VERSION=${TWELVEMONKEYS_VERSION}" \
-            --build-arg "ICEPDF_PDFBOX_VERSION=${ICEPDF_PDFBOX_VERSION}" \
-            --build-arg "JBIG2_IMAGEIO_VERSION=${JBIG2_IMAGEIO_VERSION}" \
-            --build-arg "JAI_IMAGEIO_CORE_VERSION=${JAI_IMAGEIO_CORE_VERSION}" \
-            --build-arg "JAI_IMAGEIO_JPEG2000_VERSION=${JAI_IMAGEIO_JPEG2000_VERSION}" \
-            --build-arg "COMMONS_LOGGING_VERSION=${COMMONS_LOGGING_VERSION}" \
-            --build-arg "ICEPDF_CACHE_BUST=${ICEPDF_FINGERPRINT}" \
-            --build-arg "DSSIM_CORE_VERSION=${DSSIM_CORE_VERSION}" \
-            --build-arg "DSSIM_CACHE_BUST=${DSSIM_CORE_VERSION}"
-
       - name: Assemble static site
         run: |
+          mkdir -p site
           cp harness.html site/index.html
           cp harness.html site/harness.html
           cp -R workers site/workers
           touch site/.nojekyll
 
-      - name: Publish complete site to gh-pages
+      - name: Publish to gh-pages root
         # Local action — Mozilla's enterprise policy disallows
-        # peaceiris/actions-gh-pages. Overlays ./site onto gh-pages root,
-        # preserving everything per-renderer workflows already published
-        # (artifacts not under ./site that already exist on gh-pages stay).
+        # peaceiris/actions-gh-pages. Overlays ./site onto gh-pages root
+        # while preserving everything per-renderer workflows already
+        # published to out/<name>/.
         uses: ./.github/actions/publish-to-gh-pages
         with:
           source: site

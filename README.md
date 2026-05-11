@@ -123,45 +123,49 @@ stop the existing container/server first.
 
 ## CI / publishing
 
-`deploy.yml` is the canonical GitHub Pages deployment. On pushes to `main`
-that touch build inputs, it runs the JS checks, builds every browser
-artifact through Docker into `site/out/`, copies `workers/`, and publishes a
-complete static site to the `gh-pages` branch root. Both `/index.html` and
-`/harness.html` are present; the harness then loads `./workers/...` and
-`./out/.../...` from the same GitHub Pages origin.
+The gh-pages branch is assembled by **two independent kinds of workflow**.
 Configure GitHub Pages to serve from the `gh-pages` branch root.
+
+`.github/workflows/deploy.yml` is the lightweight harness deployer. On
+pushes to `main` that touch `harness.html`, `workers/**`, `build.js`,
+`eslint.config.mjs`, `src/common/**`, or the deploy workflow itself, it
+runs `npm run lint` + `npm run format:check`, then publishes
+`index.html` / `harness.html` / `workers/` at the gh-pages root via the
+local `publish-to-gh-pages` action with keep_files semantics. It does
+**not** rebuild any renderer — the heavy wasm/JAR builds belong to the
+per-renderer workflows, which each publish under their own subpath.
+
+Each per-renderer workflow drives one renderer end-to-end (resolve
+upstream → build → publish to `gh-pages/out/<name>/`). They share the
+reusable `_renderer.yml`. Scheduled runs skip when the source.json
+fingerprint matches gh-pages; manual, push, and `repository_dispatch`
+runs always rebuild.
+
+| Workflow          | Source resolution                                                               |
+| ----------------- | ------------------------------------------------------------------------------- |
+| `cairo.yml`       | pinned `cairo` + `poppler` tags (set `CAIRO_RESOLVE_FROM_WEB=1` to live-scrape) |
+| `pdfium.yml`      | `PDFIUM_REF=chromium/6800` + `fast_float` HEAD                                  |
+| `mupdf.yml`       | pinned MuPDF tag (set `MUPDF_RESOLVE_FROM_WEB=1` to live-scrape)                |
+| `xpdf.yml`        | pinned xpdf version (the upstream cert chain breaks live scrape)                |
+| `butteraugli.yml` | upstream HEAD                                                                   |
+| `flip.yml`        | upstream HEAD                                                                   |
+| `gs.yml`          | latest `ghostscript-wasm-esm` on npm                                            |
+| `pdfbox.yml`      | latest `org.apache.pdfbox:pdfbox-app` on Maven Central                          |
+| `icepdf.yml`      | latest ICEpdf jar set + direct Maven dependency versions                        |
+| `dssim.yml`       | latest `dssim-core` crate                                                       |
+| `pdfjs.yml`       | mozilla/pdf.js `master`                                                         |
 
 pdf.js is intentionally rolling: `scripts/build-pdfjs.sh` defaults to
 `PDFJS_REF=master`, writes the resolved upstream commit to
-`out/pdfjs/source.json`, and `.github/workflows/pdfjs.yml` polls
-`mozilla/pdf.js` master every four hours. Scheduled runs publish only when
-the upstream commit differs from the one currently on `gh-pages`; manual,
-push, and `repository_dispatch` runs always rebuild. For exact per-commit
-updates, wire a webhook or small relay to dispatch `pdfjs-master` to this
-repository when `mozilla/pdf.js` master advances.
+`out/pdfjs/source.json`, and `pdfjs.yml` polls every four hours. Scheduled
+runs publish only when the upstream commit differs from the one currently
+on `gh-pages`. For exact per-commit updates, wire a webhook or small relay
+to dispatch `pdfjs-master` to this repository when `mozilla/pdf.js` master
+advances.
 
-The other moving inputs are polled every four hours and skipped when their
-published `source.json` fingerprint is unchanged:
-
-- `cairo.yml`: latest stable `cairo` and `poppler` tags
-- `pdfium.yml`: `PDFIUM_REF=chromium/6800` plus `fast_float` `HEAD`
-- `mupdf.yml`: latest stable MuPDF tag from GitHub
-- `xpdf.yml`: latest source tarball linked from xpdfreader.com
-- `butteraugli.yml`: upstream `HEAD`
-- `flip.yml`: upstream `HEAD`
-- `gs.yml`: latest `ghostscript-wasm-esm` package from npm
-- `pdfbox.yml`: latest `org.apache.pdfbox:pdfbox-app` release from Maven
-  Central
-- `icepdf.yml`: latest ICEpdf jar set and direct Maven dependency versions
-- `dssim.yml`: latest `dssim-core` crate version
-
-The script defaults are still pinned for deterministic local builds; CI passes
-the resolved upstream versions explicitly.
-
-The per-renderer workflows remain useful for targeted CI and artifact
-inspection. They build a single renderer in a clean Ubuntu runner and publish
-that renderer under `gh-pages/out/<name>/` without clobbering the rest of the
-site.
+The script defaults are still pinned for deterministic local builds.
+Workflows pass the resolved upstream versions through `$GITHUB_ENV`
+(see `scripts/resolve-upstream.mjs`).
 
 ## Licensing
 
