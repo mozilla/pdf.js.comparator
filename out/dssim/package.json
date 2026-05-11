@@ -1,0 +1,15 @@
+{
+  "name": "dssim-wasm",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "dssim_bg.wasm",
+    "dssim.js",
+    "dssim.d.ts"
+  ],
+  "main": "dssim.js",
+  "types": "dssim.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

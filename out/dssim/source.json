@@ -1,0 +1,6 @@
+{
+  "name": "dssim",
+  "crate": "dssim-core",
+  "version": "3.4.0",
+  "fingerprint": "dssim-core=3.4.0;lock=119d92c1a9af92f883be63c25e7b7641b074548e079380de0b40f746c90cf1d4"
+}
