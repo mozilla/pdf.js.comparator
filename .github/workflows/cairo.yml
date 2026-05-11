@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Mozilla Foundation
+name: Build cairo wasm
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/build-cairo.sh"
+      - "scripts/build-deps.sh"
+      - "src/cairo/**"
+      - "src/common/**"
+      - "scripts/resolve-upstream.mjs"
+      - ".github/workflows/cairo.yml"
+      - ".github/workflows/_renderer.yml"
+  repository_dispatch:
+    types: [cairo-upstream]
+  schedule:
+    - cron: "30 */4 * * *"
+  workflow_dispatch:
+
+# Default to no permissions; the reusable workflow's job below grants the
+# narrow contents: write required by peaceiris/actions-gh-pages.
+permissions: {}
+
+concurrency:
+  group: cairo-upstream
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build cairo
+    permissions:
+      contents: write # peaceiris/actions-gh-pages pushes to gh-pages
+    uses: ./.github/workflows/_renderer.yml
+    with:
+      name: cairo
+      target: cairo
+      script: scripts/build-cairo.sh
+      timeout: 90
+      needs_emsdk: true
+      apt_packages: "cmake ninja-build meson pkg-config autoconf automake libtool gperf"

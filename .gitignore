@@ -1,0 +1,5 @@
+*~
+build-src/
+.build-src/
+node_modules/
+out/

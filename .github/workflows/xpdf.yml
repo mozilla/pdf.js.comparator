@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Mozilla Foundation
+name: Build Xpdf wasm
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/build-xpdf.sh"
+      - "scripts/build-deps.sh"
+      - "scripts/resolve-upstream.mjs"
+      - ".github/workflows/xpdf.yml"
+      - ".github/workflows/_renderer.yml"
+  repository_dispatch:
+    types: [xpdf-upstream]
+  schedule:
+    - cron: "50 */4 * * *"
+  workflow_dispatch:
+
+# Default to no permissions; the reusable workflow's job below grants the
+# narrow contents: write required by peaceiris/actions-gh-pages.
+permissions: {}
+
+concurrency:
+  group: xpdf-upstream
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build Xpdf
+    permissions:
+      contents: write # peaceiris/actions-gh-pages pushes to gh-pages
+    uses: ./.github/workflows/_renderer.yml
+    with:
+      name: xpdf
+      target: xpdf
+      script: scripts/build-xpdf.sh
+      timeout: 45
+      needs_emsdk: true
+      apt_packages: "cmake ninja-build pkg-config"

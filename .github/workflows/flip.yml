@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Mozilla Foundation
+name: Build FLIP wasm
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/build-flip.sh"
+      - "scripts/build-deps.sh"
+      - "scripts/resolve-upstream.mjs"
+      - "src/flip/**"
+      - ".github/workflows/flip.yml"
+      - ".github/workflows/_renderer.yml"
+  repository_dispatch:
+    types: [flip-head]
+  schedule:
+    - cron: "20 */4 * * *"
+  workflow_dispatch:
+
+# Default to no permissions; the reusable workflow's job below grants the
+# narrow contents: write required by peaceiris/actions-gh-pages.
+permissions: {}
+
+concurrency:
+  group: flip-head
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build FLIP
+    permissions:
+      contents: write # peaceiris/actions-gh-pages pushes to gh-pages
+    uses: ./.github/workflows/_renderer.yml
+    with:
+      name: flip
+      target: flip
+      script: scripts/build-flip.sh
+      timeout: 30
+      needs_emsdk: true
+      resolver_env: |
+        FLIP_REF=HEAD

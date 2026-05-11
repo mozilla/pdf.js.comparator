@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Mozilla Foundation
+name: Build pdfium wasm
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/build-pdfium.sh"
+      - "scripts/build-deps.sh"
+      - "scripts/resolve-upstream.mjs"
+      - "src/pdfium/**"
+      - "src/common/**"
+      - ".github/workflows/pdfium.yml"
+      - ".github/workflows/_renderer.yml"
+  repository_dispatch:
+    types: [pdfium-head]
+  schedule:
+    - cron: "0 */4 * * *"
+  workflow_dispatch:
+
+# Default to no permissions; the reusable workflow's job below grants the
+# narrow contents: write required by peaceiris/actions-gh-pages.
+permissions: {}
+
+concurrency:
+  group: pdfium-head
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build pdfium
+    permissions:
+      contents: write # peaceiris/actions-gh-pages pushes to gh-pages
+    uses: ./.github/workflows/_renderer.yml
+    with:
+      name: pdfium
+      target: pdfium
+      script: scripts/build-pdfium.sh
+      timeout: 90
+      needs_emsdk: true
+      apt_packages: "cmake ninja-build meson pkg-config autoconf automake libtool gperf"
+      resolver_env: |
+        ABSEIL_TAG=20240722.0
+        FAST_FLOAT_REF=HEAD
+        PDFIUM_REF=chromium/6800

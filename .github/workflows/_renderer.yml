@@ -1,0 +1,162 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Mozilla Foundation
+name: Reusable renderer build
+
+# Reusable workflow that every per-renderer build calls. Each per-renderer
+# YAML only declares triggers + concurrency + `jobs.build.uses:` this file
+# with its parameters. The build flow is:
+#   1. Resolve upstream via scripts/resolve-upstream.mjs <target>, which
+#      writes resolved outputs both as step outputs AND as UPPER_CASE
+#      $GITHUB_ENV entries (so the build script sees CAIRO_TAG / PDFIUM_REF
+#      / … without per-renderer plumbing here).
+#   2. (Optional) install emsdk / Java / Rust / apt prerequisites.
+#   3. Run the per-renderer build script.
+#   4. Upload artifact + publish out/<name>/ to gh-pages with keep_files.
+#
+# Keeps the 11 per-renderer workflows ~20 lines each instead of ~80.
+
+on:
+  workflow_call:
+    inputs:
+      name:
+        description: "Renderer directory name under out/."
+        required: true
+        type: string
+      target:
+        description: "Argument to scripts/resolve-upstream.mjs."
+        required: true
+        type: string
+      script:
+        description: "Build script path."
+        required: true
+        type: string
+      timeout:
+        description: "Job timeout in minutes."
+        required: false
+        type: number
+        default: 30
+      needs_emsdk:
+        required: false
+        type: boolean
+        default: false
+      needs_node:
+        required: false
+        type: boolean
+        default: false
+      needs_java:
+        required: false
+        type: boolean
+        default: false
+      needs_rust:
+        required: false
+        type: boolean
+        default: false
+      needs_wasm_pack:
+        required: false
+        type: boolean
+        default: false
+      apt_packages:
+        description: "Extra apt packages to install (space-separated)."
+        required: false
+        type: string
+        default: ""
+      resolver_env:
+        description: |
+          Optional KEY=value lines exported as env vars before
+          resolve-upstream runs, e.g. to pin PDFIUM_REF=chromium/6800.
+          Multi-line literal block scalars work fine.
+        required: false
+        type: string
+        default: ""
+
+# Default to no permissions; the build job grants the narrow write scope it
+# actually needs (peaceiris/actions-gh-pages pushes to refs/heads/gh-pages).
+permissions: {}
+
+jobs:
+  build:
+    name: Build renderer
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout }}
+    permissions:
+      contents: write # peaceiris/actions-gh-pages pushes to gh-pages
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+
+      - name: Export resolver env
+        if: inputs.resolver_env != ''
+        env:
+          RESOLVER_ENV: ${{ inputs.resolver_env }}
+        run: |
+          # Pass through the caller's KEY=value lines so resolve-upstream
+          # sees the same env the original workflow set. Note this writes
+          # to ${GITHUB_ENV}, which the resolver step inherits.
+          printf '%s\n' "${RESOLVER_ENV}" >> "${GITHUB_ENV}"
+
+      - name: Resolve upstream
+        id: upstream
+        env:
+          TARGET: ${{ inputs.target }}
+        run: node scripts/resolve-upstream.mjs "${TARGET}"
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        if: inputs.needs_node && steps.upstream.outputs.changed == 'true'
+        with:
+          node-version: "22"
+
+      - uses: mymindstorm/setup-emsdk@6ab9eb1bda2574c4ddb79809fc9247783eaf9021
+        if: inputs.needs_emsdk && steps.upstream.outputs.changed == 'true'
+        with:
+          version: latest
+          actions-cache-folder: "emsdk-cache"
+
+      - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9
+        if: inputs.needs_java && steps.upstream.outputs.changed == 'true'
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Rust wasm target
+        if: inputs.needs_rust && steps.upstream.outputs.changed == 'true'
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        if: inputs.needs_wasm_pack && steps.upstream.outputs.changed == 'true'
+        run: cargo install --locked --version ^0.13 wasm-pack
+
+      - name: Install apt prerequisites
+        if: inputs.apt_packages != '' && steps.upstream.outputs.changed == 'true'
+        env:
+          APT_PACKAGES: ${{ inputs.apt_packages }}
+        run: |
+          sudo apt-get update
+          # APT_PACKAGES is intentionally unquoted so the shell splits the
+          # space-separated list into separate args.
+          # shellcheck disable=SC2086
+          sudo apt-get install -y --no-install-recommends ${APT_PACKAGES}
+
+      - name: Build ${{ inputs.name }}
+        if: steps.upstream.outputs.changed == 'true'
+        env:
+          BUILD_SCRIPT: ${{ inputs.script }}
+          OUT: ${{ github.workspace }}/out
+          SRC_DIR: ${{ github.workspace }}/build-src
+        run: bash "${BUILD_SCRIPT}"
+
+      - name: Upload artifact
+        if: steps.upstream.outputs.changed == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ${{ inputs.name }}
+          path: out/${{ inputs.name }}/
+
+      - name: Publish to gh-pages/out/${{ inputs.name }}/
+        if: steps.upstream.outputs.changed == 'true'
+        uses: peaceiris/actions-gh-pages@4f9cc6602d3f66b9c108549d475ec49e8ef4d45e
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./out/${{ inputs.name }}
+          destination_dir: out/${{ inputs.name }}
+          keep_files: true

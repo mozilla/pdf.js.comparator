@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Mozilla Foundation
+name: Fetch pdfbox jar
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/build-pdfbox.sh"
+      - "scripts/resolve-upstream.mjs"
+      - ".github/workflows/pdfbox.yml"
+      - ".github/workflows/_renderer.yml"
+  repository_dispatch:
+    types: [pdfbox-upstream]
+  schedule:
+    - cron: "15 */4 * * *"
+  workflow_dispatch:
+
+# Default to no permissions; the reusable workflow's job below grants the
+# narrow contents: write required by peaceiris/actions-gh-pages.
+permissions: {}
+
+concurrency:
+  group: pdfbox-upstream
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Fetch pdfbox
+    permissions:
+      contents: write # peaceiris/actions-gh-pages pushes to gh-pages
+    uses: ./.github/workflows/_renderer.yml
+    with:
+      name: pdfbox
+      target: pdfbox
+      script: scripts/build-pdfbox.sh
+      timeout: 20
+      needs_java: true
