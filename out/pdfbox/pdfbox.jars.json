@@ -1,0 +1,6 @@
+{
+  "jars": [
+    "pdfbox-cheerpj-patches.jar",
+    "pdfbox-app.jar"
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "name": "pdfbox",
+  "artifact": "org.apache.pdfbox:pdfbox-app",
+  "version": "3.0.7",
+  "fingerprint": "pdfbox=3.0.7"
+}
