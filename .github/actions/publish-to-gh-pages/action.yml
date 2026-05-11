@@ -34,6 +34,13 @@ inputs:
   user-email:
     required: false
     default: "41898282+github-actions[bot]@users.noreply.github.com"
+  max-attempts:
+    description: |
+      How many times to retry on push rejection. Multiple per-renderer
+      workflows can publish concurrently; the loser of each race rebases
+      onto the new gh-pages tip and retries.
+    required: false
+    default: "8"
 
 runs:
   using: composite
@@ -47,58 +54,81 @@ runs:
         COMMIT_MESSAGE: ${{ inputs.commit-message }}
         GIT_USER_NAME: ${{ inputs.user-name }}
         GIT_USER_EMAIL: ${{ inputs.user-email }}
+        MAX_ATTEMPTS: ${{ inputs.max-attempts }}
       run: |
         set -euo pipefail
 
-        # Resolve the source dir against the workspace; bail early if it
-        # doesn't exist so the error is obvious.
         src="${GITHUB_WORKSPACE}/${SOURCE}"
         if [ ! -d "${src}" ]; then
           echo "source directory does not exist: ${src}" >&2
           exit 1
         fi
 
-        # Use a worktree so we don't disturb the caller's checkout.
+        push_url="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
         worktree="$(mktemp -d)"
-        if git ls-remote --exit-code "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
-                refs/heads/gh-pages >/dev/null 2>&1; then
-          # Fetch the existing branch into a detached worktree, then create
-          # the branch locally so push --set-upstream isn't needed.
-          git -c "http.https://github.com/.extraheader=" \
-              fetch --depth 1 \
-              "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
-              gh-pages
-          git worktree add --force "${worktree}" FETCH_HEAD
-          git -C "${worktree}" checkout -B gh-pages
-        else
-          # First publish: create the branch as an orphan with an empty
-          # tree so the initial commit is well-formed.
+        msg="${COMMIT_MESSAGE:-Publish ${DEST:-site} from ${GITHUB_SHA}}"
+
+        branch_exists() {
+          git ls-remote --exit-code "${push_url}" refs/heads/gh-pages \
+            >/dev/null 2>&1
+        }
+
+        # First-time bootstrap: create gh-pages as an empty orphan if the
+        # remote branch doesn't exist yet. Subsequent runs go through the
+        # retry loop below.
+        if ! branch_exists; then
           git worktree add --detach --force "${worktree}" HEAD
           git -C "${worktree}" checkout --orphan gh-pages
           git -C "${worktree}" rm -rf . >/dev/null 2>&1 || true
+        else
+          # Fetch the current gh-pages tip into the worktree.
+          git fetch --depth 1 "${push_url}" gh-pages
+          git worktree add --force "${worktree}" FETCH_HEAD
+          git -C "${worktree}" checkout -B gh-pages
         fi
-
-        # Overlay the new content. keep_files=true semantics: don't touch
-        # entries already in gh-pages that aren't in source.
-        target="${worktree}"
-        if [ -n "${DEST}" ]; then
-          target="${worktree}/${DEST}"
-          mkdir -p "${target}"
-        fi
-        cp -R "${src}/." "${target}/"
 
         cd "${worktree}"
         git config user.name "${GIT_USER_NAME}"
         git config user.email "${GIT_USER_EMAIL}"
-        git add -A
-        if git diff --staged --quiet; then
-          echo "No changes to publish."
-          exit 0
+
+        # Resolve the target dir inside the worktree.
+        target="${worktree}"
+        if [ -n "${DEST}" ]; then
+          target="${worktree}/${DEST}"
         fi
-        msg="${COMMIT_MESSAGE:-Publish ${DEST:-site} from ${GITHUB_SHA}}"
-        git commit -m "${msg}"
-        # Push via x-access-token form so the runner doesn't need a global
-        # git credential helper configured.
-        git push \
-          "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
-          gh-pages
+
+        apply_source() {
+          mkdir -p "${target}"
+          cp -R "${src}/." "${target}/"
+          git add -A
+        }
+
+        attempt=0
+        while :; do
+          attempt=$((attempt + 1))
+          apply_source
+          if git diff --staged --quiet; then
+            echo "No changes to publish."
+            exit 0
+          fi
+          git commit -m "${msg}"
+          if git push "${push_url}" gh-pages; then
+            echo "Published on attempt ${attempt}."
+            exit 0
+          fi
+
+          if [ "${attempt}" -ge "${MAX_ATTEMPTS}" ]; then
+            echo "Push still rejected after ${attempt} attempts; giving up." >&2
+            exit 1
+          fi
+
+          # Lost the race against another publish to gh-pages. Refresh our
+          # view of the branch and re-apply the source on top.
+          sleep_for=$(((RANDOM % 6) + attempt))
+          echo "Push rejected on attempt ${attempt}; refreshing in ${sleep_for}s and retrying."
+          sleep "${sleep_for}"
+          git fetch --depth 1 "${push_url}" gh-pages
+          # Reset to the remote tip — discards the local commit we just
+          # built so apply_source can re-stage on a clean base.
+          git reset --hard FETCH_HEAD
+        done
