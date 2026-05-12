@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = 6bbcb46
+ * pdfjsBuild = 0c66063
  */
 /******/ // The require scope
 /******/ var __webpack_require__ = {};
@@ -528,6 +528,15 @@ class FeatureTest {
       isWindows: platform.includes("Win"),
       isFirefox: userAgent.includes("Firefox")
     });
+  }
+  static get isCanvasFilterSupported() {
+    let ctx;
+    if (this.isOffscreenCanvasSupported) {
+      ctx = new OffscreenCanvas(1, 1).getContext("2d");
+    } else if (typeof document !== "undefined") {
+      ctx = document.createElement("canvas").getContext("2d");
+    }
+    return shadow(this, "isCanvasFilterSupported", ctx?.filter !== undefined);
   }
   static get isAlphaColorInputSupported() {
     return shadow(this, "isAlphaColorInputSupported", (() => {
@@ -1389,6 +1398,12 @@ function getParentToUpdate(dict, ref, xref) {
 function deepCompare(a, b) {
   if (a === b) {
     return true;
+  }
+  if (a instanceof Ref && b instanceof Ref) {
+    return isRefsEqual(a, b);
+  }
+  if (a instanceof Name && b instanceof Name) {
+    return a.name === b.name;
   }
   if (a instanceof Dict && b instanceof Dict) {
     if (a.size !== b.size) {
