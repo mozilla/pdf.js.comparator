@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = 0c66063
+ * pdfjsBuild = 7f151c7
  */
 /******/ // The require scope
 /******/ var __webpack_require__ = {};
@@ -5040,6 +5040,7 @@ class AnnotationEditor {
   _uiManager = null;
   _focusEventsAllowed = true;
   static _l10n = null;
+  static _l10nAlert = null;
   static _l10nResizer = null;
   #isDraggable = false;
   #zIndex = AnnotationEditor._zIndex++;
@@ -5131,7 +5132,14 @@ class AnnotationEditor {
   }
   static initialize(l10n, _uiManager) {
     AnnotationEditor._l10n ??= l10n;
-    AnnotationEditor._l10nResizer ||= Object.freeze({
+    AnnotationEditor._l10nAlert ??= Object.freeze({
+      highlight: "pdfjs-editor-highlight-added-alert",
+      freetext: "pdfjs-editor-freetext-added-alert",
+      ink: "pdfjs-editor-ink-added-alert",
+      stamp: "pdfjs-editor-stamp-added-alert",
+      signature: "pdfjs-editor-signature-added-alert"
+    });
+    AnnotationEditor._l10nResizer ??= Object.freeze({
       topLeft: "pdfjs-editor-resizer-top-left",
       topMiddle: "pdfjs-editor-resizer-top-middle",
       topRight: "pdfjs-editor-resizer-top-right",
@@ -11226,11 +11234,10 @@ class CanvasGraphics {
     }
     const preparedEntry = this.canvasFactory.create(w, h);
     const pCtx = preparedEntry.context;
-    const filterSupported = pCtx.filter !== undefined;
     pCtx.filter = filterSpec.url;
-    const filterApplied = filterSupported && pCtx.filter !== "none" && pCtx.filter !== "";
+    const filterApplied = FeatureTest.isCanvasFilterSupported && pCtx.filter !== "none" && pCtx.filter !== "";
     pCtx.drawImage(srcEntry.canvas, 0, 0);
-    if (filterSupported) {
+    if (FeatureTest.isCanvasFilterSupported) {
       pCtx.filter = "none";
     }
     if (!filterApplied) {
@@ -12395,7 +12402,7 @@ class CanvasGraphics {
     }
     const groupCtx = scratchCanvas.context;
     const backdropCtx = group.knockout && !group.isolated ? currentCtx : null;
-    const hasInnerBackdrop = !group.isolated && !group.knockout && !group.smask && this.#knockoutGroupLevel > 0;
+    const hasInnerBackdrop = !group.isolated && !group.knockout && !group.smask && group.needsIsolation && this.#knockoutGroupLevel > 0;
     const knockoutMaskEntry = group.knockout ? this.canvasFactory.create(drawnWidth, drawnHeight) : null;
     const savedKnockoutLevel = this.#knockoutGroupLevel;
     if (group.knockout) {
@@ -16847,7 +16854,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.0.0";
-const build = "0c66063";
+const build = "7f151c7";
 
 ;// ./src/display/editor/color_picker.js
 
@@ -20725,7 +20732,7 @@ class FreeTextEditor extends AnnotationEditor {
     this.color = params.color || FreeTextEditor._defaultColor || AnnotationEditor._defaultLineColor;
     this.#fontSize = params.fontSize || FreeTextEditor._defaultFontSize;
     if (!this.annotationElementId) {
-      this._uiManager.a11yAlert("pdfjs-editor-freetext-added-alert");
+      this._uiManager.a11yAlert(AnnotationEditor._l10nAlert.freetext);
     }
     this.canAddComment = false;
   }
@@ -22077,7 +22084,7 @@ class HighlightEditor extends AnnotationEditor {
       this.rotate(this.rotation);
     }
     if (!this.annotationElementId) {
-      this._uiManager.a11yAlert("pdfjs-editor-highlight-added-alert");
+      this._uiManager.a11yAlert(AnnotationEditor._l10nAlert.highlight);
     }
   }
   get telemetryInitialData() {
@@ -22952,7 +22959,7 @@ class DrawingEditor extends AnnotationEditor {
     this.#drawOutlines = drawOutlines;
     this._drawingOptions ||= drawingOptions;
     if (!this.annotationElementId) {
-      this._uiManager.a11yAlert(`pdfjs-editor-${this.editorType}-added-alert`);
+      this._uiManager.a11yAlert(AnnotationEditor._l10nAlert[this.editorType]);
     }
     if (drawId >= 0) {
       this._drawId = drawId;
@@ -25802,7 +25809,7 @@ class StampEditor extends AnnotationEditor {
       this.div.setAttribute("aria-description", this.#bitmapFileName);
     }
     if (!this.annotationElementId) {
-      this._uiManager.a11yAlert("pdfjs-editor-stamp-added-alert");
+      this._uiManager.a11yAlert(AnnotationEditor._l10nAlert.stamp);
     }
   }
   copyCanvas(maxDataDimension, maxPreviewDimension, createImageData = false) {
