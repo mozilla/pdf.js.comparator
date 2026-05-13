@@ -25,6 +25,8 @@ software rasterizer), **pdfium**, **mupdf**, **PDFBox**, **Ghostscript**,
 **Xpdf**, and **ICEpdf** — with six image-diff algorithms
 layered on top.
 
+**[Open the live harness ›](https://mozilla.github.io/pdf.js.comparator/)** — pulls in whichever wasm bundles you tick and runs everything in the browser; no install needed.
+
 Each renderer is one independent browser artifact, loaded in its own Web
 Worker. Native renderers use wasm, Java renderers run through CheerpJ, and
 CLI-style renderers run through MEMFS. The harness drops down to whichever
