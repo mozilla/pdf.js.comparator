@@ -1,7 +1,7 @@
 {
   "name": "mupdf",
   "repo": "https://github.com/ArtifexSoftware/mupdf.git",
-  "ref": "1.24.10",
-  "commit": "63f5b58b131fb33ac928e0e20d03472a266fee1d",
-  "fingerprint": "mupdf=63f5b58b131fb33ac928e0e20d03472a266fee1d"
+  "ref": "1.27.2",
+  "commit": "73d3100d46d8a9ad634f6ef035bbe78f0f947886",
+  "fingerprint": "mupdf=73d3100d46d8a9ad634f6ef035bbe78f0f947886"
 }
