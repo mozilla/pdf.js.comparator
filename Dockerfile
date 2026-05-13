@@ -24,11 +24,14 @@
 # work, and editing src/<one>/renderer.cpp invalidates only that stage.
 
 # ---- Base: tooling --------------------------------------------------------
-# Use the floating `:latest` tag so we automatically pick up the newest
-# Ubuntu base, which is what carries a meson >= 1.3 (cairo requires it).
-# Pinning a specific emsdk regressed meson to 0.61 from Ubuntu 22.04.
-# The matching .github/actions/setup-emsdk also resolves `latest`.
-FROM emscripten/emsdk:latest AS base
+# Pin the emsdk version. Floating `:latest` here used to be paired with
+# `setup-emsdk@latest` in CI, but the two channels (Docker Hub image
+# rebuilds vs. emsdk's own version index) drift independently — when CI
+# resolved a newer emsdk than the local Docker image had, a libc++ snapshot
+# change made poppler 26.x fail to compile in CI while local builds still
+# passed. Bump this in lockstep with the `version:` default in
+# .github/actions/setup-emsdk/action.yml.
+FROM emscripten/emsdk:5.0.7 AS base
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential cmake ninja-build meson pkg-config \

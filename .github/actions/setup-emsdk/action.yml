@@ -16,7 +16,11 @@ inputs:
   version:
     description: Emsdk version to install (e.g. 3.1.74, or "latest").
     required: false
-    default: latest
+    # Pinned. Bump in lockstep with `FROM emscripten/emsdk:<tag>` in the
+    # Dockerfile so local Docker builds and CI run the same toolchain;
+    # the two channels otherwise drift (Docker Hub image rebuild cadence
+    # vs. `emsdk install latest` resolving at workflow time).
+    default: "5.0.7"
   install-dir:
     description: Where to clone the emsdk tree.
     required: false

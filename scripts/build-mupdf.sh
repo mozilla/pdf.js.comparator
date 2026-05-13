@@ -47,6 +47,21 @@ if ! grep -q '__attribute__((weak))' \
         "${MUPDF_SRC}/source/fitz/load-jpx.c"
 fi
 
+# mupdf 1.27 added `-fwasm-exceptions -sSUPPORT_LONGJMP=wasm` to its
+# OS=wasm Makerules itself; 1.24 set nothing and relied on the caller
+# to pick a longjmp model. The library and the renderer link step have
+# to agree, so detect what mupdf will use by inspecting Makerules.
+# Done before (and outside) the libmupdf rebuild guard so the renderer
+# link still picks the right model on cache hits.
+if grep -q "fwasm-exceptions" "${MUPDF_SRC}/Makerules" 2>/dev/null; then
+    MUPDF_EH_MODE=wasm
+    MUPDF_EXTRA_XCFLAGS=""
+else
+    MUPDF_EH_MODE=emscripten
+    MUPDF_EXTRA_XCFLAGS="-sSUPPORT_LONGJMP=emscripten"
+fi
+echo "mupdf: EH model = ${MUPDF_EH_MODE}"
+
 # ---- Phase 2: libmupdf.a + libmupdf-third.a -------------------------------
 # MuPDF ships an OS=wasm target which sets CC=emcc / CXX=em++ / AR=emar
 # and the HAVE_X11=no / HAVE_GLUT=no flags automatically; output goes to
@@ -67,7 +82,7 @@ if [ ! -f "${WASM_PREFIX}/lib/libmupdf.a" ] || \
         OS=wasm \
         build=release \
         XCFLAGS="-O2 -fno-exceptions -DTOFU=0 -DTOFU_CJK=0 \
-            -sSUPPORT_LONGJMP=emscripten \
+            ${MUPDF_EXTRA_XCFLAGS} \
             -I${WASM_PREFIX}/include -I${WASM_PREFIX}/include/freetype2 \
             -I${WASM_PREFIX}/include/openjpeg-2.5" \
         USE_SYSTEM_FREETYPE=yes \
@@ -105,7 +120,7 @@ em++ -o "${OUT}/mupdf/mupdf.js" \
     ${CFLAGS} \
     -I"${ROOT}/src/common" \
     ${LIBS} \
-    $(renderer_emcc_flags) \
+    $(renderer_emcc_flags "${MUPDF_EH_MODE}") \
     -s EXPORT_NAME="'MupdfRenderer'" \
     -s NO_FILESYSTEM=1 \
     -s EXPORTED_FUNCTIONS='["_render","_num_pages","_malloc","_free"]' \

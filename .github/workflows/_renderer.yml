@@ -108,8 +108,8 @@ jobs:
 
       - uses: ./.github/actions/setup-emsdk
         if: inputs.needs_emsdk && steps.upstream.outputs.changed == 'true'
-        with:
-          version: latest
+        # No `with: version: …` — let the action's pinned default win so
+        # there's a single source of truth for the emsdk version.
 
       - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9
         if: inputs.needs_java && steps.upstream.outputs.changed == 'true'

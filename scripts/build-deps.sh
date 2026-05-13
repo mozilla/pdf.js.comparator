@@ -355,7 +355,14 @@ renderer_pkg_libs() {
 # Shared em++ flag set used by every renderer/diff wasm. Per-renderer
 # scripts append source files, EXPORT_NAME, EXPORTED_FUNCTIONS, and any
 # CFLAGS/LIBS from pkg-config.
+# Optional argument selects the setjmp/longjmp + exception-handling model:
+#   (default) "emscripten" — JS-implemented longjmp; what we've always used.
+#   "wasm"               — native wasm exception handling (-fwasm-exceptions
+#                          and SUPPORT_LONGJMP=wasm). Required by mupdf 1.27+
+#                          whose Makerules adds -fwasm-exceptions itself.
+# emcc rejects mixing the two, and the library + renderer link must agree.
 renderer_emcc_flags() {
+    local eh_mode="${1:-emscripten}"
     cat <<'EOF'
 -s ALLOW_MEMORY_GROWTH=1
 -s MAXIMUM_MEMORY=2GB
@@ -368,9 +375,21 @@ renderer_emcc_flags() {
 -s ERROR_ON_UNDEFINED_SYMBOLS=1
 -s NO_EXIT_RUNTIME=1
 -s MALLOC=emmalloc
--s SUPPORT_LONGJMP=emscripten
 -s ASSERTIONS=0
 EOF
+    case "${eh_mode}" in
+        wasm)
+            echo "-fwasm-exceptions"
+            echo "-s SUPPORT_LONGJMP=wasm"
+            ;;
+        emscripten)
+            echo "-s SUPPORT_LONGJMP=emscripten"
+            ;;
+        *)
+            echo "renderer_emcc_flags: unknown eh_mode '${eh_mode}'" >&2
+            return 1
+            ;;
+    esac
 }
 
 # Postprocess the produced .js + .wasm: drop the +x bit on the wasm (npm/
