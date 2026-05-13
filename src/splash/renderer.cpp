@@ -34,13 +34,14 @@ void ensureGlobalParams() {
   }
 }
 
-// PDFDoc's BaseStream* constructor takes ownership and `delete`s it from
-// ~PDFDoc, so we hand off a raw pointer rather than a unique_ptr.
 std::unique_ptr<PDFDoc> makeDoc(const uint8_t *data, size_t size) {
   ensureGlobalParams();
-  auto *stream = new MemStream(reinterpret_cast<const char *>(data), 0,
-                               static_cast<Goffset>(size), Object());
-  auto doc = std::make_unique<PDFDoc>(stream);
+  // PDFDoc takes ownership of the BaseStream via unique_ptr — poppler
+  // 26.x removed the older raw-pointer overload.
+  auto stream = std::unique_ptr<BaseStream>(new MemStream(
+      reinterpret_cast<const char *>(data), 0,
+      static_cast<Goffset>(size), Object()));
+  auto doc = std::make_unique<PDFDoc>(std::move(stream));
   if (!doc->isOk()) {
     return nullptr;
   }
@@ -118,9 +119,10 @@ extern "C" void EMSCRIPTEN_KEEPALIVE render(const uint8_t *data,
     paper[0] = paper[1] = paper[2] = 255;
   }
 
+  // poppler 26.x dropped the `reverseVideo` bool from SplashOutputDev's
+  // ctor — order is now (colorMode, bitmapRowPad, paperColor, topDown,...).
   auto output = std::make_unique<SplashOutputDev>(
-      splashModeRGB8, /*bitmapRowPad=*/4, /*reverseVideo=*/false, paper,
-      /*bitmapTopDown=*/true);
+      splashModeRGB8, /*bitmapRowPad=*/4, paper, /*bitmapTopDown=*/true);
   output->setFontAntialias(antialias != 0);
   output->setVectorAntialias(antialias != 0);
   output->startDoc(doc.get());

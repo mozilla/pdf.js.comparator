@@ -30,13 +30,14 @@ void ensureGlobalParams() {
   }
 }
 
-// PDFDoc's BaseStream* constructor takes ownership and `delete`s it from
-// ~PDFDoc, so we hand off a raw pointer rather than a unique_ptr.
 std::unique_ptr<PDFDoc> makeDoc(const uint8_t *data, size_t size) {
   ensureGlobalParams();
-  auto *stream = new MemStream(reinterpret_cast<const char *>(data), 0,
-                               static_cast<Goffset>(size), Object());
-  auto doc = std::make_unique<PDFDoc>(stream);
+  // PDFDoc takes ownership of the BaseStream via unique_ptr — poppler
+  // 26.x removed the older raw-pointer overload.
+  auto stream = std::unique_ptr<BaseStream>(new MemStream(
+      reinterpret_cast<const char *>(data), 0,
+      static_cast<Goffset>(size), Object()));
+  auto doc = std::make_unique<PDFDoc>(std::move(stream));
   if (!doc->isOk()) {
     return nullptr;
   }

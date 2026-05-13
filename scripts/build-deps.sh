@@ -37,6 +37,18 @@ PKG_CONFIG_PATH="${WASM_PREFIX}/lib/pkgconfig"
 PKG_CONFIG_LIBDIR="${WASM_PREFIX}/lib/pkgconfig"
 export PKG_CONFIG_PATH PKG_CONFIG_LIBDIR
 
+# Force wasm-native exception handling + setjmp/longjmp on every emcc
+# invocation that emanates from this script. mupdf 1.27 turned this on in
+# its own Makerules — emcc rejects mixing wasm-EH with `SUPPORT_LONGJMP=
+# emscripten`, and the shared C libs (libpng/libfreetype/libjpeg/openjpeg/
+# lcms2/pixman/cairo/poppler) embed `emscripten_longjmp` calls when built
+# with the default model, which then break the mupdf renderer's link.
+# Standardising on wasm-EH for every library + every renderer keeps the
+# whole stack self-consistent. Emcc reads EMCC_CFLAGS and prepends it to
+# every compile/link invocation, so it propagates through every build
+# system (autoconf/cmake/meson/make) without per-tool plumbing.
+export EMCC_CFLAGS="-sSUPPORT_LONGJMP=wasm -fwasm-exceptions"
+
 # Pinned upstream revisions. Each ensure_* records the tag it built into a
 # .stamp file next to the produced library, so bumping a *_TAG triggers a
 # rebuild (no more "wipe ${WASM_PREFIX} by hand" caveat).
@@ -47,8 +59,13 @@ LIBJPEG_TURBO_TAG="${LIBJPEG_TURBO_TAG:-3.0.4}"
 OPENJPEG_TAG="${OPENJPEG_TAG:-v2.5.2}"
 LCMS2_TAG="${LCMS2_TAG:-lcms2.16}"
 PIXMAN_TAG="${PIXMAN_TAG:-pixman-0.44.0}"
-CAIRO_TAG="${CAIRO_TAG:-1.18.2}"
-POPPLER_TAG="${POPPLER_TAG:-poppler-24.10.0}"
+# Fallbacks for local docker builds. CI sets these via resolve-upstream.mjs
+# in $GITHUB_ENV; locally we don't run the resolver, so the values here are
+# what `docker build` sees. Keep them roughly in sync with current upstream
+# so the renderer source (which targets the latest API) compiles. The
+# resolver in CI will still bump past these whenever upstream moves.
+CAIRO_TAG="${CAIRO_TAG:-1.18.4}"
+POPPLER_TAG="${POPPLER_TAG:-poppler-26.05.0}"
 
 mkdir -p "${SRC_DIR}" "${WASM_PREFIX}"
 
@@ -389,13 +406,14 @@ renderer_pkg_libs() {
 # scripts append source files, EXPORT_NAME, EXPORTED_FUNCTIONS, and any
 # CFLAGS/LIBS from pkg-config.
 # Optional argument selects the setjmp/longjmp + exception-handling model:
-#   (default) "emscripten" — JS-implemented longjmp; what we've always used.
-#   "wasm"               — native wasm exception handling (-fwasm-exceptions
-#                          and SUPPORT_LONGJMP=wasm). Required by mupdf 1.27+
-#                          whose Makerules adds -fwasm-exceptions itself.
+#   (default) "wasm" — native wasm exception handling (-fwasm-exceptions and
+#                      SUPPORT_LONGJMP=wasm). What every renderer uses now;
+#                      matches the EMCC_CFLAGS we set at the top of this
+#                      script so the libraries and the renderer link agree.
+#   "emscripten"     — JS-implemented longjmp. Legacy path, no current caller.
 # emcc rejects mixing the two, and the library + renderer link must agree.
 renderer_emcc_flags() {
-    local eh_mode="${1:-emscripten}"
+    local eh_mode="${1:-wasm}"
     cat <<'EOF'
 -s ALLOW_MEMORY_GROWTH=1
 -s MAXIMUM_MEMORY=2GB

@@ -37,6 +37,7 @@ em++ -o "${OUT}/cairo/cairo.js" \
     ${CFLAGS} \
     -I"${ROOT}/src/common" \
     -I"${POPPLER_SRC}" \
+    -I"${POPPLER_SRC}/poppler" \
     -I"${POPPLER_SRC}/build" \
     ${LIBS} \
     $(renderer_emcc_flags) \
