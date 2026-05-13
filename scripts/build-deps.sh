@@ -273,11 +273,44 @@ ensure_cairo() {
     stamp_write "${lib}" "${CAIRO_TAG}"
 }
 
+# poppler/Object.h:236 in poppler 26.x defines `Object(std::unique_ptr<Array>)`
+# inline, but `Array` is only forward-declared (Object.h:87). The inline body
+# requires `~unique_ptr<Array>()`, which expands to default_delete<Array>::
+# operator() and its `static_assert(sizeof(_Tp) >= 0)` — that fires at
+# compile time on libc++ versions/standards that elaborate the destructor
+# eagerly (C++23 mode in particular, since the destructor is
+# _LIBCPP_CONSTEXPR_SINCE_CXX23). Move the body to Object.cc, where Array.h
+# is already #include'd — fixes both cairo and splash renderers on fresh
+# poppler. Idempotent; no-op on tags that don't have the inline body.
+_patch_poppler_object_h() {
+    local h="poppler/Object.h"
+    local cc="poppler/Object.cc"
+    local marker="PATCHED-OUT-OF-LINE-ARRAY-CTOR"
+    [ -f "${h}" ] || return 0
+    grep -qF "${marker}" "${h}" && return 0
+    grep -qE "^[[:space:]]*explicit Object\(std::unique_ptr<Array> arrayA\) :" \
+        "${h}" || return 0
+    sed -i -E \
+        "s|^([[:space:]]*explicit Object\(std::unique_ptr<Array> arrayA\)).*\$|\1;  // ${marker}|" \
+        "${h}"
+    cat >> "${cc}" <<EOF
+
+// ${marker}: out-of-line definition that used to live inline in Object.h.
+// See build-deps.sh _patch_poppler_object_h() for the rationale.
+Object::Object(std::unique_ptr<Array> arrayA)
+    : type { objArray }, data { std::shared_ptr<Array>(std::move(arrayA)) }
+{
+}
+EOF
+    echo "poppler: patched Object.h inline Array ctor → out-of-line"
+}
+
 _run_poppler_cmake() {
     cd "${SRC_DIR}"
     [ -d poppler ] || git clone --depth 1 --branch "${POPPLER_TAG}" \
         https://gitlab.freedesktop.org/poppler/poppler.git
     cd poppler
+    _patch_poppler_object_h
     rm -rf build
     emcmake cmake -G Ninja -B build \
         -DCMAKE_INSTALL_PREFIX="${WASM_PREFIX}" \

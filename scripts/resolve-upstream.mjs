@@ -161,19 +161,32 @@ function writeOutputs(target, outputs) {
 }
 
 async function resolveCairo() {
-  // poppler 26.x trips an `invalid application of sizeof to an incomplete
-  // type 'Array'` static_assert in libc++'s unique_ptr against the current
-  // emsdk. Pin to the last known-good tags and gate the live resolve
-  // behind an env var until upstream/poppler is fixable.
-  let cairoTag = process.env.CAIRO_TAG || "1.18.2";
-  let popplerTag = process.env.POPPLER_TAG || "poppler-24.10.0";
-  if (process.env.CAIRO_RESOLVE_FROM_WEB === "1") {
+  // Track the newest `X.Y.Z` cairo tag and newest `poppler-X.Y.Z` tag.
+  // The poppler 26.x `unique_ptr<Array>` static_assert that previously
+  // forced a pin here is now patched at build time — see
+  // _patch_poppler_object_h in build-deps.sh — so the cairo backend's
+  // CairoOutputDev.cc, CairoFontEngine.cc, CairoRescaleBox.cc all
+  // compile against fresh poppler again. CAIRO_TAG / POPPLER_TAG env
+  // vars still override for manual pinning; the hardcoded fallbacks
+  // fire only if gitlab.freedesktop.org is briefly unreachable.
+  let cairoTag = process.env.CAIRO_TAG;
+  if (!cairoTag) {
     try {
       cairoTag = latestGitTag(
         "https://gitlab.freedesktop.org/cairo/cairo.git",
         "refs/tags/*",
         /^\d+\.\d+\.\d+$/,
       );
+    } catch (err) {
+      cairoTag = "1.18.2";
+      console.warn(
+        `cairo: tag resolve failed (${err.message}); using ${cairoTag}`,
+      );
+    }
+  }
+  let popplerTag = process.env.POPPLER_TAG;
+  if (!popplerTag) {
+    try {
       popplerTag = latestGitTag(
         "https://gitlab.freedesktop.org/poppler/poppler.git",
         "refs/tags/poppler-*",
@@ -181,8 +194,9 @@ async function resolveCairo() {
         (tag) => tag.replace(/^poppler-/, ""),
       );
     } catch (err) {
+      popplerTag = "poppler-24.10.0";
       console.warn(
-        `cairo: web resolve failed (${err.message}); using ${cairoTag}/${popplerTag}`,
+        `cairo: poppler tag resolve failed (${err.message}); using ${popplerTag}`,
       );
     }
   }

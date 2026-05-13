@@ -147,8 +147,8 @@ runs always rebuild.
 
 | Workflow          | Source resolution                                                               |
 | ----------------- | ------------------------------------------------------------------------------- |
-| `cairo.yml`       | pinned `cairo` + `poppler` tags (set `CAIRO_RESOLVE_FROM_WEB=1` to live-scrape) |
-| `splash.yml`      | newest `poppler-X.Y.Z` tag — independent of cairo's poppler pin                 |
+| `cairo.yml`       | newest `cairo` `X.Y.Z` tag + newest `poppler-X.Y.Z` tag                         |
+| `splash.yml`      | newest `poppler-X.Y.Z` tag (poppler-only; no cairo backend)                     |
 | `pdfium.yml`      | `pdfium`, `abseil`, `fast_float` all track HEAD (`PDFIUM_REF=main`)             |
 | `mupdf.yml`       | newest `X.Y.Z` tag from `git ls-remote` (override with `MUPDF_REF`)             |
 | `xpdf.yml`        | pinned xpdf version (the upstream cert chain breaks live scrape)                |
