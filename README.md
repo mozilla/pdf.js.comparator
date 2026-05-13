@@ -2,6 +2,23 @@
 
 # pdf.js.comparator
 
+<!-- Per-workflow CI badges. GitHub doesn't aggregate; this strip shows
+     every per-renderer build at a glance. -->
+
+[![cairo](https://github.com/mozilla/pdf.js.comparator/actions/workflows/cairo.yml/badge.svg?branch=main)](https://github.com/mozilla/pdf.js.comparator/actions/workflows/cairo.yml)
+[![splash](https://github.com/mozilla/pdf.js.comparator/actions/workflows/splash.yml/badge.svg?branch=main)](https://github.com/mozilla/pdf.js.comparator/actions/workflows/splash.yml)
+[![pdfium](https://github.com/mozilla/pdf.js.comparator/actions/workflows/pdfium.yml/badge.svg?branch=main)](https://github.com/mozilla/pdf.js.comparator/actions/workflows/pdfium.yml)
+[![mupdf](https://github.com/mozilla/pdf.js.comparator/actions/workflows/mupdf.yml/badge.svg?branch=main)](https://github.com/mozilla/pdf.js.comparator/actions/workflows/mupdf.yml)
+[![pdfjs](https://github.com/mozilla/pdf.js.comparator/actions/workflows/pdfjs.yml/badge.svg?branch=main)](https://github.com/mozilla/pdf.js.comparator/actions/workflows/pdfjs.yml)
+[![pdfbox](https://github.com/mozilla/pdf.js.comparator/actions/workflows/pdfbox.yml/badge.svg?branch=main)](https://github.com/mozilla/pdf.js.comparator/actions/workflows/pdfbox.yml)
+[![icepdf](https://github.com/mozilla/pdf.js.comparator/actions/workflows/icepdf.yml/badge.svg?branch=main)](https://github.com/mozilla/pdf.js.comparator/actions/workflows/icepdf.yml)
+[![ghostscript](https://github.com/mozilla/pdf.js.comparator/actions/workflows/gs.yml/badge.svg?branch=main)](https://github.com/mozilla/pdf.js.comparator/actions/workflows/gs.yml)
+[![xpdf](https://github.com/mozilla/pdf.js.comparator/actions/workflows/xpdf.yml/badge.svg?branch=main)](https://github.com/mozilla/pdf.js.comparator/actions/workflows/xpdf.yml)
+[![butteraugli](https://github.com/mozilla/pdf.js.comparator/actions/workflows/butteraugli.yml/badge.svg?branch=main)](https://github.com/mozilla/pdf.js.comparator/actions/workflows/butteraugli.yml)
+[![dssim](https://github.com/mozilla/pdf.js.comparator/actions/workflows/dssim.yml/badge.svg?branch=main)](https://github.com/mozilla/pdf.js.comparator/actions/workflows/dssim.yml)
+[![flip](https://github.com/mozilla/pdf.js.comparator/actions/workflows/flip.yml/badge.svg?branch=main)](https://github.com/mozilla/pdf.js.comparator/actions/workflows/flip.yml)
+[![deploy](https://github.com/mozilla/pdf.js.comparator/actions/workflows/deploy.yml/badge.svg?branch=main)](https://github.com/mozilla/pdf.js.comparator/actions/workflows/deploy.yml)
+
 Side-by-side visual comparison of pdf.js against multiple reference PDF
 renderers — **cairo** (poppler+cairo), **splash** (poppler's in-tree
 software rasterizer), **pdfium**, **mupdf**, **PDFBox**, **Ghostscript**,
