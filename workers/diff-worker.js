@@ -86,11 +86,22 @@ const mallocCompareRunner =
     }
   };
 
+// emcc-generated factories derive the sibling .wasm URL via
+//     new URL("<name>.wasm", import.meta.url)
+// which strips the query string — so the cache-busted .js loads the
+// wasm bypassing the bust. Hand emcc a locateFile that prepends the
+// renderer subdir and routes through moduleUrl() (which threads the
+// ?v= bust). wasm-bindgen has the same issue and is fixed by passing
+// the .wasm URL explicitly to its init().
+const subdirLocateFile = (subdir) => (path) => moduleUrl(`${subdir}/${path}`);
+
 const ready = (async () => {
   try {
     if (WASM === "butteraugli") {
       const mod = await import(moduleUrl("butteraugli/butteraugli.js"));
-      const butteraugli = await mod.default();
+      const butteraugli = await mod.default({
+        locateFile: subdirLocateFile("butteraugli"),
+      });
       runner = mallocCompareRunner(butteraugli, {
         name: "butteraugli",
         fn: "_butteraugli_compare",
@@ -98,7 +109,7 @@ const ready = (async () => {
       });
     } else if (WASM === "dssim") {
       const mod = await import(moduleUrl("dssim/dssim.js"));
-      await mod.default();
+      await mod.default(moduleUrl("dssim/dssim_bg.wasm"));
       runner = (a, b) => {
         const t0 = performance.now();
         validatePair(a, b);
@@ -112,7 +123,7 @@ const ready = (async () => {
       };
     } else if (WASM === "flip") {
       const mod = await import(moduleUrl("flip/flip.js"));
-      const flip = await mod.default();
+      const flip = await mod.default({ locateFile: subdirLocateFile("flip") });
       runner = mallocCompareRunner(flip, {
         name: "flip",
         fn: "_flip_compare",

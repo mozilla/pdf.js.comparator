@@ -210,24 +210,15 @@ async function resolveCairo() {
 }
 
 async function resolveMupdf() {
-  // Track the newest mupdf release tag (X.Y.Z). The build supports this
-  // because `SUPPORT_LONGJMP=emscripten` is wired into renderer_emcc_flags;
-  // see build-mupdf.sh. `MUPDF_REF` still wins if set (manual override),
-  // and the hardcoded fallback only fires if GitHub's tag list is briefly
-  // unreachable from the runner.
-  let ref = process.env.MUPDF_REF;
-  if (!ref) {
-    try {
-      ref = latestGitTag(
-        "https://github.com/ArtifexSoftware/mupdf.git",
-        "refs/tags/*",
-        /^\d+\.\d+\.\d+$/,
-      );
-    } catch (err) {
-      ref = "1.24.10";
-      console.warn(`mupdf: tag resolve failed (${err.message}); using ${ref}`);
-    }
-  }
+  // Pinned. mupdf >=1.26.2 added `-fwasm-exceptions -sSUPPORT_LONGJMP=
+  // wasm` to its OS=wasm Makerules. That's a correct upstream choice but
+  // the wasm it produces doesn't load cleanly in our browser stack
+  // against the current emsdk's legacy-EH C++ runtime (LinkError on the
+  // generated JS imports). 1.26.1 is the last release before that
+  // switch — keep the pin until either emsdk's runtime catches up or
+  // we have a working wasm-EH path. Bump in lockstep with the
+  // MUPDF_REF fallback in scripts/build-mupdf.sh.
+  let ref = process.env.MUPDF_REF || "1.26.1";
   // Match the build's fingerprint shape (`mupdf=<commit-SHA>`) so the
   // cron-skip comparison in publishedFingerprint() actually succeeds.
   const commit = resolveGitHead(

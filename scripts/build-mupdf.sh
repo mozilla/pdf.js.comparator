@@ -26,10 +26,13 @@ ensure_libjpeg
 ensure_openjpeg
 ensure_lcms2
 
-# Local docker fallback. CI gets MUPDF_REF from resolve-upstream.mjs (auto-
-# bumps to the newest X.Y.Z tag, currently 1.27.2). Keep this roughly in
-# sync with upstream so docker builds match CI without --build-arg gymnastics.
-MUPDF_REF="${MUPDF_REF:-${MUPDF_TAG:-1.27.2}}"
+# Local docker fallback. Pinned to the latest mupdf release before
+# 1.26.2, which is when mupdf's OS=wasm Makerules started forcing
+# `-fwasm-exceptions -sSUPPORT_LONGJMP=wasm` — that change is correct
+# for upstream but the wasm output doesn't load cleanly in our browser
+# stack against the current emsdk's legacy-EH C++ runtime. Keep the pin
+# in lockstep with resolveMupdf in scripts/resolve-upstream.mjs.
+MUPDF_REF="${MUPDF_REF:-${MUPDF_TAG:-1.26.1}}"
 MUPDF_SRC="${SRC_DIR}/mupdf"
 
 # ---- Phase 1: fetch + patch ------------------------------------------------
@@ -50,15 +53,26 @@ if ! grep -q '__attribute__((weak))' \
         "${MUPDF_SRC}/source/fitz/load-jpx.c"
 fi
 
+# mupdf >=1.26.2 added `-fwasm-exceptions -sSUPPORT_LONGJMP=wasm` to its
+# OS=wasm Makerules itself; earlier versions set nothing and rely on the
+# caller. The MUPDF_REF default is pinned below that boundary, so we'd
+# normally hit the "set nothing" branch and inject emscripten-longjmp.
+# Detected from Makerules so a manual bump to a newer tag is still
+# self-consistent (build will fail at compile rather than at runtime).
+if grep -q "fwasm-exceptions" "${MUPDF_SRC}/Makerules" 2>/dev/null; then
+    MUPDF_EH_MODE=wasm
+    MUPDF_EXTRA_XCFLAGS=""
+else
+    MUPDF_EH_MODE=emscripten
+    MUPDF_EXTRA_XCFLAGS="-sSUPPORT_LONGJMP=emscripten"
+fi
+echo "mupdf: EH model = ${MUPDF_EH_MODE}"
+
 # ---- Phase 2: libmupdf.a + libmupdf-third.a -------------------------------
 # MuPDF ships an OS=wasm target which sets CC=emcc / CXX=em++ / AR=emar
 # and the HAVE_X11=no / HAVE_GLUT=no flags automatically; output goes to
 # build/wasm/release/. We supplement with USE_SYSTEM_* so it links against
 # the shared libs in ${WASM_PREFIX} instead of its own bundled copies.
-# `-sSUPPORT_LONGJMP=wasm -fwasm-exceptions` is forced globally via
-# EMCC_CFLAGS in build-deps.sh; we don't need to inject anything here
-# regardless of whether mupdf's own Makerules adds the flags (1.27+) or
-# not (1.24).
 if [ ! -f "${WASM_PREFIX}/lib/libmupdf.a" ] || \
         [ "$(cat "${MUPDF_SOURCE_STAMP}" 2>/dev/null || true)" != "${MUPDF_SOURCE_FINGERPRINT}" ]; then
     cd "${MUPDF_SRC}"
@@ -74,6 +88,7 @@ if [ ! -f "${WASM_PREFIX}/lib/libmupdf.a" ] || \
         OS=wasm \
         build=release \
         XCFLAGS="-O2 -fno-exceptions -DTOFU=0 -DTOFU_CJK=0 \
+            ${MUPDF_EXTRA_XCFLAGS} \
             -I${WASM_PREFIX}/include -I${WASM_PREFIX}/include/freetype2 \
             -I${WASM_PREFIX}/include/openjpeg-2.5" \
         USE_SYSTEM_FREETYPE=yes \
@@ -111,7 +126,7 @@ em++ -o "${OUT}/mupdf/mupdf.js" \
     ${CFLAGS} \
     -I"${ROOT}/src/common" \
     ${LIBS} \
-    $(renderer_emcc_flags) \
+    $(renderer_emcc_flags "${MUPDF_EH_MODE}") \
     -s EXPORT_NAME="'MupdfRenderer'" \
     -s NO_FILESYSTEM=1 \
     -s EXPORTED_FUNCTIONS='["_render","_num_pages","_malloc","_free"]' \

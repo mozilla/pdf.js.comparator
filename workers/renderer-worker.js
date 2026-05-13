@@ -23,13 +23,27 @@ if (CACHE_BUST) {
   transportUrl.searchParams.set("v", CACHE_BUST);
 }
 
+// emcc's generated .js derives the sibling .wasm URL via
+//     new URL("<name>.wasm", import.meta.url)
+// which strips the query string from import.meta.url — so the wasm
+// bypasses the cache-bust the harness puts on the worker URL and the
+// browser serves a stale copy that no longer matches the (freshly
+// minified) .js. Override locateFile to thread the same ?v=… through.
+const locateFile = (path) => {
+  const url = new URL(path, factoryUrl);
+  if (CACHE_BUST) {
+    url.searchParams.set("v", CACHE_BUST);
+  }
+  return url.href;
+};
+
 let Module = null;
 let initError = null;
 const ready = (async () => {
   try {
     await import(transportUrl.href);
     const mod = await import(factoryUrl.href);
-    Module = await mod.default();
+    Module = await mod.default({ locateFile });
     self.postMessage({ type: "ready" });
   } catch (err) {
     initError = err;

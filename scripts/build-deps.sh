@@ -37,18 +37,6 @@ PKG_CONFIG_PATH="${WASM_PREFIX}/lib/pkgconfig"
 PKG_CONFIG_LIBDIR="${WASM_PREFIX}/lib/pkgconfig"
 export PKG_CONFIG_PATH PKG_CONFIG_LIBDIR
 
-# Force wasm-native exception handling + setjmp/longjmp on every emcc
-# invocation that emanates from this script. mupdf 1.27 turned this on in
-# its own Makerules — emcc rejects mixing wasm-EH with `SUPPORT_LONGJMP=
-# emscripten`, and the shared C libs (libpng/libfreetype/libjpeg/openjpeg/
-# lcms2/pixman/cairo/poppler) embed `emscripten_longjmp` calls when built
-# with the default model, which then break the mupdf renderer's link.
-# Standardising on wasm-EH for every library + every renderer keeps the
-# whole stack self-consistent. Emcc reads EMCC_CFLAGS and prepends it to
-# every compile/link invocation, so it propagates through every build
-# system (autoconf/cmake/meson/make) without per-tool plumbing.
-export EMCC_CFLAGS="-sSUPPORT_LONGJMP=wasm -fwasm-exceptions"
-
 # Pinned upstream revisions. Each ensure_* records the tag it built into a
 # .stamp file next to the produced library, so bumping a *_TAG triggers a
 # rebuild (no more "wipe ${WASM_PREFIX} by hand" caveat).
@@ -406,14 +394,16 @@ renderer_pkg_libs() {
 # scripts append source files, EXPORT_NAME, EXPORTED_FUNCTIONS, and any
 # CFLAGS/LIBS from pkg-config.
 # Optional argument selects the setjmp/longjmp + exception-handling model:
-#   (default) "wasm" — native wasm exception handling (-fwasm-exceptions and
-#                      SUPPORT_LONGJMP=wasm). What every renderer uses now;
-#                      matches the EMCC_CFLAGS we set at the top of this
-#                      script so the libraries and the renderer link agree.
-#   "emscripten"     — JS-implemented longjmp. Legacy path, no current caller.
+#   (default) "emscripten" — JS-implemented longjmp. What every renderer
+#                            uses. Stable runtime path.
+#   "wasm"                 — native wasm-EH (-fwasm-exceptions and
+#                            SUPPORT_LONGJMP=wasm). Required by mupdf
+#                            >=1.26.2 — we pin below that so this path
+#                            is currently unused, but kept for the day
+#                            the runtime story stabilises.
 # emcc rejects mixing the two, and the library + renderer link must agree.
 renderer_emcc_flags() {
-    local eh_mode="${1:-wasm}"
+    local eh_mode="${1:-emscripten}"
     cat <<'EOF'
 -s ALLOW_MEMORY_GROWTH=1
 -s MAXIMUM_MEMORY=2GB
