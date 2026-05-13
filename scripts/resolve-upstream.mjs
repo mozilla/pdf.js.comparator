@@ -22,6 +22,7 @@ const TARGETS = {
   pdfbox: resolvePdfbox,
   pdfium: resolvePdfium,
   pdfjs: resolvePdfjs,
+  splash: resolveSplash,
   xpdf: resolveXpdf,
 };
 
@@ -195,12 +196,13 @@ async function resolveCairo() {
 }
 
 async function resolveMupdf() {
-  // Pin by default. mupdf 1.27 builds fine against the current emsdk once
-  // the SUPPORT_LONGJMP=emscripten flag is in place (see build-mupdf.sh /
-  // renderer_emcc_flags), but we keep an opt-in toggle so the auto-bump
-  // doesn't fire on every cron tick until we want it to.
-  let ref = process.env.MUPDF_REF || "1.24.10";
-  if (process.env.MUPDF_RESOLVE_FROM_WEB === "1") {
+  // Track the newest mupdf release tag (X.Y.Z). The build supports this
+  // because `SUPPORT_LONGJMP=emscripten` is wired into renderer_emcc_flags;
+  // see build-mupdf.sh. `MUPDF_REF` still wins if set (manual override),
+  // and the hardcoded fallback only fires if GitHub's tag list is briefly
+  // unreachable from the runner.
+  let ref = process.env.MUPDF_REF;
+  if (!ref) {
     try {
       ref = latestGitTag(
         "https://github.com/ArtifexSoftware/mupdf.git",
@@ -208,13 +210,21 @@ async function resolveMupdf() {
         /^\d+\.\d+\.\d+$/,
       );
     } catch (err) {
-      console.warn(`mupdf: web resolve failed (${err.message}); using ${ref}`);
+      ref = "1.24.10";
+      console.warn(`mupdf: tag resolve failed (${err.message}); using ${ref}`);
     }
   }
+  // Match the build's fingerprint shape (`mupdf=<commit-SHA>`) so the
+  // cron-skip comparison in publishedFingerprint() actually succeeds.
+  const commit = resolveGitHead(
+    "https://github.com/ArtifexSoftware/mupdf.git",
+    ref,
+  );
   return {
-    fingerprint: `mupdf=${ref}`,
+    fingerprint: `mupdf=${commit}`,
     values: {
       mupdf_ref: ref,
+      mupdf_commit: commit,
     },
   };
 }
@@ -311,10 +321,21 @@ async function resolveIcepdf() {
       "commons-logging",
     ),
   };
+  // Spell the fingerprint out explicitly: the auto-stripped key for
+  // `icepdf_pdfbox_version` would be `icepdf_pdfbox`, but build-icepdf.sh
+  // writes `pdfbox=` (kept distinct from `icepdf=` only at the env-var
+  // layer). Listing each segment also matches the build's key order.
   return {
-    fingerprint: Object.entries(versions)
-      .map(([key, value]) => `${key.replace(/_version$/, "")}=${value}`)
-      .join(";"),
+    fingerprint: [
+      `icepdf=${versions.icepdf_version}`,
+      `bouncycastle=${versions.bouncycastle_version}`,
+      `twelvemonkeys=${versions.twelvemonkeys_version}`,
+      `pdfbox=${versions.icepdf_pdfbox_version}`,
+      `jbig2_imageio=${versions.jbig2_imageio_version}`,
+      `jai_imageio_core=${versions.jai_imageio_core_version}`,
+      `jai_imageio_jpeg2000=${versions.jai_imageio_jpeg2000_version}`,
+      `commons_logging=${versions.commons_logging_version}`,
+    ].join(";"),
     values: versions,
   };
 }
@@ -331,9 +352,9 @@ function resolveGitHead(repo, ref) {
 }
 
 async function resolvePdfium() {
-  const pdfiumRef = process.env.PDFIUM_REF || "chromium/6800";
+  const pdfiumRef = process.env.PDFIUM_REF || "main";
   const fastFloatRef = process.env.FAST_FLOAT_REF || "HEAD";
-  const abseilTag = process.env.ABSEIL_TAG || "20240722.0";
+  const abseilRef = process.env.ABSEIL_REF || "HEAD";
   const pdfium = resolveGitHead(
     "https://pdfium.googlesource.com/pdfium.git",
     pdfiumRef,
@@ -342,14 +363,19 @@ async function resolvePdfium() {
     "https://github.com/fastfloat/fast_float.git",
     fastFloatRef,
   );
+  const abseil = resolveGitHead(
+    "https://github.com/abseil/abseil-cpp.git",
+    abseilRef,
+  );
   return {
-    fingerprint: `pdfium=${pdfium};fast_float=${fastFloat};abseil=${abseilTag}`,
+    fingerprint: `pdfium=${pdfium};fast_float=${fastFloat};abseil=${abseil}`,
     values: {
       pdfium_ref: pdfiumRef,
       pdfium_commit: pdfium,
       fast_float_ref: fastFloatRef,
       fast_float_commit: fastFloat,
-      abseil_tag: abseilTag,
+      abseil_ref: abseilRef,
+      abseil_commit: abseil,
     },
   };
 }
@@ -384,6 +410,37 @@ async function resolvePdfjs() {
   return {
     fingerprint: `pdfjs=${commit}`,
     values: { pdfjs_ref: ref, pdfjs_commit: commit },
+  };
+}
+
+async function resolveSplash() {
+  // Track the newest `poppler-X.Y.Z` tag. The splash renderer uses
+  // poppler's in-tree Splash backend and ensure_poppler_nocairo() never
+  // compiles the cairo backend, so this can move ahead of resolveCairo's
+  // poppler-24.10.0 pin (cairo's pin is held back by a libc++/
+  // unique_ptr<Array> regression in CairoOutputDev compilation against
+  // newer poppler). `POPPLER_TAG` still overrides for manual pinning;
+  // the hardcoded fallback only fires if gitlab.freedesktop.org is
+  // briefly unreachable from the runner.
+  let popplerTag = process.env.POPPLER_TAG;
+  if (!popplerTag) {
+    try {
+      popplerTag = latestGitTag(
+        "https://gitlab.freedesktop.org/poppler/poppler.git",
+        "refs/tags/poppler-*",
+        /^poppler-\d+\.\d+\.\d+$/,
+        (tag) => tag.replace(/^poppler-/, ""),
+      );
+    } catch (err) {
+      popplerTag = "poppler-24.10.0";
+      console.warn(
+        `splash: poppler tag resolve failed (${err.message}); using ${popplerTag}`,
+      );
+    }
+  }
+  return {
+    fingerprint: `splash=${popplerTag}`,
+    values: { poppler_tag: popplerTag },
   };
 }
 

@@ -1,22 +1,22 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Mozilla Foundation
-name: Build pdfium wasm
+name: Build splash wasm
 
 on:
   push:
     branches: [main]
     paths:
-      - "scripts/build-pdfium.sh"
+      - "scripts/build-splash.sh"
       - "scripts/build-deps.sh"
-      - "scripts/resolve-upstream.mjs"
-      - "src/pdfium/**"
+      - "src/splash/**"
       - "src/common/**"
-      - ".github/workflows/pdfium.yml"
+      - "scripts/resolve-upstream.mjs"
+      - ".github/workflows/splash.yml"
       - ".github/workflows/_renderer.yml"
   repository_dispatch:
-    types: [pdfium-head]
+    types: [splash-upstream]
   schedule:
-    - cron: "0 */4 * * *"
+    - cron: "55 */4 * * *"
   workflow_dispatch:
 
 # Default to no permissions; the reusable workflow's job below grants the
@@ -24,23 +24,19 @@ on:
 permissions: {}
 
 concurrency:
-  group: pdfium-head
+  group: splash-upstream
   cancel-in-progress: false
 
 jobs:
   build:
-    name: Build pdfium
+    name: Build splash
     permissions:
       contents: write # local publish-to-gh-pages action pushes to gh-pages
     uses: ./.github/workflows/_renderer.yml
     with:
-      name: pdfium
-      target: pdfium
-      script: scripts/build-pdfium.sh
+      name: splash
+      target: splash
+      script: scripts/build-splash.sh
       timeout: 90
       needs_emsdk: true
       apt_packages: "cmake ninja-build meson pkg-config autoconf automake libtool gperf"
-      resolver_env: |
-        ABSEIL_REF=HEAD
-        FAST_FLOAT_REF=HEAD
-        PDFIUM_REF=main

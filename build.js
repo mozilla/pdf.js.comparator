@@ -13,6 +13,7 @@ const IMAGE_NAME = "pdf-js-comparator";
 const SERVE_CONTAINER_NAME = `${IMAGE_NAME}-serve`;
 const RENDERERS = [
   "cairo",
+  "splash",
   "pdfium",
   "mupdf",
   "butteraugli",

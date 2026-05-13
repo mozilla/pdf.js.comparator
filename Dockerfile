@@ -7,6 +7,7 @@
 #   base ──── deps ────┬── cairo
 #       │              ├── pdfium
 #       │              └── mupdf
+#       ├── splash (FROM base; builds its own cairo-less poppler)
 #       ├── xpdf
 #       ├── butteraugli (no shared-libs dep)
 #       ├── flip (no shared-libs dep)
@@ -86,14 +87,14 @@ RUN CAIRO_TAG="${CAIRO_TAG}" POPPLER_TAG="${POPPLER_TAG}" \
 FROM deps AS pdfium
 ARG PDFIUM_REF
 ARG FAST_FLOAT_REF
-ARG ABSEIL_TAG
+ARG ABSEIL_REF
 ARG PDFIUM_CACHE_BUST
 COPY scripts/build-deps.sh    /code/scripts/
 COPY scripts/build-pdfium.sh  /code/scripts/
 COPY src/common               /code/src/common/
 COPY src/pdfium               /code/src/pdfium/
-RUN echo "pdfium ref=${PDFIUM_REF} fast_float=${FAST_FLOAT_REF} abseil=${ABSEIL_TAG} cache=${PDFIUM_CACHE_BUST}" && \
-    PDFIUM_REF="${PDFIUM_REF}" FAST_FLOAT_REF="${FAST_FLOAT_REF}" ABSEIL_TAG="${ABSEIL_TAG}" \
+RUN echo "pdfium ref=${PDFIUM_REF} fast_float=${FAST_FLOAT_REF} abseil=${ABSEIL_REF} cache=${PDFIUM_CACHE_BUST}" && \
+    PDFIUM_REF="${PDFIUM_REF}" FAST_FLOAT_REF="${FAST_FLOAT_REF}" ABSEIL_REF="${ABSEIL_REF}" \
     bash /code/scripts/build-pdfium.sh
 
 FROM deps AS mupdf
@@ -105,6 +106,19 @@ COPY src/common              /code/src/common/
 COPY src/mupdf               /code/src/mupdf/
 RUN echo "mupdf ref=${MUPDF_REF} cache=${MUPDF_CACHE_BUST}" && \
     MUPDF_REF="${MUPDF_REF}" bash /code/scripts/build-mupdf.sh
+
+# Splash FROMs `base`, not `deps`: deps builds poppler with cairo enabled,
+# and the whole point of this stage is to compile poppler without cairo
+# so it can track a fresher tag than cairo.yml's pin. ensure_poppler_nocairo
+# rebuilds the shared c-libs on its own; the duplication vs. `deps` is a
+# few minutes that BuildKit caches across reruns of the splash stage.
+FROM base AS splash
+ARG POPPLER_TAG
+COPY scripts/build-deps.sh   /code/scripts/
+COPY scripts/build-splash.sh /code/scripts/
+COPY src/common              /code/src/common/
+COPY src/splash              /code/src/splash/
+RUN POPPLER_TAG="${POPPLER_TAG}" bash /code/scripts/build-splash.sh
 
 # Xpdf command-line tools built to wasm and driven via MEMFS.
 FROM base AS xpdf
@@ -206,6 +220,7 @@ COPY harness.html /www/index.html
 COPY harness.html /www/harness.html
 COPY workers      /www/workers
 COPY --from=cairo       /js/cairo       /www/out/cairo
+COPY --from=splash      /js/splash      /www/out/splash
 COPY --from=pdfium      /js/pdfium      /www/out/pdfium
 COPY --from=mupdf       /js/mupdf       /www/out/mupdf
 COPY --from=butteraugli /js/butteraugli /www/out/butteraugli

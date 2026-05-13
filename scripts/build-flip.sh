@@ -43,6 +43,6 @@ cat > "${OUT}/flip/source.json" <<EOF
   "repo": "https://github.com/NVlabs/flip.git",
   "ref": "${FLIP_REF}",
   "commit": "${FLIP_COMMIT}",
-  "fingerprint": "${FLIP_COMMIT}"
+  "fingerprint": "flip=${FLIP_COMMIT}"
 }
 EOF

@@ -135,8 +135,11 @@ mkdir -p "${OUT}/dssim"
 rm -rf "${OUT}/dssim"/*
 mv "${STAGE}"/* "${OUT}/dssim/"
 
-# Include the Cargo.lock hash in the fingerprint so the exact transitive
-# pin (which is what actually ships) busts the cache when it changes.
+# Record the Cargo.lock hash separately for forensic purposes. We can't
+# include it in `fingerprint` because the resolver doesn't run cargo and
+# therefore can't know what Cargo.lock would hash to, so any value here
+# would guarantee a mismatch and rebuild on every cron tick. The crate
+# version is what the resolver knows, so that's what gates the rebuild.
 LOCK_HASH="$(sha256sum "${DSSIM_WRAPPER}/Cargo.lock" | awk '{print $1}')"
 
 cat > "${OUT}/dssim/source.json" <<EOF
@@ -144,6 +147,7 @@ cat > "${OUT}/dssim/source.json" <<EOF
   "name": "dssim",
   "crate": "dssim-core",
   "version": "${DSSIM_CORE_VERSION}",
-  "fingerprint": "dssim-core=${DSSIM_CORE_VERSION};lock=${LOCK_HASH}"
+  "lock_sha256": "${LOCK_HASH}",
+  "fingerprint": "dssim-core=${DSSIM_CORE_VERSION}"
 }
 EOF

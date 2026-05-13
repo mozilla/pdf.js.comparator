@@ -56,7 +56,7 @@ cat > "${STAGE}/source.json" <<EOF
   "repo": "https://github.com/mozilla/pdf.js.git",
   "ref": "${PDFJS_REF}",
   "commit": "${PDFJS_COMMIT}",
-  "fingerprint": "${PDFJS_COMMIT}"
+  "fingerprint": "pdfjs=${PDFJS_COMMIT}"
 }
 EOF
 

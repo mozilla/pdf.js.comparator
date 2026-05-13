@@ -45,6 +45,6 @@ cat > "${OUT}/butteraugli/source.json" <<EOF
   "repo": "https://github.com/google/butteraugli.git",
   "ref": "${BUTTERAUGLI_REF}",
   "commit": "${BUTTERAUGLI_COMMIT}",
-  "fingerprint": "${BUTTERAUGLI_COMMIT}"
+  "fingerprint": "butteraugli=${BUTTERAUGLI_COMMIT}"
 }
 EOF

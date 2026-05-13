@@ -273,17 +273,7 @@ ensure_cairo() {
     stamp_write "${lib}" "${CAIRO_TAG}"
 }
 
-ensure_poppler() {
-    local lib="${WASM_PREFIX}/lib/libpoppler.a"
-    stamp_is_fresh "${lib}" "${POPPLER_TAG}" && return 0
-    ensure_zlib
-    ensure_libpng
-    ensure_freetype
-    ensure_libjpeg
-    ensure_openjpeg
-    ensure_lcms2
-    ensure_pixman
-    ensure_cairo
+_run_poppler_cmake() {
     cd "${SRC_DIR}"
     [ -d poppler ] || git clone --depth 1 --branch "${POPPLER_TAG}" \
         https://gitlab.freedesktop.org/poppler/poppler.git
@@ -310,9 +300,45 @@ ensure_poppler() {
         -DENABLE_NSS3=OFF -DENABLE_GPGME=OFF \
         -DENABLE_LIBCURL=OFF \
         -DFONT_CONFIGURATION=generic \
-        -DRUN_GPERF_IF_PRESENT=OFF
+        -DRUN_GPERF_IF_PRESENT=OFF \
+        "$@"
     cmake --build build --target install
+}
+
+ensure_poppler() {
+    local lib="${WASM_PREFIX}/lib/libpoppler.a"
+    stamp_is_fresh "${lib}" "${POPPLER_TAG}" && return 0
+    ensure_zlib
+    ensure_libpng
+    ensure_freetype
+    ensure_libjpeg
+    ensure_openjpeg
+    ensure_lcms2
+    ensure_pixman
+    ensure_cairo
+    _run_poppler_cmake
     stamp_write "${lib}" "${POPPLER_TAG}"
+}
+
+# Same as ensure_poppler but with the cairo backend force-disabled. The
+# splash renderer compiles only the Splash sources that ship in
+# libpoppler.a, so it doesn't need libcairo (and dodges the libc++/
+# unique_ptr<Array> regression poppler 26.x triggers when the cairo
+# backend is compiled — see resolveSplash in resolve-upstream.mjs).
+# Stamp value is suffixed so a switch between cairo / no-cairo within
+# the same WASM_PREFIX correctly invalidates the previous install.
+ensure_poppler_nocairo() {
+    local lib="${WASM_PREFIX}/lib/libpoppler.a"
+    local stamp="${POPPLER_TAG}-nocairo"
+    stamp_is_fresh "${lib}" "${stamp}" && return 0
+    ensure_zlib
+    ensure_libpng
+    ensure_freetype
+    ensure_libjpeg
+    ensure_openjpeg
+    ensure_lcms2
+    _run_poppler_cmake -DCMAKE_DISABLE_FIND_PACKAGE_Cairo=ON
+    stamp_write "${lib}" "${stamp}"
 }
 
 # Common em++ link flags / pkg-config helpers used by every renderer's

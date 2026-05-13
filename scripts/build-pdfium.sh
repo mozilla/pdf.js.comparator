@@ -32,8 +32,8 @@ ensure_libjpeg
 ensure_openjpeg
 ensure_lcms2
 
-PDFIUM_REF="${PDFIUM_REF:-${PDFIUM_BRANCH:-chromium/6800}}"
-ABSEIL_TAG="${ABSEIL_TAG:-20240722.0}"
+PDFIUM_REF="${PDFIUM_REF:-${PDFIUM_BRANCH:-main}}"
+ABSEIL_REF="${ABSEIL_REF:-HEAD}"
 FAST_FLOAT_REF="${FAST_FLOAT_REF:-HEAD}"
 
 PDFIUM_SRC="${SRC_DIR}/pdfium"
@@ -43,14 +43,16 @@ clone_pinned "${PDFIUM_SRC}" https://pdfium.googlesource.com/pdfium.git \
     "${PDFIUM_REF}"
 PDFIUM_COMMIT="$(git -C "${PDFIUM_SRC}" rev-parse HEAD)"
 
-clone_pinned "${PDFIUM_SRC}/third_party/abseil-cpp" \
-    https://github.com/abseil/abseil-cpp.git "${ABSEIL_TAG}"
+ABSEIL_SRC="${PDFIUM_SRC}/third_party/abseil-cpp"
+clone_pinned "${ABSEIL_SRC}" \
+    https://github.com/abseil/abseil-cpp.git "${ABSEIL_REF}"
+ABSEIL_COMMIT="$(git -C "${ABSEIL_SRC}" rev-parse HEAD)"
 FAST_FLOAT_SRC="${PDFIUM_SRC}/third_party/fast_float/src"
 clone_pinned "${FAST_FLOAT_SRC}" \
     https://github.com/fastfloat/fast_float.git "${FAST_FLOAT_REF}"
 FAST_FLOAT_COMMIT="$(git -C "${FAST_FLOAT_SRC}" rev-parse HEAD)"
 
-PDFIUM_SOURCE_FINGERPRINT="pdfium=${PDFIUM_COMMIT};fast_float=${FAST_FLOAT_COMMIT};abseil=${ABSEIL_TAG}"
+PDFIUM_SOURCE_FINGERPRINT="pdfium=${PDFIUM_COMMIT};fast_float=${FAST_FLOAT_COMMIT};abseil=${ABSEIL_COMMIT}"
 PDFIUM_SOURCE_STAMP="${WASM_PREFIX}/lib/libpdfium.source"
 
 # ---- Phase 2: writes the gn-generated headers -----------------------------
@@ -148,14 +150,38 @@ done
 if [ ! -f "${WASM_PREFIX}/lib/libpdfium.a" ] || \
         [ "$(cat "${PDFIUM_SOURCE_STAMP}" 2>/dev/null || true)" != "${PDFIUM_SOURCE_FINGERPRINT}" ]; then
     cd "${PDFIUM_SRC}"
+    # `-DPDF_USE_AGG` opts into pdfium's in-tree AGG software rasterizer
+    # (the only render backend we have — Skia is disabled). Without it,
+    # core/fxge/cfx_defaultrenderdevice.h hides AttachAggImpl/CreateAgg
+    # behind `#if defined(PDF_USE_AGG)` and core/fxge/dib/cfx_dibitmap.h
+    # hides CompositeRect, so the out-of-line definitions in
+    # core/fxge/agg/cfx_agg_devicedriver.cpp fail to match any declaration.
     export PDFIUM_CXXFLAGS="-O2 -fno-exceptions --std=c++20 -DNDEBUG \
         -DUSE_SYSTEM_LIBPNG -DUSE_SYSTEM_ZLIB -DUSE_SYSTEM_LIBOPENJPEG2 \
         -DUSE_SYSTEM_LCMS2 \
+        -DPDF_USE_AGG \
         -I${PDFIUM_SRC} -I${PDFIUM_SRC}/public \
         -I${PDFIUM_SRC}/third_party/abseil-cpp \
         -I${WASM_PREFIX}/include \
         -I${WASM_PREFIX}/include/freetype2 \
         -I${WASM_PREFIX}/include/openjpeg-2.5"
+
+    # pdfium main grew a font subsetter (core/fpdfapi/edit/cpdf_fontsubsetter.cpp)
+    # that #includes <hb-subset.h>. We don't ship libharfbuzz in the wasm
+    # sysroot — and we don't need to: it sits behind the PDF-edit/save APIs
+    # the renderer never calls, so the linker would GC the symbols anyway.
+    # Discover every .cc/.cpp/.c file that pulls in an `<hb…>` header and
+    # drop them from the compile list. List is allowed to be empty (older
+    # pdfium revisions had no such files).
+    HB_SKIP="${PDFIUM_SRC}/.hb-skip"
+    { grep -lrE '^[[:space:]]*#include[[:space:]]+<hb' \
+        core constants fpdfsdk 2>/dev/null \
+        | grep -E '\.(cc|cpp|c)$' \
+        | sort -u; } > "${HB_SKIP}" || true
+    HB_SKIP_COUNT=$(wc -l < "${HB_SKIP}" | tr -d ' ')
+    [ "${HB_SKIP_COUNT}" -gt 0 ] && \
+        echo "pdfium: skipping ${HB_SKIP_COUNT} harfbuzz-dependent source(s):" && \
+        sed 's/^/  /' "${HB_SKIP}"
 
     mapfile -t SRCS < <(find core constants fpdfsdk \
         third_party/agg23 third_party/bigint third_party/pdfium_base \
@@ -170,13 +196,14 @@ if [ ! -f "${WASM_PREFIX}/lib/libpdfium.a" ] || \
         ! -path "*/cocoa/*" ! -path "*/android/*" \
         ! -path "*/skia/*" ! -path "*/xfa/*" ! -path "*/fxjs/*" \
         ! -path "*/formfiller/*" ! -path "*/pwl/*" ! -path "*/fpdfxfa/*" \
+        ! -path "core/fxge/skrifa/*" \
         ! -path "core/fxcodec/bmp/*" ! -path "core/fxcodec/gif/*" \
         ! -path "core/fxcodec/png/*" ! -path "core/fxcodec/tiff/*" \
         ! -name "progressive_decoder.cpp" \
         ! -name "*_progressive_decoder.cpp" \
         ! -name "code_point_view.cpp" \
         ! -name "fx_memory_pa.cpp" \
-        2>/dev/null | sort)
+        2>/dev/null | sort | grep -vFxf "${HB_SKIP}")
 
     echo "pdfium: ${#SRCS[@]} sources to compile"
     mkdir -p obj
@@ -250,7 +277,8 @@ cat > "${OUT}/pdfium/source.json" <<EOF
   "dependencies": {
     "abseil": {
       "repo": "https://github.com/abseil/abseil-cpp.git",
-      "ref": "${ABSEIL_TAG}"
+      "ref": "${ABSEIL_REF}",
+      "commit": "${ABSEIL_COMMIT}"
     },
     "fast_float": {
       "repo": "https://github.com/fastfloat/fast_float.git",

@@ -63,7 +63,7 @@ on:
       resolver_env:
         description: |
           Optional KEY=value lines exported as env vars before
-          resolve-upstream runs, e.g. to pin PDFIUM_REF=chromium/6800.
+          resolve-upstream runs, e.g. to pin PDFIUM_REF=chromium/7000.
           Multi-line literal block scalars work fine.
         required: false
         type: string

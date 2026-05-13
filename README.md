@@ -3,8 +3,9 @@
 # pdf.js.comparator
 
 Side-by-side visual comparison of pdf.js against multiple reference PDF
-renderers — **cairo** (poppler+cairo), **pdfium**, **mupdf**, **PDFBox**,
-**Ghostscript**, **Xpdf**, and **ICEpdf** — with six image-diff algorithms
+renderers — **cairo** (poppler+cairo), **splash** (poppler's in-tree
+software rasterizer), **pdfium**, **mupdf**, **PDFBox**, **Ghostscript**,
+**Xpdf**, and **ICEpdf** — with six image-diff algorithms
 layered on top.
 
 Each renderer is one independent browser artifact, loaded in its own Web
@@ -20,6 +21,7 @@ butteraugli / DSSIM / FLIP).
 scripts/
   build-deps.sh          # ensure_zlib, ensure_libpng, … (idempotent)
   build-cairo.sh         # ensure_* + final em++ link → out/cairo/cairo.{js,wasm}
+  build-splash.sh        # poppler+Splash (no cairo) → out/splash/splash.{js,wasm}
   build-pdfium.sh        # … → out/pdfium/pdfium.{js,wasm}
   build-mupdf.sh         # … → out/mupdf/mupdf.{js,wasm}
   build-gs.sh            # fetch Ghostscript wasm → out/gs/
@@ -32,6 +34,7 @@ scripts/
 src/
   common/{render_api.h, myjs.js}
   cairo/renderer.cpp
+  splash/renderer.cpp
   pdfium/renderer.cpp
   mupdf/renderer.cpp
   butteraugli/diff.cpp
@@ -69,6 +72,7 @@ The Dockerfile is multi-stage:
 base ──── deps ────┬── cairo
     │              ├── pdfium
     │              └── mupdf
+    ├── splash (own cairo-less poppler)
     ├── butteraugli (no shared-libs dep)
     ├── flip (no shared-libs dep)
     │
@@ -144,8 +148,9 @@ runs always rebuild.
 | Workflow          | Source resolution                                                               |
 | ----------------- | ------------------------------------------------------------------------------- |
 | `cairo.yml`       | pinned `cairo` + `poppler` tags (set `CAIRO_RESOLVE_FROM_WEB=1` to live-scrape) |
-| `pdfium.yml`      | `PDFIUM_REF=chromium/6800` + `fast_float` HEAD                                  |
-| `mupdf.yml`       | pinned MuPDF tag (set `MUPDF_RESOLVE_FROM_WEB=1` to live-scrape)                |
+| `splash.yml`      | newest `poppler-X.Y.Z` tag — independent of cairo's poppler pin                 |
+| `pdfium.yml`      | `pdfium`, `abseil`, `fast_float` all track HEAD (`PDFIUM_REF=main`)             |
+| `mupdf.yml`       | newest `X.Y.Z` tag from `git ls-remote` (override with `MUPDF_REF`)             |
 | `xpdf.yml`        | pinned xpdf version (the upstream cert chain breaks live scrape)                |
 | `butteraugli.yml` | upstream HEAD                                                                   |
 | `flip.yml`        | upstream HEAD                                                                   |
