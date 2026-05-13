@@ -3,12 +3,12 @@
   "dependencies": {
     "cairo": {
       "repo": "https://gitlab.freedesktop.org/cairo/cairo.git",
-      "ref": "1.18.2"
+      "ref": "1.18.4"
     },
     "poppler": {
       "repo": "https://gitlab.freedesktop.org/poppler/poppler.git",
-      "ref": "poppler-24.10.0"
+      "ref": "poppler-26.05.0"
     }
   },
-  "fingerprint": "cairo=1.18.2;poppler=poppler-24.10.0"
+  "fingerprint": "cairo=1.18.4;poppler=poppler-26.05.0"
 }
