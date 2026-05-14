@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = d9665c4
+ * pdfjsBuild = cd4fd75
  */
 /******/ // The require scope
 /******/ var __webpack_require__ = {};
@@ -14996,7 +14996,7 @@ class TextLayer {
     let ctx = this.#canvasContexts.get(lang ||= "");
     if (!ctx) {
       const canvas = document.createElement("canvas");
-      canvas.className = "hiddenCanvasElement";
+      canvas.style.cssText = "position:absolute;top:0;left:0;width:0;height:0;display:none";
       canvas.lang = lang;
       document.body.append(canvas);
       ctx = canvas.getContext("2d", {
@@ -16852,7 +16852,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.0.0";
-const build = "d9665c4";
+const build = "cd4fd75";
 
 ;// ./src/display/editor/color_picker.js
 
