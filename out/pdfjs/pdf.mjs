@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = bf9ae76
+ * pdfjsBuild = 7ade637
  */
 /******/ // The require scope
 /******/ var __webpack_require__ = {};
@@ -539,16 +539,14 @@ class FeatureTest {
     return shadow(this, "isCanvasFilterSupported", ctx?.filter !== undefined);
   }
   static get isAlphaColorInputSupported() {
-    return shadow(this, "isAlphaColorInputSupported", (() => {
-      if (typeof document === "undefined") {
-        return false;
-      }
-      const input = document.createElement("input");
-      input.type = "color";
-      input.setAttribute("alpha", "");
-      input.value = "#ff000080";
-      return input.value !== "#ff0000";
-    })());
+    if (typeof document === "undefined") {
+      return shadow(this, "isAlphaColorInputSupported", false);
+    }
+    const input = document.createElement("input");
+    input.type = "color";
+    input.setAttribute("alpha", "");
+    input.value = "#ff000080";
+    return shadow(this, "isAlphaColorInputSupported", input.value !== "#ff0000");
   }
 }
 class Util {
@@ -16854,7 +16852,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.0.0";
-const build = "bf9ae76";
+const build = "7ade637";
 
 ;// ./src/display/editor/color_picker.js
 
