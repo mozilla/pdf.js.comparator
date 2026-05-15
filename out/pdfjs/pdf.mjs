@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = 69efba1
+ * pdfjsBuild = 26474b0
  */
 /******/ // The require scope
 /******/ var __webpack_require__ = {};
@@ -555,9 +555,6 @@ class Util {
   }
   static makeHexColor(r, g, b) {
     return `#${this.hexNums[r]}${this.hexNums[g]}${this.hexNums[b]}`;
-  }
-  static domMatrixToTransform(dm) {
-    return [dm.a, dm.b, dm.c, dm.d, dm.e, dm.f];
   }
   static scaleMinMax(transform, minMax) {
     let temp;
@@ -6979,6 +6976,7 @@ class PrintAnnotationStorage extends AnnotationStorage {
 ;// ./src/display/canvas_dependency_tracker.js
 
 
+
 const FORCED_DEPENDENCY_LABEL = "__forcedDependency";
 const {
   floor,
@@ -7661,7 +7659,7 @@ class CanvasImagesTracker {
       newCoords.set(this.#coords);
       this.#coords = newCoords;
     }
-    const transform = Util.domMatrixToTransform(ctx.getTransform());
+    const transform = getCurrentTransform(ctx);
     let coords;
     if (clipBox[0] !== Infinity) {
       const bbox = BBOX_INIT.slice();
@@ -11446,7 +11444,7 @@ class CanvasGraphics {
     }
     this.ctx.save();
     this.ctx.setTransform(1, 0, 0, 1, 0, 0);
-    this.ctx.clearRect(dirtyBox[0], dirtyBox[1], dirtyBox[2] - dirtyBox[0], dirtyBox[3] - dirtyBox[1]);
+    this.ctx.clearRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
     this.ctx.restore();
   }
   composeSMask(ctx, smask, layerCtx, layerBox) {
@@ -16807,7 +16805,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.0.0";
-const build = "69efba1";
+const build = "26474b0";
 
 ;// ./src/display/editor/color_picker.js
 

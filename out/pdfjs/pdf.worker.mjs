@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = 69efba1
+ * pdfjsBuild = 26474b0
  */
 /******/ // The require scope
 /******/ var __webpack_require__ = {};
@@ -546,9 +546,6 @@ class Util {
   }
   static makeHexColor(r, g, b) {
     return `#${this.hexNums[r]}${this.hexNums[g]}${this.hexNums[b]}`;
-  }
-  static domMatrixToTransform(dm) {
-    return [dm.a, dm.b, dm.c, dm.d, dm.e, dm.f];
   }
   static scaleMinMax(transform, minMax) {
     let temp;
