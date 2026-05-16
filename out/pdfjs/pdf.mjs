@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = d27b9ab
+ * pdfjsBuild = 65b8aec
  */
 /******/ // The require scope
 /******/ var __webpack_require__ = {};
@@ -55,6 +55,7 @@ const FONT_IDENTITY_MATRIX = [0.001, 0, 0, 0.001, 0, 0];
 const LINE_FACTOR = 1.35;
 const LINE_DESCENT_FACTOR = 0.35;
 const BASELINE_FACTOR = LINE_DESCENT_FACTOR / LINE_FACTOR;
+const SVG_NS = "http://www.w3.org/2000/svg";
 const RenderingIntentFlag = {
   ANY: 0x01,
   DISPLAY: 0x02,
@@ -1249,7 +1250,6 @@ class XfaLayer {
 
 
 
-const SVG_NS = "http://www.w3.org/2000/svg";
 class PixelsPerInch {
   static CSS = 96.0;
   static PDF = 72.0;
@@ -2163,7 +2163,7 @@ class ImageManager {
   #id = 0;
   #cache = null;
   static get _isSVGFittingCanvas() {
-    const svg = `data:image/svg+xml;charset=UTF-8,<svg viewBox="0 0 1 1" width="1" height="1" xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1" style="fill:red;"/></svg>`;
+    const svg = `data:image/svg+xml;charset=UTF-8,<svg viewBox="0 0 1 1" width="1" height="1" xmlns="${SVG_NS}"><rect width="1" height="1" style="fill:red;"/></svg>`;
     const canvas = new OffscreenCanvas(1, 3);
     const ctx = canvas.getContext("2d", {
       willReadFrequently: true
@@ -16810,7 +16810,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.0.0";
-const build = "d27b9ab";
+const build = "65b8aec";
 
 ;// ./src/display/editor/color_picker.js
 
@@ -17198,7 +17198,6 @@ const DateFormats = (/* unused pure expression or super */ null && (["m/d", "m/d
 const TimeFormats = (/* unused pure expression or super */ null && (["HH:MM", "h:MM tt", "HH:MM:ss", "h:MM:ss tt"]));
 
 ;// ./src/display/svg_factory.js
-
 
 class BaseSVGFactory {
   create(width, height, skipDimensions = false) {
@@ -17771,7 +17770,7 @@ class AnnotationElement {
         borderWidth
       } = style;
       style.borderWidth = 0;
-      svgBuffer = ["url('data:image/svg+xml;utf8,", `<svg xmlns="http://www.w3.org/2000/svg"`, ` preserveAspectRatio="none" viewBox="0 0 1 1">`, `<g fill="transparent" stroke="${borderColor}" stroke-width="${borderWidth}">`];
+      svgBuffer = ["url('data:image/svg+xml;utf8,", `<svg xmlns="${SVG_NS}" preserveAspectRatio="none" viewBox="0 0 1 1">`, `<g fill="transparent" stroke="${borderColor}" stroke-width="${borderWidth}">`];
       this.container.classList.add("hasBorder");
     }
     const width = rectTrX - rectBlX;

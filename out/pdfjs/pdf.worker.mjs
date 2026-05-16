@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = d27b9ab
+ * pdfjsBuild = 65b8aec
  */
 /******/ // The require scope
 /******/ var __webpack_require__ = {};
@@ -55,6 +55,7 @@ const FONT_IDENTITY_MATRIX = [0.001, 0, 0, 0.001, 0, 0];
 const LINE_FACTOR = 1.35;
 const LINE_DESCENT_FACTOR = 0.35;
 const BASELINE_FACTOR = LINE_DESCENT_FACTOR / LINE_FACTOR;
+const SVG_NS = "http://www.w3.org/2000/svg";
 const RenderingIntentFlag = {
   ANY: 0x01,
   DISPLAY: 0x02,
@@ -43699,7 +43700,6 @@ function checkDimensions(node, space) {
 
 
 const TEMPLATE_NS_ID = NamespaceIds.template.id;
-const SVG_NS = "http://www.w3.org/2000/svg";
 const MAX_ATTEMPTS_FOR_LRTB_LAYOUT = 2;
 const MAX_EMPTY_PAGES = 3;
 const DEFAULT_TAB_INDEX = 5000;
