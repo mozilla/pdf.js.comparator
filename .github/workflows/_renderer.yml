@@ -81,7 +81,7 @@ jobs:
     permissions:
       contents: write # local publish-to-gh-pages action pushes to gh-pages
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
@@ -101,7 +101,7 @@ jobs:
           TARGET: ${{ inputs.target }}
         run: node scripts/resolve-upstream.mjs "${TARGET}"
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         if: inputs.needs_node && steps.upstream.outputs.changed == 'true'
         with:
           node-version: "22"
@@ -111,7 +111,7 @@ jobs:
         # No `with: version: …` — let the action's pinned default win so
         # there's a single source of truth for the emsdk version.
 
-      - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9
+      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
         if: inputs.needs_java && steps.upstream.outputs.changed == 'true'
         with:
           distribution: temurin
@@ -146,7 +146,7 @@ jobs:
 
       - name: Upload artifact
         if: steps.upstream.outputs.changed == 'true'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ inputs.name }}
           path: out/${{ inputs.name }}/
