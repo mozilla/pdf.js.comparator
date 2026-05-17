@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = 65b8aec
+ * pdfjsBuild = f290da0
  */
 /******/ // The require scope
 /******/ var __webpack_require__ = {};
@@ -16810,7 +16810,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.0.0";
-const build = "65b8aec";
+const build = "f290da0";
 
 ;// ./src/display/editor/color_picker.js
 
@@ -21319,18 +21319,6 @@ class Outline {
         return [y / parentWidth, 1 - x / parentHeight];
       default:
         return [x / parentWidth, y / parentHeight];
-    }
-  }
-  static _normalizePagePoint(x, y, rotation) {
-    switch (rotation) {
-      case 90:
-        return [1 - y, x];
-      case 180:
-        return [1 - x, 1 - y];
-      case 270:
-        return [y, 1 - x];
-      default:
-        return [x, y];
     }
   }
   static createBezierPoints(x1, y1, x2, y2, x3, y3) {
