@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = abb8e31
+ * pdfjsBuild = 00af759
  */
 /******/ // The require scope
 /******/ var __webpack_require__ = {};
@@ -556,50 +556,6 @@ class Util {
   }
   static makeHexColor(r, g, b) {
     return `#${this.hexNums[r]}${this.hexNums[g]}${this.hexNums[b]}`;
-  }
-  static scaleMinMax(transform, minMax) {
-    let temp;
-    if (transform[0]) {
-      if (transform[0] < 0) {
-        temp = minMax[0];
-        minMax[0] = minMax[2];
-        minMax[2] = temp;
-      }
-      minMax[0] *= transform[0];
-      minMax[2] *= transform[0];
-      if (transform[3] < 0) {
-        temp = minMax[1];
-        minMax[1] = minMax[3];
-        minMax[3] = temp;
-      }
-      minMax[1] *= transform[3];
-      minMax[3] *= transform[3];
-    } else {
-      temp = minMax[0];
-      minMax[0] = minMax[1];
-      minMax[1] = temp;
-      temp = minMax[2];
-      minMax[2] = minMax[3];
-      minMax[3] = temp;
-      if (transform[1] < 0) {
-        temp = minMax[1];
-        minMax[1] = minMax[3];
-        minMax[3] = temp;
-      }
-      minMax[1] *= transform[1];
-      minMax[3] *= transform[1];
-      if (transform[2] < 0) {
-        temp = minMax[0];
-        minMax[0] = minMax[2];
-        minMax[2] = temp;
-      }
-      minMax[0] *= transform[2];
-      minMax[2] *= transform[2];
-    }
-    minMax[0] += transform[4];
-    minMax[1] += transform[5];
-    minMax[2] += transform[4];
-    minMax[3] += transform[5];
   }
   static transform(m1, m2) {
     return [m1[0] * m2[0] + m1[2] * m2[1], m1[1] * m2[0] + m1[3] * m2[1], m1[0] * m2[2] + m1[2] * m2[3], m1[1] * m2[2] + m1[3] * m2[3], m1[0] * m2[4] + m1[2] * m2[5] + m1[4], m1[1] * m2[4] + m1[3] * m2[5] + m1[5]];
@@ -6992,6 +6948,50 @@ function expandBBox(array, index, minX, minY, maxX, maxY) {
   array[index * 4 + 2] = Math.max(array[index * 4 + 2], maxX);
   array[index * 4 + 3] = Math.max(array[index * 4 + 3], maxY);
 }
+function scaleMinMax(transform, minMax) {
+  let temp;
+  if (transform[0]) {
+    if (transform[0] < 0) {
+      temp = minMax[0];
+      minMax[0] = minMax[2];
+      minMax[2] = temp;
+    }
+    minMax[0] *= transform[0];
+    minMax[2] *= transform[0];
+    if (transform[3] < 0) {
+      temp = minMax[1];
+      minMax[1] = minMax[3];
+      minMax[3] = temp;
+    }
+    minMax[1] *= transform[3];
+    minMax[3] *= transform[3];
+  } else {
+    temp = minMax[0];
+    minMax[0] = minMax[1];
+    minMax[1] = temp;
+    temp = minMax[2];
+    minMax[2] = minMax[3];
+    minMax[3] = temp;
+    if (transform[1] < 0) {
+      temp = minMax[1];
+      minMax[1] = minMax[3];
+      minMax[3] = temp;
+    }
+    minMax[1] *= transform[1];
+    minMax[3] *= transform[1];
+    if (transform[2] < 0) {
+      temp = minMax[0];
+      minMax[0] = minMax[2];
+      minMax[2] = temp;
+    }
+    minMax[0] *= transform[2];
+    minMax[2] *= transform[2];
+  }
+  minMax[0] += transform[4];
+  minMax[1] += transform[5];
+  minMax[2] += transform[4];
+  minMax[3] += transform[5];
+}
 const EMPTY_BBOX = new Uint32Array(new Uint8Array([255, 255, 0, 0]).buffer)[0];
 class BBoxReader {
   #bboxes;
@@ -7395,7 +7395,7 @@ class CanvasDependencyTracker {
         computedBBox = [0, 0, 0, 0];
         Util.axialAlignedBoundingBox(fontBBox, font.fontMatrix, computedBBox);
         if (scale !== 1 || x !== 0 || y !== 0) {
-          Util.scaleMinMax([scale, 0, 0, -scale, x, y], computedBBox);
+          scaleMinMax([scale, 0, 0, -scale, x, y], computedBBox);
         }
         if (isBBoxTrustworthy) {
           return this.recordBBox(idx, ctx, computedBBox[0], computedBBox[2], computedBBox[1], computedBBox[3]);
@@ -16810,7 +16810,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.0.0";
-const build = "abb8e31";
+const build = "00af759";
 
 ;// ./src/display/editor/color_picker.js
 
