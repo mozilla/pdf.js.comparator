@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = 5a4d93a
+ * pdfjsBuild = 78cc2e3
  */
 /******/ // The require scope
 /******/ var __webpack_require__ = {};
@@ -16850,7 +16850,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.0.0";
-const build = "5a4d93a";
+const build = "78cc2e3";
 
 ;// ./src/display/editor/color_picker.js
 
@@ -26952,6 +26952,7 @@ class DrawLayer {
   #textLayer = null;
   #filterFactory = null;
   #pageColors = null;
+  #textLayerObserver = null;
   #toUpdate = new Map();
   static #id = 0;
   static #selectionId = 0;
@@ -26980,6 +26981,24 @@ class DrawLayer {
       });
       DrawLayer.#textLayerSet.add(textLayer);
       this.#textLayer = textLayer;
+      this.#textLayerObserver = new MutationObserver(records => {
+        if (!this.#parent || !this.#textLayer?.isConnected || !DrawLayer.#hasSelection()) {
+          return;
+        }
+        for (const {
+          addedNodes
+        } of records) {
+          for (const node of addedNodes) {
+            if (node.nodeType === Node.ELEMENT_NODE && node.classList.contains("endOfContent")) {
+              DrawLayer.#selectionChange();
+              return;
+            }
+          }
+        }
+      });
+      this.#textLayerObserver.observe(textLayer, {
+        childList: true
+      });
       if (DrawLayer.#selectionChangeAC === null) {
         DrawLayer.#selectionChangeAC = new AbortController();
         const {
@@ -27009,6 +27028,9 @@ class DrawLayer {
   setParent(parent) {
     if (!this.#parent) {
       this.#parent = parent;
+      if (this.#textLayer?.isConnected && DrawLayer.#hasSelection()) {
+        DrawLayer.#selectionChange();
+      }
       return;
     }
     if (this.#parent !== parent) {
@@ -27031,6 +27053,13 @@ class DrawLayer {
     textLayerData.selectionDiv = null;
     textLayerData.path = null;
   }
+  static #hasSelection() {
+    const selection = document.getSelection();
+    return !!selection && !selection.isCollapsed;
+  }
+  static #getOrderedTextLayers() {
+    return [...this.#textLayerSet].filter(textLayer => textLayer.isConnected).sort(compareTextLayers);
+  }
   static #selectionChange() {
     const selection = document.getSelection();
     if (!selection || selection.isCollapsed) {
@@ -27041,6 +27070,7 @@ class DrawLayer {
       return;
     }
     const rotators = new WeakMap();
+    const orderedTextLayers = this.#getOrderedTextLayers();
     const ranges = [];
     for (let i = 0, ii = selection.rangeCount; i < ii; i++) {
       const range = selection.getRangeAt(i);
@@ -27088,8 +27118,22 @@ class DrawLayer {
           }
         }
       }
-      if (!startTextLayer || !endTextLayer) {
+      const activeTextLayers = orderedTextLayers.filter(textLayer => range.intersectsNode(textLayer));
+      if (activeTextLayers.length === 0) {
         continue;
+      }
+      let boundarySubstituted = false;
+      if (!startTextLayer) {
+        startTextLayer = activeTextLayers[0];
+        startContainer = startTextLayer;
+        startOffset = 0;
+        boundarySubstituted = true;
+      }
+      if (!endTextLayer) {
+        endTextLayer = activeTextLayers.at(-1);
+        endContainer = endTextLayer;
+        endOffset = endTextLayer.childNodes.length;
+        boundarySubstituted = true;
       }
       if (endContainer.nodeType === Node.ELEMENT_NODE) {
         if (endContainer.classList.contains("endOfContent")) {
@@ -27116,30 +27160,9 @@ class DrawLayer {
         startContainer = normalizedStart.container;
         startOffset = normalizedStart.offset;
       }
-      if (startTextLayer === endTextLayer) {
+      if (startTextLayer === endTextLayer && !boundarySubstituted && activeTextLayers.includes(startTextLayer)) {
         ranges.push([range, startTextLayer]);
         continue;
-      }
-      let activeTextLayers = [];
-      const orderedTextLayers = [...this.#textLayerSet].sort(compareTextLayers);
-      const startIndex = orderedTextLayers.indexOf(startTextLayer);
-      const endIndex = orderedTextLayers.indexOf(endTextLayer);
-      if (startIndex !== -1 && endIndex !== -1) {
-        const [minIndex, maxIndex] = startIndex < endIndex ? [startIndex, endIndex] : [endIndex, startIndex];
-        activeTextLayers = orderedTextLayers.slice(minIndex, maxIndex + 1);
-      } else {
-        for (const textLayer of this.#textLayerSet) {
-          if (range.intersectsNode(textLayer)) {
-            activeTextLayers.push(textLayer);
-          }
-        }
-        if (!activeTextLayers.includes(startTextLayer)) {
-          activeTextLayers.push(startTextLayer);
-        }
-        if (!activeTextLayers.includes(endTextLayer)) {
-          activeTextLayers.push(endTextLayer);
-        }
-        activeTextLayers.sort(compareTextLayers);
       }
       for (const textLayer of activeTextLayers) {
         const firstNode = textLayer.firstChild;
@@ -27427,6 +27450,8 @@ class DrawLayer {
     }
     this.#mapping.clear();
     this.#toUpdate.clear();
+    this.#textLayerObserver?.disconnect();
+    this.#textLayerObserver = null;
     if (this.#textLayer) {
       const data = DrawLayer.#textLayers.get(this.#textLayer);
       if (data?.drawLayer === this) {
