@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = 98e3a85
+ * pdfjsBuild = 25c7d9e
  */
 /******/ // The require scope
 /******/ var __webpack_require__ = {};
@@ -16850,7 +16850,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.0.0";
-const build = "98e3a85";
+const build = "25c7d9e";
 
 ;// ./src/display/editor/color_picker.js
 
