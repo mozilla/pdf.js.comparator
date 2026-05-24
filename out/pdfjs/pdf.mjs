@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = ea18e73
+ * pdfjsBuild = 13a61b1
  */
 /******/ // The require scope
 /******/ var __webpack_require__ = {};
@@ -6948,49 +6948,30 @@ function expandBBox(array, index, minX, minY, maxX, maxY) {
   array[index * 4 + 2] = Math.max(array[index * 4 + 2], maxX);
   array[index * 4 + 3] = Math.max(array[index * 4 + 3], maxY);
 }
-function scaleMinMax(transform, minMax) {
+function scaleCharBBox(scaleX, scaleY, x, y, bbox) {
   let temp;
-  if (transform[0]) {
-    if (transform[0] < 0) {
-      temp = minMax[0];
-      minMax[0] = minMax[2];
-      minMax[2] = temp;
+  if (scaleX) {
+    if (scaleX < 0) {
+      temp = bbox[0];
+      bbox[0] = bbox[2];
+      bbox[2] = temp;
     }
-    minMax[0] *= transform[0];
-    minMax[2] *= transform[0];
-    if (transform[3] < 0) {
-      temp = minMax[1];
-      minMax[1] = minMax[3];
-      minMax[3] = temp;
+    bbox[0] *= scaleX;
+    bbox[2] *= scaleX;
+    if (scaleY < 0) {
+      temp = bbox[1];
+      bbox[1] = bbox[3];
+      bbox[3] = temp;
     }
-    minMax[1] *= transform[3];
-    minMax[3] *= transform[3];
+    bbox[1] *= scaleY;
+    bbox[3] *= scaleY;
   } else {
-    temp = minMax[0];
-    minMax[0] = minMax[1];
-    minMax[1] = temp;
-    temp = minMax[2];
-    minMax[2] = minMax[3];
-    minMax[3] = temp;
-    if (transform[1] < 0) {
-      temp = minMax[1];
-      minMax[1] = minMax[3];
-      minMax[3] = temp;
-    }
-    minMax[1] *= transform[1];
-    minMax[3] *= transform[1];
-    if (transform[2] < 0) {
-      temp = minMax[0];
-      minMax[0] = minMax[2];
-      minMax[2] = temp;
-    }
-    minMax[0] *= transform[2];
-    minMax[2] *= transform[2];
+    bbox.fill(0);
   }
-  minMax[0] += transform[4];
-  minMax[1] += transform[5];
-  minMax[2] += transform[4];
-  minMax[3] += transform[5];
+  bbox[0] += x;
+  bbox[1] += y;
+  bbox[2] += x;
+  bbox[3] += y;
 }
 const EMPTY_BBOX = new Uint32Array(new Uint8Array([255, 255, 0, 0]).buffer)[0];
 class BBoxReader {
@@ -7395,7 +7376,7 @@ class CanvasDependencyTracker {
         computedBBox = [0, 0, 0, 0];
         Util.axialAlignedBoundingBox(fontBBox, font.fontMatrix, computedBBox);
         if (scale !== 1 || x !== 0 || y !== 0) {
-          scaleMinMax([scale, 0, 0, -scale, x, y], computedBBox);
+          scaleCharBBox(scale, -scale, x, y, computedBBox);
         }
         if (isBBoxTrustworthy) {
           return this.recordBBox(idx, ctx, computedBBox[0], computedBBox[2], computedBBox[1], computedBBox[3]);
@@ -16850,7 +16831,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.0.0";
-const build = "ea18e73";
+const build = "13a61b1";
 
 ;// ./src/display/editor/color_picker.js
 
@@ -17988,6 +17969,17 @@ class AnnotationElement {
         mustEnterInEditMode: true
       });
     });
+  }
+  updateOC(optionalContentConfig) {
+    if (!this.data.oc || !optionalContentConfig) {
+      return;
+    }
+    const isVisible = optionalContentConfig.isVisible(this.data.oc);
+    if (isVisible) {
+      this.show();
+    } else {
+      this.hide();
+    }
   }
   get width() {
     return this.data.rect[2] - this.data.rect[0];
@@ -20383,7 +20375,8 @@ class AnnotationLayer {
   }
   async render(params) {
     const {
-      annotations
+      annotations,
+      optionalContentConfig
     } = params;
     const layer = this.div;
     setLayerDimensions(layer, this.viewport);
@@ -20440,6 +20433,7 @@ class AnnotationLayer {
       if (data.hidden) {
         rendered.style.visibility = "hidden";
       }
+      element.updateOC(optionalContentConfig);
       if (element._isEditable) {
         this.#editableAnnotations.set(element.data.id, element);
         this._annotationEditorUIManager?.renderAnnotationElement(element);
@@ -20556,13 +20550,17 @@ class AnnotationLayer {
     await this.#addElementsToDOM();
   }
   update({
-    viewport
+    viewport,
+    optionalContentConfig
   }) {
     const layer = this.div;
     this.viewport = viewport;
     setLayerDimensions(layer, {
       rotation: viewport.rotation
     });
+    for (const element of this.#elements) {
+      element.updateOC(optionalContentConfig);
+    }
     this.#setAnnotationCanvasMap();
     layer.hidden = false;
   }
