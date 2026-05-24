@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = 13a61b1
+ * pdfjsBuild = e6cb600
  */
 /******/ // The require scope
 /******/ var __webpack_require__ = {};
@@ -18645,6 +18645,9 @@ class CFFParser {
       this.emptyPrivateDictionary(parentDict);
       return;
     }
+    if (offset + size > this.bytes.length) {
+      throw new FormatError("CFF Private DICT extends past end of font");
+    }
     const privateDictEnd = offset + size;
     const dictData = this.bytes.subarray(offset, privateDictEnd);
     const dict = this.parseDict(dictData);
@@ -25487,6 +25490,8 @@ class Type1Parser {
       }
     };
     let token, length, data, lenIV;
+    let subrsParsed = false;
+    let charStringsParsed = false;
     while ((token = this.getToken()) !== null) {
       if (token !== "/") {
         continue;
@@ -25494,6 +25499,10 @@ class Type1Parser {
       token = this.getToken();
       switch (token) {
         case "CharStrings":
+          if (charStringsParsed) {
+            break;
+          }
+          charStringsParsed = true;
           this.getToken();
           this.getToken();
           this.getToken();
@@ -25526,6 +25535,10 @@ class Type1Parser {
           }
           break;
         case "Subrs":
+          if (subrsParsed) {
+            break;
+          }
+          subrsParsed = true;
           this.readInt();
           this.getToken();
           while (this.getToken() === "dup") {
@@ -36882,7 +36895,19 @@ class PartialEvaluator {
     }
     const newProperties = await this.extractDataStructures(dict, properties);
     this.extractWidths(dict, descriptor, newProperties);
-    return new Font(fontName.name, fontFile, newProperties, this.options);
+    const font = new Font(fontName.name, fontFile, newProperties, this.options);
+    if (font.missingFile && !font.systemFontInfo && !isType3Font && this.options.useSystemFonts) {
+      const standardFontName = getStandardFontName(fontName.name);
+      const substitution = getFontSubstitution(this.systemFontCache, this.idFactory, this.options.standardFontDataUrl, fontName.name, standardFontName, type);
+      if (substitution) {
+        if (substitution.guessFallback) {
+          substitution.guessFallback = false;
+          substitution.css += `,${font.fallbackName}`;
+        }
+        font.systemFontInfo = substitution;
+      }
+    }
+    return font;
   }
   static buildFontPaths(font, glyphs, handler, evaluatorOptions) {
     function buildPath(fontChar) {
