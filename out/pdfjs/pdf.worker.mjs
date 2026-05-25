@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = 164ffb9
+ * pdfjsBuild = e766198
  */
 
 ;// ./src/shared/util.js
@@ -711,7 +711,7 @@ let NormalizeRegex = null;
 let NormalizationMap = null;
 function normalizeUnicode(str) {
   if (!NormalizeRegex) {
-    NormalizeRegex = /([\u00a0\u00b5\u037e\u0eb3\u2000-\u200a\u202f\u2126\ufb00-\ufb04\ufb06\ufb20-\ufb36\ufb38-\ufb3c\ufb3e\ufb40-\ufb41\ufb43-\ufb44\ufb46-\ufba1\ufba4-\ufba9\ufbae-\ufbb1\ufbd3-\ufbdc\ufbde-\ufbe7\ufbea-\ufbf8\ufbfc-\ufbfd\ufc00-\ufc5d\ufc64-\ufcf1\ufcf5-\ufd3d\ufd88\ufdf4\ufdfa-\ufdfb\ufe71\ufe77\ufe79\ufe7b\ufe7d]+)|(\ufb05+)/gu;
+    NormalizeRegex = /([\u00a0\u00b5\u037e\u0eb3\u2000-\u200a\u202f\u2126\ufb00-\ufb04\ufb06\ufb20-\ufb36\ufb38-\ufb3c\ufb3e\ufb40\ufb41\ufb43\ufb44\ufb46-\ufba1\ufba4-\ufba9\ufbae-\ufbb1\ufbd3-\ufbdc\ufbde-\ufbe7\ufbea-\ufbf8\ufbfc\ufbfd\ufc00-\ufc5d\ufc64-\ufcf1\ufcf5-\ufd3d\ufd88\ufdf4\ufdfa\ufdfb\ufe71\ufe77\ufe79\ufe7b\ufe7d]+)|(\ufb05+)/gu;
     NormalizationMap = new Map([["ﬅ", "ſt"]]);
   }
   return str.replaceAll(NormalizeRegex, (_, p1, p2) => p1 ? p1.normalize("NFKC") : NormalizationMap.get(p2));
@@ -1593,7 +1593,7 @@ function validateFontName(fontFamily, mustWarn = false) {
     }
   } else {
     for (const ident of fontFamily.split(/[ \t]+/)) {
-      if (/^(\d|(-(\d|-)))/.test(ident) || !/^[\w-\\]+$/.test(ident)) {
+      if (/^(?:\d|-[\d-])/.test(ident) || !/^[\w\\-]+$/.test(ident)) {
         if (mustWarn) {
           warn(`FontFamily contains invalid <custom-ident>: ${fontFamily}.`);
         }
@@ -17609,7 +17609,7 @@ function getUnicodeRangeFor(value, lastPosition = -1) {
   }
   return -1;
 }
-const SpecialCharRegExp = new RegExp("^(\\s)|(\\p{Mn})|(\\p{Cf})$", "u");
+const SpecialCharRegExp = /^(\s)|(\p{Mn})|(\p{Cf})$/u;
 const CategoryCache = new Map();
 function getCharUnicodeCategory(char) {
   const cachedCategory = CategoryCache.get(char);
@@ -21189,13 +21189,10 @@ function getFloat214(view, offset) {
 }
 function getSubroutineBias(subrs) {
   const numSubrs = subrs.length;
-  let bias = 32768;
-  if (numSubrs < 1240) {
-    bias = 107;
-  } else if (numSubrs < 33900) {
-    bias = 1131;
+  if (numSubrs >= 33900) {
+    return 32768;
   }
-  return bias;
+  return numSubrs < 1240 ? 107 : 1131;
 }
 function parseCmap(data, start, end) {
   const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
@@ -26819,10 +26816,10 @@ class Font {
         this.capHeight = metrics.capHeight / PDF_GLYPH_SPACE_UNITS;
       }
     }
-    this.bold = /bold/gi.test(fontName);
-    this.italic = /oblique|italic/gi.test(fontName);
-    this.black = /Black/g.test(name);
-    const isNarrow = /Narrow/g.test(name);
+    this.bold = /bold/i.test(fontName);
+    this.italic = /oblique|italic/i.test(fontName);
+    this.black = /Black/.test(name);
+    const isNarrow = /Narrow/.test(name);
     this.remeasure = (!isStandardFont || isNarrow) && Object.keys(this.widths).length > 0;
     if ((isStandardFont || isMappedToStandardFont) && type === "CIDFontType2" && this.cidEncoding.startsWith("Identity-")) {
       const cidToGidMap = properties.cidToGidMap;
@@ -28987,7 +28984,7 @@ class lexer_Lexer {
     this.data = data;
     this.pos = 0;
     this.len = data.length;
-    this._numberPattern = /[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?/y;
+    this._numberPattern = /[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?/iy;
     this._identifierPattern = /[a-z]+/y;
   }
   _skipComment() {
@@ -32254,6 +32251,10 @@ const NORMAL = {
   style: "normal",
   weight: "normal"
 };
+const MEDIUM = {
+  style: "normal",
+  weight: "500"
+};
 const BOLD = {
   style: "normal",
   weight: "bold"
@@ -32401,6 +32402,78 @@ const substitutionMap = new Map([["Times-Roman", {
   ultimate: "serif"
 }], ["\xD0\xC2\xCB\xCE", {
   alias: "\xCB\xCE\xCC\xE5"
+}], ["HeiseiMin-W3", {
+  local: ["Hiragino Mincho ProN", "Hiragino Mincho Pro", "Yu Mincho", "YuMincho", "Source Han Serif JP", "Noto Serif JP", "Noto Serif CJK JP", "IPAexMincho", "IPAMincho", "Takao Mincho", "MS Mincho", "MS PMincho"],
+  style: NORMAL,
+  ultimate: "serif"
+}], ["HeiseiKakuGo-W5", {
+  local: ["Hiragino Kaku Gothic ProN", "Hiragino Kaku Gothic Pro", "Hiragino Sans", "Yu Gothic", "YuGothic", "Source Han Sans JP", "Noto Sans JP", "Noto Sans CJK JP", "IPAexGothic", "IPAGothic", "Takao Gothic", "Meiryo", "MS Gothic", "MS PGothic"],
+  style: MEDIUM,
+  ultimate: "sans-serif"
+}], ["HeiseiMin-W3-Acro", {
+  alias: "HeiseiMin-W3"
+}], ["HeiseiKakuGo-W5-Acro", {
+  alias: "HeiseiKakuGo-W5"
+}], ["KozMinPro-Regular", {
+  alias: "HeiseiMin-W3"
+}], ["KozMinProVI-Regular", {
+  alias: "HeiseiMin-W3"
+}], ["KozMinPr6N-Regular", {
+  alias: "HeiseiMin-W3"
+}], ["KozGoPro-Regular", {
+  alias: "HeiseiKakuGo-W5"
+}], ["KozGoProVI-Regular", {
+  alias: "HeiseiKakuGo-W5"
+}], ["KozGoPr6N-Regular", {
+  alias: "HeiseiKakuGo-W5"
+}], ["STSong-Light", {
+  local: ["STSong", "Songti SC", "Source Han Serif SC", "Source Han Serif CN", "Noto Serif SC", "Noto Serif CJK SC", "AR PL UMing CN", "SimSun", "NSimSun"],
+  style: NORMAL,
+  ultimate: "serif"
+}], ["STHeiti-Regular", {
+  local: ["STHeiti", "Heiti SC", "PingFang SC", "Source Han Sans SC", "Source Han Sans CN", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", "SimHei", "WenQuanYi Zen Hei"],
+  style: NORMAL,
+  ultimate: "sans-serif"
+}], ["STSongStd-Light", {
+  alias: "STSong-Light"
+}], ["AdobeSongStd-Light", {
+  alias: "STSong-Light"
+}], ["AdobeHeitiStd-Regular", {
+  alias: "STHeiti-Regular"
+}], ["AdobeKaitiStd-Regular", {
+  alias: "\xBF\xAC\xCC\xE5"
+}], ["AdobeFangsongStd-Regular", {
+  alias: "\xB7\xC2\xCB\xCE"
+}], ["MSung-Light", {
+  local: ["Songti TC", "LiSong Pro", "Source Han Serif TC", "Source Han Serif TW", "Noto Serif TC", "Noto Serif CJK TC", "AR PL UMing TW", "PMingLiU", "MingLiU", "MingLiU_HKSCS"],
+  style: NORMAL,
+  ultimate: "serif"
+}], ["MHei-Medium", {
+  local: ["Heiti TC", "STHeiti", "Source Han Sans TC", "Source Han Sans TW", "Noto Sans TC", "Noto Sans CJK TC", "PingFang TC", "Microsoft JhengHei"],
+  style: MEDIUM,
+  ultimate: "sans-serif"
+}], ["MSungStd-Light", {
+  alias: "MSung-Light"
+}], ["AdobeMingStd-Light", {
+  alias: "MSung-Light"
+}], ["HYSMyeongJo-Medium", {
+  local: ["AppleMyungjo", "Source Han Serif KR", "Noto Serif KR", "Noto Serif CJK KR", "Nanum Myeongjo", "Batang"],
+  style: MEDIUM,
+  ultimate: "serif"
+}], ["HYGoThic-Medium", {
+  local: ["Apple SD Gothic Neo", "AppleGothic", "Source Han Sans KR", "Noto Sans KR", "Noto Sans CJK KR", "Nanum Gothic", "Malgun Gothic", "Dotum", "Gulim"],
+  style: MEDIUM,
+  ultimate: "sans-serif"
+}], ["HYSMyeongJoStd-Medium", {
+  alias: "HYSMyeongJo-Medium"
+}], ["AdobeMyungjoStd-Medium", {
+  alias: "HYSMyeongJo-Medium"
+}], ["HYGoThic-Bold", {
+  alias: "HYGoThic-Medium",
+  style: BOLD
+}], ["AdobeGothicStd-Bold", {
+  alias: "HYGoThic-Medium",
+  style: BOLD
 }]]);
 const fontAliases = new Map([["Arial-Black", "ArialBlack"]]);
 function getStyleToAppend(style) {
@@ -32501,8 +32574,8 @@ function getFontSubstitution(systemFontCache, idFactory, localFontPath, baseFont
       systemFontCache.set(key, null);
       return null;
     }
-    const bold = /bold/gi.test(baseFontName);
-    const italic = /oblique|italic/gi.test(baseFontName);
+    const bold = /bold/i.test(baseFontName);
+    const italic = /oblique|italic/i.test(baseFontName);
     const style = bold && italic && BOLDITALIC || bold && BOLD || italic && ITALIC || NORMAL;
     substitutionInfo = {
       css: `"${getFamilyName(baseFontName)}",${loadedName}`,
@@ -36493,7 +36566,7 @@ class PartialEvaluator {
   }
   isSerifFont(baseFontName) {
     const fontNameWoStyle = baseFontName.split("-", 1)[0];
-    return fontNameWoStyle in getSerifFonts() || /serif/gi.test(fontNameWoStyle);
+    return fontNameWoStyle in getSerifFonts() || /serif/i.test(fontNameWoStyle);
   }
   getBaseFontMetrics(name) {
     let defaultWidth = 0;
@@ -36675,6 +36748,8 @@ class PartialEvaluator {
     const isType3Font = type === "Type3";
     if (!descriptor) {
       if (isType3Font) {
+        descriptor = Dict.empty;
+      } else if (composite) {
         descriptor = Dict.empty;
       } else {
         let baseFontName = dict.get("BaseFont");
@@ -41737,7 +41812,7 @@ class FontFinder {
     if (font) {
       return font;
     }
-    const pattern = /,|-|_| |bolditalic|bold|italic|regular|it/gi;
+    const pattern = /[,\-_ ]|bolditalic|bold|italic|regular|it/gi;
     let name = fontName.replaceAll(pattern, "");
     font = this.fonts.get(name);
     if (font) {
@@ -49917,7 +49992,7 @@ class Rename extends ContentObject {
   }
   [$finalize]() {
     this[$content] = this[$content].trim();
-    if (this[$content].toLowerCase().startsWith("xml") || new RegExp("[\\p{L}_][\\p{L}\\d._\\p{M}-]*", "u").test(this[$content])) {
+    if (this[$content].toLowerCase().startsWith("xml") || /[\p{L}_][\p{L}\d._\p{M}-]*/u.test(this[$content])) {
       warn("XFA - Rename: invalid XFA name");
     }
   }
@@ -51147,7 +51222,7 @@ function mapStyle(styleStr, node, richText) {
     if (key.endsWith("scale")) {
       style.transform = style.transform ? `${style[key]} ${newValue}` : newValue;
     } else {
-      style[key.replaceAll(/-([a-zA-Z])/g, (_, x) => x.toUpperCase())] = newValue;
+      style[key.replaceAll(/-([a-z])/gi, (_, x) => x.toUpperCase())] = newValue;
     }
   }
   if (style.fontFamily) {
@@ -58733,7 +58808,7 @@ class PDFDocument {
         continue;
       }
       let fontFamily = descriptor.get("FontFamily");
-      fontFamily = fontFamily.replaceAll(/[ ]+(\d)/g, "$1");
+      fontFamily = fontFamily.replaceAll(/ +(\d)/g, "$1");
       const fontWeight = descriptor.get("FontWeight");
       const italicAngle = -descriptor.get("ItalicAngle");
       const cssFontInfo = {
