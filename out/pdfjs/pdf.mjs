@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = 1cb14a0
+ * pdfjsBuild = 164ffb9
  */
 
 ;// ./src/shared/util.js
@@ -9038,6 +9038,7 @@ class DOMFilterFactory extends BaseFilterFactory {
       const {
         style
       } = div;
+      style.colorScheme = "only light";
       style.visibility = "hidden";
       style.contain = "strict";
       style.width = style.height = 0;
@@ -14952,7 +14953,7 @@ class TextLayer {
     let ctx = this.#canvasContexts.get(lang ||= "");
     if (!ctx) {
       const canvas = document.createElement("canvas");
-      canvas.style.cssText = "position:absolute;top:0;left:0;width:0;height:0;display:none";
+      canvas.style.cssText = "position:absolute;top:0;left:0;width:0;height:0;display:none;" + "letter-spacing:normal;word-spacing:normal";
       canvas.lang = lang;
       document.body.append(canvas);
       ctx = canvas.getContext("2d", {
@@ -16809,7 +16810,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.0.0";
-const build = "1cb14a0";
+const build = "164ffb9";
 
 ;// ./src/display/editor/color_picker.js
 
