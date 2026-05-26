@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = 6a1368a
+ * pdfjsBuild = b849567
  */
 
 ;// ./src/shared/util.js
@@ -9352,10 +9352,13 @@ async function JBig2(moduleArg = {}) {
   var Module = moduleArg;
   var ENVIRONMENT_IS_WEB = true;
   var ENVIRONMENT_IS_WORKER = false;
+  var arguments_ = [];
+  var thisProgram = "./this.program";
   var quit_ = (status, toThrow) => {
     throw toThrow;
   };
   var _scriptName = import.meta.url;
+  var scriptDirectory = "";
   var readAsync, readBinary;
   if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
     try {
@@ -10172,11 +10175,13 @@ async function OpenJPEG(moduleArg = {}) {
   var Module = moduleArg;
   var ENVIRONMENT_IS_WEB = true;
   var ENVIRONMENT_IS_WORKER = false;
+  var arguments_ = [];
   var thisProgram = "./this.program";
   var quit_ = (status, toThrow) => {
     throw toThrow;
   };
   var _scriptName = import.meta.url;
+  var scriptDirectory = "";
   var readAsync, readBinary;
   if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
     try {
@@ -10197,6 +10202,8 @@ async function OpenJPEG(moduleArg = {}) {
   var wasmBinary;
   var ABORT = false;
   var EXITSTATUS;
+  class EmscriptenEH {}
+  class EmscriptenSjLj extends EmscriptenEH {}
   var readyPromiseResolve, readyPromiseReject;
   var runtimeInitialized = false;
   function updateMemoryViews() {
