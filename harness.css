@@ -21,6 +21,7 @@
   --error: #c8102e;
   --error-tint: rgba(200, 16, 46, 0.1);
   --ok: #058b00;
+  --ok-tint: rgba(5, 139, 0, 0.1);
 
   --radius-sm: 6px;
   --radius: 10px;
@@ -154,6 +155,23 @@ body {
   max-width: 56rem;
   font-size: 1rem;
   color: var(--muted);
+}
+/* Privacy reassurance pill — the harness never uploads the PDF, and
+   that's worth saying explicitly up-front for first-time visitors. */
+.privacy-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.85rem 0 0;
+  padding: 0.3rem 0.7rem 0.3rem 0.55rem;
+  font-size: 0.82rem;
+  color: var(--ok);
+  background: var(--ok-tint, rgba(5, 139, 0, 0.1));
+  border: 1px solid rgba(5, 139, 0, 0.25);
+  border-radius: 999px;
+}
+.privacy-note svg {
+  flex-shrink: 0;
 }
 
 /* ── controls ───────────────────────────────────────────────────── */
