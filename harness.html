@@ -4,136 +4,505 @@
   <head>
     <meta charset="utf-8" />
     <title>pdf.js.comparator harness</title>
-    <!-- Zilla Slab Highlight powers the "moz://a" wordmark in the top-left
-         corner. preconnect cuts the font-fetch latency on first paint. -->
+    <!-- Inter is the body face; Zilla Slab Highlight is reserved for the
+         "moz://a" wordmark in the top-left corner. preconnect cuts the
+         font-fetch latency on first paint. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Zilla+Slab+Highlight:wght@700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Zilla+Slab+Highlight:wght@700&display=swap"
       rel="stylesheet"
     />
     <style>
       :root {
-        --border: #ccc;
-        --error: #b00;
-        --heading: #444;
-        --mono: ui-monospace, monospace;
-        --muted: #555;
-        --text: #222;
+        /* Firefox Photon-derived palette: warm off-white surface, ink
+           foreground, Mozilla purple as the single accent. */
+        --bg: #faf8f5;
+        --bg-grad-1: #fbf3ec;
+        --bg-grad-2: #f3edff;
+        --surface: #ffffff;
+        --surface-sunken: #f5f2ee;
+        --ink: #15141a;
+        --ink-2: #3a3944;
+        --muted: #6e6e78;
+        --border: #e7e3dd;
+        --border-strong: #d2cec7;
+        --accent: #9059ff;
+        --accent-strong: #7c3aed;
+        --accent-tint: rgba(144, 89, 255, 0.1);
+        --accent-ring: rgba(144, 89, 255, 0.25);
+        --warn: #ff9400;
+        --error: #c8102e;
+        --error-tint: rgba(200, 16, 46, 0.1);
+        --ok: #058b00;
+
+        --radius-sm: 6px;
+        --radius: 10px;
+        --radius-lg: 16px;
+        --shadow-sm: 0 1px 2px rgba(20, 20, 30, 0.04);
+        --shadow:
+          0 1px 2px rgba(20, 20, 30, 0.04), 0 4px 12px rgba(20, 20, 30, 0.05);
+
+        --mono:
+          "JetBrains Mono", ui-monospace, "SF Mono", "Menlo", "Consolas",
+          monospace;
+        --sans:
+          "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
 
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html {
+        background: var(--bg);
+      }
       body {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        /* top margin clears the fixed-positioned .moz-corner (bottom edge
-           ~2.6rem) and .github-corner (~3.05rem) so the h1 doesn't sit
-           underneath either of them. */
-        margin: 3.5rem 1rem 1rem;
-        color: var(--text);
+        font-family: var(--sans);
+        font-size: 15px;
+        line-height: 1.5;
+        color: var(--ink);
+        margin: 0;
+        padding: 4.5rem 1.5rem 3rem;
+        /* Soft brand-gradient blob behind the hero. */
+        background:
+          radial-gradient(
+            ellipse 60rem 32rem at 50% -10rem,
+            var(--bg-grad-2) 0%,
+            transparent 60%
+          ),
+          radial-gradient(
+            ellipse 50rem 24rem at 90% -6rem,
+            var(--bg-grad-1) 0%,
+            transparent 55%
+          ),
+          var(--bg);
+        background-repeat: no-repeat;
 
         &.drag-over::before {
           content: "";
           position: fixed;
-          inset: 0.5rem;
-          border: 2px dashed var(--heading);
-          background: rgb(255 255 255 / 0.55);
+          inset: 1rem;
+          border: 2px dashed var(--accent);
+          border-radius: var(--radius-lg);
+          background: rgba(255, 255, 255, 0.6);
           pointer-events: none;
           z-index: 1000;
         }
       }
 
       /* Mozilla "moz://a" wordmark in the top-left corner. Renders with
-         Zilla Slab Highlight, the slab serif Mozilla's wordmark uses (each
-         glyph sits on a coloured highlight rectangle). z-index sits below
-         the drag-over overlay (1000) so dropping a PDF still works. */
+         Zilla Slab Highlight, the slab serif Mozilla's wordmark uses. */
       .moz-corner {
         position: fixed;
-        top: 0.5rem;
-        left: 0.5rem;
+        top: 1rem;
+        left: 1rem;
         z-index: 100;
         font-family: "Zilla Slab Highlight", "Zilla Slab", serif;
         font-weight: 700;
         font-size: 1.5rem;
         line-height: 1;
-        color: #000;
+        color: var(--ink);
         text-decoration: none;
-        padding: 0.3rem 0.5rem;
-        border-radius: 4px;
-        transition: background 0.15s ease;
+        padding: 0.35rem 0.6rem;
+        border-radius: var(--radius-sm);
+        transition:
+          background 0.15s ease,
+          transform 0.15s ease;
       }
       .moz-corner:hover,
       .moz-corner:focus-visible {
-        background: rgb(0 0 0 / 0.08);
+        background: rgba(0, 0, 0, 0.06);
         outline: none;
+        transform: translateY(-1px);
       }
 
-      /* Small "view source" mark in the top-right corner. Uses inline SVG
-         so the harness stays self-contained. z-index sits below the
-         drag-over overlay (1000) so dropping a PDF doesn't get blocked. */
       .github-corner {
         position: fixed;
-        top: 0.5rem;
-        right: 0.5rem;
+        top: 1rem;
+        right: 1rem;
         z-index: 100;
-        color: var(--heading);
+        color: var(--ink-2);
         display: inline-flex;
-        padding: 0.4rem;
-        border-radius: 50%;
+        padding: 0.45rem;
+        border-radius: 999px;
         text-decoration: none;
-        transition: background 0.15s ease;
+        transition:
+          background 0.15s ease,
+          color 0.15s ease,
+          transform 0.15s ease;
       }
       .github-corner:hover,
       .github-corner:focus-visible {
-        background: rgb(0 0 0 / 0.08);
+        background: rgba(0, 0, 0, 0.06);
+        color: var(--accent);
         outline: none;
+        transform: translateY(-1px);
       }
 
-      .row {
-        display: flex;
-        gap: 0.75rem;
-        align-items: center;
-        flex-wrap: wrap;
-        margin-bottom: 0.75rem;
+      /* ── hero ───────────────────────────────────────────────────────── */
+      .hero {
+        max-width: 80rem;
+        margin: 0 auto 2rem;
+        padding: 0 0.25rem;
+      }
+      .hero h1 {
+        font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        line-height: 1.15;
+        margin: 0 0 0.5rem;
+      }
+      .hero h1 .accent {
+        background: linear-gradient(
+          135deg,
+          var(--accent) 0%,
+          #ff7139 70%,
+          #ffa436 100%
+        );
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+      .hero .lede {
+        margin: 0;
+        max-width: 56rem;
+        font-size: 1rem;
+        color: var(--muted);
       }
 
-      label {
-        display: inline-flex;
-        gap: 0.25rem;
-        align-items: center;
+      /* ── controls ───────────────────────────────────────────────────── */
+      .controls {
+        max-width: 80rem;
+        margin: 0 auto;
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       }
-
-      input[type="number"] {
-        width: 5rem;
+      .controls .card-drop,
+      .controls .card-wide {
+        grid-column: 1 / -1;
       }
-
-      button {
-        padding: 0.25rem 0.75rem;
-      }
-
-      fieldset {
-        padding: 0.25rem 0.5rem;
-
-        & legend {
-          font-size: 0.85rem;
-          color: var(--muted);
+      @media (max-width: 56rem) {
+        .controls {
+          grid-template-columns: minmax(0, 1fr);
         }
       }
 
-      #status {
-        font-family: var(--mono);
-        font-size: 0.85rem;
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 1.1rem 1.25rem 1.25rem;
+        box-shadow: var(--shadow-sm);
+      }
+      .card-title {
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
         color: var(--muted);
-        min-height: 1.2em;
+        margin: 0 0 0.85rem;
+      }
 
+      /* file drop zone — visually obvious target since drag-and-drop is
+         the harness's primary entry point */
+      .dropzone {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        padding: 1.5rem 1rem;
+        border: 1.5px dashed var(--border-strong);
+        border-radius: var(--radius);
+        background: var(--surface-sunken);
+        color: var(--muted);
+        cursor: pointer;
+        text-align: center;
+        transition:
+          border-color 0.15s ease,
+          background 0.15s ease,
+          color 0.15s ease;
+      }
+      .dropzone:hover,
+      .dropzone:focus-within {
+        border-color: var(--accent);
+        background: var(--accent-tint);
+        color: var(--ink);
+      }
+      .dropzone-icon {
+        font-size: 1.5rem;
+        line-height: 1;
+        color: var(--accent);
+      }
+      .dropzone-text {
+        font-size: 0.95rem;
+      }
+      .dropzone-text strong {
+        color: var(--accent-strong);
+        font-weight: 600;
+      }
+      .dropzone-hint {
+        font-size: 0.8rem;
+        color: var(--muted);
+        font-family: var(--mono);
+      }
+      /* hide the native file input but keep it interactive over the zone */
+      .dropzone input[type="file"] {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: inherit;
+      }
+
+      .field-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+        gap: 0.85rem 1rem;
+        align-items: end;
+      }
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+        min-width: 0;
+      }
+      .field-label {
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+      }
+      .field-hint {
+        font-size: 0.78rem;
+        color: var(--muted);
+        font-family: var(--mono);
+      }
+
+      input[type="number"],
+      select {
+        width: 100%;
+        font: inherit;
+        color: var(--ink);
+        background: var(--surface);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
+        padding: 0.45rem 0.65rem;
+        transition:
+          border-color 0.15s ease,
+          box-shadow 0.15s ease;
+      }
+      input[type="number"]:hover,
+      select:hover {
+        border-color: var(--ink-2);
+      }
+      input[type="number"]:focus,
+      select:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-ring);
+      }
+      select {
+        appearance: none;
+        background-image:
+          linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+          linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+        background-position:
+          calc(100% - 0.95rem) 50%,
+          calc(100% - 0.55rem) 50%;
+        background-size:
+          5px 5px,
+          5px 5px;
+        background-repeat: no-repeat;
+        padding-right: 1.6rem;
+      }
+
+      /* toggle (custom checkbox) — used for antialias / transparent */
+      .toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+        font-size: 0.9rem;
+        user-select: none;
+      }
+      .toggle input[type="checkbox"] {
+        appearance: none;
+        width: 1.05rem;
+        height: 1.05rem;
+        border: 1.5px solid var(--border-strong);
+        border-radius: 4px;
+        background: var(--surface);
+        cursor: pointer;
+        flex-shrink: 0;
+        position: relative;
+        transition:
+          border-color 0.15s ease,
+          background 0.15s ease;
+      }
+      .toggle input[type="checkbox"]:hover {
+        border-color: var(--ink-2);
+      }
+      .toggle input[type="checkbox"]:checked {
+        background: var(--accent);
+        border-color: var(--accent);
+      }
+      .toggle input[type="checkbox"]:checked::after {
+        content: "";
+        position: absolute;
+        left: 3px;
+        top: 0;
+        width: 5px;
+        height: 9px;
+        border: solid #fff;
+        border-width: 0 2px 2px 0;
+        transform: rotate(45deg);
+      }
+      .toggle input[type="checkbox"]:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px var(--accent-ring);
+      }
+
+      /* renderer chips — pill checkboxes with per-engine accent dot */
+      .chip-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.35rem 0.75rem 0.35rem 0.6rem;
+        border: 1px solid var(--border-strong);
+        background: var(--surface);
+        border-radius: 999px;
+        font-size: 0.85rem;
+        font-family: var(--mono);
+        color: var(--ink-2);
+        cursor: pointer;
+        user-select: none;
+        transition:
+          border-color 0.15s ease,
+          background 0.15s ease,
+          color 0.15s ease,
+          box-shadow 0.15s ease;
+      }
+      .chip:hover {
+        border-color: var(--ink-2);
+      }
+      .chip input[type="checkbox"] {
+        appearance: none;
+        width: 0.6rem;
+        height: 0.6rem;
+        border-radius: 50%;
+        background: var(--border-strong);
+        margin: 0;
+        cursor: pointer;
+        transition: background 0.15s ease;
+      }
+      .chip:has(input:checked) {
+        border-color: var(--accent);
+        background: var(--accent-tint);
+        color: var(--ink);
+      }
+      .chip:has(input:checked) input[type="checkbox"] {
+        background: var(--engine, var(--accent));
+        box-shadow: 0 0 0 2px var(--accent-tint);
+      }
+      .chip:has(input:focus-visible) {
+        box-shadow: 0 0 0 3px var(--accent-ring);
+      }
+      .chip[data-engine="cairo"] {
+        --engine: #ff7139;
+      }
+      .chip[data-engine="splash"] {
+        --engine: #ffa436;
+      }
+      .chip[data-engine="pdfium"] {
+        --engine: #4285f4;
+      }
+      .chip[data-engine="mupdf"] {
+        --engine: #d9434c;
+      }
+      .chip[data-engine="pdfjs"] {
+        --engine: #9059ff;
+      }
+      .chip[data-engine="pdfbox"] {
+        --engine: #00b287;
+      }
+      .chip[data-engine="gs"] {
+        --engine: #6a737d;
+      }
+      .chip[data-engine="xpdf"] {
+        --engine: #b16cea;
+      }
+      .chip[data-engine="icepdf"] {
+        --engine: #00a4dc;
+      }
+
+      /* ── status pill ────────────────────────────────────────────────── */
+      .status-wrap {
+        max-width: 80rem;
+        margin: 1.25rem auto 0;
+      }
+      #status {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.55rem;
+        font-family: var(--mono);
+        font-size: 0.82rem;
+        color: var(--ink-2);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 0.35rem 0.9rem 0.35rem 0.7rem;
+        min-height: 1.6rem;
+        box-shadow: var(--shadow-sm);
+
+        &::before {
+          content: "";
+          width: 0.5rem;
+          height: 0.5rem;
+          border-radius: 50%;
+          background: var(--accent);
+          box-shadow: 0 0 0 3px var(--accent-tint);
+          flex-shrink: 0;
+          animation: status-pulse 1.6s ease-in-out infinite;
+        }
         &.err {
           color: var(--error);
+          background: var(--error-tint);
+          border-color: rgba(200, 16, 46, 0.3);
+        }
+        &.err::before {
+          background: var(--error);
+          box-shadow: 0 0 0 3px var(--error-tint);
+          animation: none;
+        }
+      }
+      @keyframes status-pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.4;
         }
       }
 
+      /* ── renders grid ───────────────────────────────────────────────── */
       #renders {
+        max-width: 80rem;
+        margin: 1.5rem auto 0;
         display: flex;
         flex-wrap: wrap;
-        gap: 1rem;
-        margin-top: 1rem;
+        gap: 1.25rem;
         align-items: flex-start;
 
         & > .render {
@@ -142,20 +511,33 @@
           display: flex;
           flex-direction: column;
           align-items: flex-start;
-          gap: 0.25rem;
+          gap: 0.5rem;
+          padding: 0.85rem;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: var(--radius);
+          box-shadow: var(--shadow-sm);
+          transition: box-shadow 0.2s ease;
+
+          &:hover {
+            box-shadow: var(--shadow);
+          }
 
           & > h3 {
             margin: 0;
-            font-size: 0.85rem;
+            font-size: 0.78rem;
             font-family: var(--mono);
-            color: var(--muted);
+            font-weight: 500;
+            color: var(--ink-2);
+            letter-spacing: 0.01em;
           }
         }
       }
 
       .canvas-wrap {
         border: 1px solid var(--border);
-        background: repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 50% /
+        border-radius: var(--radius-sm);
+        background: repeating-conic-gradient(#eeeae5 0% 25%, #fff 0% 50%) 50% /
           16px 16px;
         width: fit-content;
         max-width: 100%;
@@ -166,17 +548,25 @@
         }
       }
 
+      /* ── diffs ──────────────────────────────────────────────────────── */
       #diffs {
-        margin-top: 1rem;
+        max-width: 80rem;
+        margin: 1.5rem auto 0;
 
         & .pair {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: var(--radius-lg);
+          padding: 1rem 1.25rem 1.25rem;
           margin-bottom: 1.25rem;
+          box-shadow: var(--shadow-sm);
 
           & > h2 {
-            margin: 0 0 0.5rem;
-            font-size: 0.95rem;
+            margin: 0 0 0.85rem;
+            font-size: 0.9rem;
             font-family: var(--mono);
-            color: var(--heading);
+            font-weight: 600;
+            color: var(--ink);
           }
 
           & .pair-row {
@@ -191,15 +581,19 @@
               display: flex;
               flex-direction: column;
               align-items: flex-start;
-              gap: 0.25rem;
+              gap: 0.35rem;
               font-family: var(--mono);
-              font-size: 0.8rem;
+              font-size: 0.78rem;
               color: var(--muted);
+              padding: 0.75rem;
+              background: var(--surface-sunken);
+              border-radius: var(--radius-sm);
 
               & > h3 {
                 margin: 0;
-                font-size: 0.8rem;
-                color: var(--heading);
+                font-size: 0.78rem;
+                font-weight: 600;
+                color: var(--ink);
               }
             }
           }
@@ -209,7 +603,7 @@
       .diff-info,
       .diff-note {
         font-family: var(--mono);
-        font-size: 0.8rem;
+        font-size: 0.78rem;
       }
 
       .diff-info {
@@ -223,18 +617,22 @@
       .diff-image {
         display: block;
         border: 1px solid var(--border);
+        border-radius: 4px;
       }
 
       .ssim-readout {
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 1.2rem;
+        font-size: 1.25rem;
+        font-weight: 600;
         font-family: var(--mono);
-        color: var(--text);
+        color: var(--ink);
+        background: var(--surface);
         border: 1px solid var(--border);
-        padding: 0.5rem 1rem;
-        min-width: 8rem;
+        border-radius: var(--radius-sm);
+        padding: 0.75rem 1rem;
+        min-width: 9rem;
       }
     </style>
   </head>
@@ -269,95 +667,164 @@
         ></path>
       </svg>
     </a>
-    <h1>pdf.js.comparator harness</h1>
-    <div class="row">
-      <label
-        >PDF:
-        <input type="file" id="file" accept="application/pdf,.pdf" disabled
-      /></label>
+    <header class="hero">
+      <h1>pdf.js<span class="accent">.comparator</span></h1>
+      <p class="lede">
+        Render the same PDF page through pdf.js and reference engines
+        side-by-side, then diff the bitmaps with six image-similarity algorithms
+        — all in your browser.
+      </p>
+    </header>
+
+    <main class="controls">
+      <section class="card card-drop" aria-labelledby="card-doc">
+        <h2 id="card-doc" class="card-title">Document</h2>
+        <label class="dropzone">
+          <span class="dropzone-icon" aria-hidden="true">⬆</span>
+          <span class="dropzone-text"
+            >Drop a PDF here or <strong>click to browse</strong></span
+          >
+          <span class="dropzone-hint">accepts application/pdf</span>
+          <input type="file" id="file" accept="application/pdf,.pdf" disabled />
+        </label>
+      </section>
+
+      <section class="card" aria-labelledby="card-page">
+        <h2 id="card-page" class="card-title">Page &amp; options</h2>
+        <div class="field-grid">
+          <label class="field">
+            <span class="field-label">Page</span>
+            <input type="number" id="page" value="1" min="1" step="1" />
+            <span id="pages" class="field-hint"></span>
+          </label>
+          <label class="field">
+            <span class="field-label">DPI</span>
+            <input type="number" id="dpi" value="96" min="1" step="1" />
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="antialias" checked />
+            <span>antialias</span>
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="transparent" />
+            <span>transparent bg</span>
+          </label>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="card-cmp">
+        <h2 id="card-cmp" class="card-title">Comparison pair</h2>
+        <div class="field-grid">
+          <label class="field">
+            <span class="field-label">From</span>
+            <select id="compare-a">
+              <option value="pdfjs" selected>pdf.js</option>
+              <option value="cairo">cairo</option>
+              <option value="splash">splash</option>
+              <option value="pdfium">pdfium</option>
+              <option value="mupdf">mupdf</option>
+              <option value="pdfbox">pdfbox</option>
+              <option value="gs">gs</option>
+              <option value="xpdf">xpdf</option>
+              <option value="icepdf">icepdf</option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="field-label">To</span>
+            <select id="compare-b">
+              <option value="cairo">cairo</option>
+              <option value="splash">splash</option>
+              <option value="pdfium" selected>pdfium</option>
+              <option value="mupdf">mupdf</option>
+              <option value="pdfjs">pdf.js</option>
+              <option value="pdfbox">pdfbox</option>
+              <option value="gs">gs</option>
+              <option value="xpdf">xpdf</option>
+              <option value="icepdf">icepdf</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <section class="card card-wide" aria-labelledby="card-rend">
+        <h2 id="card-rend" class="card-title">Renderers</h2>
+        <div class="chip-row">
+          <label class="chip" data-engine="cairo"
+            ><input
+              type="checkbox"
+              class="renderer"
+              value="cairo"
+              checked
+            /><span>cairo</span></label
+          >
+          <label class="chip" data-engine="splash"
+            ><input
+              type="checkbox"
+              class="renderer"
+              value="splash"
+              checked
+            /><span>splash</span></label
+          >
+          <label class="chip" data-engine="pdfium"
+            ><input
+              type="checkbox"
+              class="renderer"
+              value="pdfium"
+              checked
+            /><span>pdfium</span></label
+          >
+          <label class="chip" data-engine="mupdf"
+            ><input
+              type="checkbox"
+              class="renderer"
+              value="mupdf"
+              checked
+            /><span>mupdf</span></label
+          >
+          <label class="chip" data-engine="pdfjs"
+            ><input
+              type="checkbox"
+              class="renderer"
+              value="pdfjs"
+              checked
+            /><span>pdf.js</span></label
+          >
+          <label class="chip" data-engine="pdfbox"
+            ><input
+              type="checkbox"
+              class="renderer"
+              value="pdfbox"
+              checked
+            /><span>pdfbox</span></label
+          >
+          <label class="chip" data-engine="gs"
+            ><input type="checkbox" class="renderer" value="gs" checked /><span
+              >ghostscript</span
+            ></label
+          >
+          <label class="chip" data-engine="xpdf"
+            ><input
+              type="checkbox"
+              class="renderer"
+              value="xpdf"
+              checked
+            /><span>xpdf</span></label
+          >
+          <label class="chip" data-engine="icepdf"
+            ><input
+              type="checkbox"
+              class="renderer"
+              value="icepdf"
+              checked
+            /><span>icepdf</span></label
+          >
+        </div>
+      </section>
+    </main>
+
+    <div class="status-wrap">
+      <div id="status" role="status" aria-live="polite">loading wasm…</div>
     </div>
-    <div class="row">
-      <label
-        >Page: <input type="number" id="page" value="1" min="1" step="1"
-      /></label>
-      <span id="pages"></span>
-      <label
-        >DPI: <input type="number" id="dpi" value="96" min="1" step="1"
-      /></label>
-      <label><input type="checkbox" id="antialias" checked /> antialias</label>
-      <label><input type="checkbox" id="transparent" /> transparent bg</label>
-      <fieldset>
-        <legend>renderer</legend>
-        <label
-          ><input type="checkbox" class="renderer" value="cairo" checked />
-          cairo</label
-        >
-        <label
-          ><input type="checkbox" class="renderer" value="splash" checked />
-          splash</label
-        >
-        <label
-          ><input type="checkbox" class="renderer" value="pdfium" checked />
-          pdfium</label
-        >
-        <label
-          ><input type="checkbox" class="renderer" value="mupdf" checked />
-          mupdf</label
-        >
-        <label
-          ><input type="checkbox" class="renderer" value="pdfjs" checked />
-          pdfjs</label
-        >
-        <label
-          ><input type="checkbox" class="renderer" value="pdfbox" checked />
-          pdfbox</label
-        >
-        <label
-          ><input type="checkbox" class="renderer" value="gs" checked />
-          gs</label
-        >
-        <label
-          ><input type="checkbox" class="renderer" value="xpdf" checked />
-          xpdf</label
-        >
-        <label
-          ><input type="checkbox" class="renderer" value="icepdf" checked />
-          icepdf</label
-        >
-      </fieldset>
-      <fieldset>
-        <legend>comparison</legend>
-        <label
-          >from
-          <select id="compare-a">
-            <option value="pdfjs" selected>pdf.js</option>
-            <option value="cairo">cairo</option>
-            <option value="splash">splash</option>
-            <option value="pdfium">pdfium</option>
-            <option value="mupdf">mupdf</option>
-            <option value="pdfbox">pdfbox</option>
-            <option value="gs">gs</option>
-            <option value="xpdf">xpdf</option>
-            <option value="icepdf">icepdf</option>
-          </select></label
-        >
-        <label
-          >to
-          <select id="compare-b">
-            <option value="cairo">cairo</option>
-            <option value="splash">splash</option>
-            <option value="pdfium" selected>pdfium</option>
-            <option value="mupdf">mupdf</option>
-            <option value="pdfjs">pdf.js</option>
-            <option value="pdfbox">pdfbox</option>
-            <option value="gs">gs</option>
-            <option value="xpdf">xpdf</option>
-            <option value="icepdf">icepdf</option>
-          </select></label
-        >
-      </fieldset>
-    </div>
-    <div id="status">loading wasm…</div>
     <div id="renders"></div>
     <div id="diffs"></div>
 
