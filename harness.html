@@ -768,13 +768,19 @@
         dom.diffs.replaceChildren();
 
         const pair = el("div", "pair");
-        pair.appendChild(
+        const head = el("div", "pair-head");
+        head.appendChild(
           el(
             "h2",
             "",
             `${rendererLabel(compareA)} ↔ ${rendererLabel(compareB)}`,
           ),
         );
+        const headBadge = el("span", "pair-badge");
+        headBadge.appendChild(el("span", "spinner"));
+        headBadge.appendChild(document.createTextNode("computing diffs…"));
+        head.appendChild(headBadge);
+        pair.appendChild(head);
         dom.diffs.appendChild(pair);
 
         if (compareA === compareB) {
@@ -888,13 +894,24 @@
         pair.insertBefore(progress, row);
 
         let diffDoneCount = 0;
+        const diffStart = performance.now();
         const bumpDiffStatus = () => {
           diffDoneCount++;
           if (staleDiff(myGen, myDiffGen)) return;
           const pct = (diffDoneCount / allNames.length) * 100;
           progressFill.style.width = `${pct}%`;
+          headBadge.replaceChildren();
           if (diffDoneCount >= allNames.length) {
             progress.classList.add("done");
+            headBadge.classList.add("done");
+            headBadge.textContent = `${allNames.length} diff${allNames.length === 1 ? "" : "s"} in ${(performance.now() - diffStart).toFixed(0)} ms`;
+          } else {
+            headBadge.appendChild(el("span", "spinner"));
+            headBadge.appendChild(
+              document.createTextNode(
+                `computing diffs… ${diffDoneCount}/${allNames.length}`,
+              ),
+            );
           }
           setStatus(
             diffDoneCount < allNames.length
