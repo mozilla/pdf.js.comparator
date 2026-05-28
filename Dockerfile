@@ -221,6 +221,7 @@ WORKDIR /www
 COPY docker/nginx.conf /etc/nginx/nginx.conf
 COPY harness.html /www/index.html
 COPY harness.html /www/harness.html
+COPY harness.css  /www/harness.css
 COPY workers      /www/workers
 COPY --from=cairo       /js/cairo       /www/out/cairo
 COPY --from=splash      /js/splash      /www/out/splash

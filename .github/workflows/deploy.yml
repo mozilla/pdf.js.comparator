@@ -16,6 +16,7 @@ on:
       - "build.js"
       - "eslint.config.mjs"
       - "harness.html"
+      - "harness.css"
       - "package-lock.json"
       - "package.json"
       - "src/common/**"
@@ -62,6 +63,7 @@ jobs:
           mkdir -p site
           cp harness.html site/index.html
           cp harness.html site/harness.html
+          cp harness.css  site/harness.css
           cp -R workers site/workers
           touch site/.nojekyll
 
