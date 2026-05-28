@@ -4,239 +4,16 @@
   <head>
     <meta charset="utf-8" />
     <title>pdf.js.comparator harness</title>
-    <!-- Zilla Slab Highlight powers the "moz://a" wordmark in the top-left
-         corner. preconnect cuts the font-fetch latency on first paint. -->
+    <!-- Inter is the body face; Zilla Slab Highlight is reserved for the
+         "moz://a" wordmark in the top-left corner. preconnect cuts the
+         font-fetch latency on first paint. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Zilla+Slab+Highlight:wght@700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Zilla+Slab+Highlight:wght@700&display=swap"
       rel="stylesheet"
     />
-    <style>
-      :root {
-        --border: #ccc;
-        --error: #b00;
-        --heading: #444;
-        --mono: ui-monospace, monospace;
-        --muted: #555;
-        --text: #222;
-      }
-
-      body {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        /* top margin clears the fixed-positioned .moz-corner (bottom edge
-           ~2.6rem) and .github-corner (~3.05rem) so the h1 doesn't sit
-           underneath either of them. */
-        margin: 3.5rem 1rem 1rem;
-        color: var(--text);
-
-        &.drag-over::before {
-          content: "";
-          position: fixed;
-          inset: 0.5rem;
-          border: 2px dashed var(--heading);
-          background: rgb(255 255 255 / 0.55);
-          pointer-events: none;
-          z-index: 1000;
-        }
-      }
-
-      /* Mozilla "moz://a" wordmark in the top-left corner. Renders with
-         Zilla Slab Highlight, the slab serif Mozilla's wordmark uses (each
-         glyph sits on a coloured highlight rectangle). z-index sits below
-         the drag-over overlay (1000) so dropping a PDF still works. */
-      .moz-corner {
-        position: fixed;
-        top: 0.5rem;
-        left: 0.5rem;
-        z-index: 100;
-        font-family: "Zilla Slab Highlight", "Zilla Slab", serif;
-        font-weight: 700;
-        font-size: 1.5rem;
-        line-height: 1;
-        color: #000;
-        text-decoration: none;
-        padding: 0.3rem 0.5rem;
-        border-radius: 4px;
-        transition: background 0.15s ease;
-      }
-      .moz-corner:hover,
-      .moz-corner:focus-visible {
-        background: rgb(0 0 0 / 0.08);
-        outline: none;
-      }
-
-      /* Small "view source" mark in the top-right corner. Uses inline SVG
-         so the harness stays self-contained. z-index sits below the
-         drag-over overlay (1000) so dropping a PDF doesn't get blocked. */
-      .github-corner {
-        position: fixed;
-        top: 0.5rem;
-        right: 0.5rem;
-        z-index: 100;
-        color: var(--heading);
-        display: inline-flex;
-        padding: 0.4rem;
-        border-radius: 50%;
-        text-decoration: none;
-        transition: background 0.15s ease;
-      }
-      .github-corner:hover,
-      .github-corner:focus-visible {
-        background: rgb(0 0 0 / 0.08);
-        outline: none;
-      }
-
-      .row {
-        display: flex;
-        gap: 0.75rem;
-        align-items: center;
-        flex-wrap: wrap;
-        margin-bottom: 0.75rem;
-      }
-
-      label {
-        display: inline-flex;
-        gap: 0.25rem;
-        align-items: center;
-      }
-
-      input[type="number"] {
-        width: 5rem;
-      }
-
-      button {
-        padding: 0.25rem 0.75rem;
-      }
-
-      fieldset {
-        padding: 0.25rem 0.5rem;
-
-        & legend {
-          font-size: 0.85rem;
-          color: var(--muted);
-        }
-      }
-
-      #status {
-        font-family: var(--mono);
-        font-size: 0.85rem;
-        color: var(--muted);
-        min-height: 1.2em;
-
-        &.err {
-          color: var(--error);
-        }
-      }
-
-      #renders {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 1rem;
-        margin-top: 1rem;
-        align-items: flex-start;
-
-        & > .render {
-          flex: 0 1 auto;
-          max-width: 100%;
-          display: flex;
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 0.25rem;
-
-          & > h3 {
-            margin: 0;
-            font-size: 0.85rem;
-            font-family: var(--mono);
-            color: var(--muted);
-          }
-        }
-      }
-
-      .canvas-wrap {
-        border: 1px solid var(--border);
-        background: repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 50% /
-          16px 16px;
-        width: fit-content;
-        max-width: 100%;
-        overflow: auto;
-
-        & > canvas {
-          display: block;
-        }
-      }
-
-      #diffs {
-        margin-top: 1rem;
-
-        & .pair {
-          margin-bottom: 1.25rem;
-
-          & > h2 {
-            margin: 0 0 0.5rem;
-            font-size: 0.95rem;
-            font-family: var(--mono);
-            color: var(--heading);
-          }
-
-          & .pair-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 1rem;
-            align-items: flex-start;
-
-            & > .diff {
-              flex: 0 1 auto;
-              max-width: 100%;
-              display: flex;
-              flex-direction: column;
-              align-items: flex-start;
-              gap: 0.25rem;
-              font-family: var(--mono);
-              font-size: 0.8rem;
-              color: var(--muted);
-
-              & > h3 {
-                margin: 0;
-                font-size: 0.8rem;
-                color: var(--heading);
-              }
-            }
-          }
-        }
-      }
-
-      .diff-info,
-      .diff-note {
-        font-family: var(--mono);
-        font-size: 0.8rem;
-      }
-
-      .diff-info {
-        color: var(--muted);
-      }
-
-      .diff-note {
-        color: var(--error);
-      }
-
-      .diff-image {
-        display: block;
-        border: 1px solid var(--border);
-      }
-
-      .ssim-readout {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.2rem;
-        font-family: var(--mono);
-        color: var(--text);
-        border: 1px solid var(--border);
-        padding: 0.5rem 1rem;
-        min-width: 8rem;
-      }
-    </style>
+    <link rel="stylesheet" href="harness.css" />
   </head>
   <body>
     <a
@@ -269,95 +46,180 @@
         ></path>
       </svg>
     </a>
-    <h1>pdf.js.comparator harness</h1>
-    <div class="row">
-      <label
-        >PDF:
-        <input type="file" id="file" accept="application/pdf,.pdf" disabled
-      /></label>
+    <header class="hero">
+      <h1>pdf.js<span class="accent">.comparator</span></h1>
+      <p class="lede">
+        Render the same PDF page through pdf.js and reference engines
+        side-by-side, then diff the bitmaps with six image-similarity algorithms
+        — all in your browser.
+      </p>
+      <p class="privacy-note">
+        <svg
+          viewBox="0 0 16 16"
+          width="14"
+          height="14"
+          fill="currentColor"
+          aria-hidden="true"
+        >
+          <path
+            d="M8 1a3 3 0 0 0-3 3v2H4a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-1V4a3 3 0 0 0-3-3Zm-1.5 5V4a1.5 1.5 0 1 1 3 0v2h-3Z"
+          ></path>
+        </svg>
+        Your PDF stays on this device — nothing is uploaded or stored.
+      </p>
+    </header>
+
+    <main class="controls">
+      <section class="card card-drop" aria-labelledby="card-doc">
+        <h2 id="card-doc" class="card-title">Document</h2>
+        <label class="dropzone">
+          <span class="dropzone-icon" aria-hidden="true">⬆</span>
+          <span class="dropzone-text"
+            >Drop a PDF here or <strong>click to browse</strong></span
+          >
+          <span class="dropzone-hint">accepts application/pdf</span>
+          <input type="file" id="file" accept="application/pdf,.pdf" disabled />
+        </label>
+      </section>
+
+      <section class="card" aria-labelledby="card-page">
+        <h2 id="card-page" class="card-title">Page &amp; options</h2>
+        <div class="field-grid">
+          <label class="field">
+            <span class="field-label">Page</span>
+            <span class="field-input-row">
+              <input type="number" id="page" value="1" min="1" step="1" />
+              <span id="pages" class="field-hint"></span>
+            </span>
+          </label>
+          <label class="field">
+            <span class="field-label">DPI</span>
+            <input type="number" id="dpi" value="96" min="1" step="1" />
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="antialias" checked />
+            <span>antialias</span>
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="transparent" />
+            <span>transparent bg</span>
+          </label>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="card-cmp">
+        <h2 id="card-cmp" class="card-title">Comparison pair</h2>
+        <div class="field-grid">
+          <label class="field">
+            <span class="field-label">From</span>
+            <select id="compare-a">
+              <option value="pdfjs" selected>pdf.js</option>
+              <option value="cairo">cairo</option>
+              <option value="splash">splash</option>
+              <option value="pdfium">pdfium</option>
+              <option value="mupdf">mupdf</option>
+              <option value="pdfbox">pdfbox</option>
+              <option value="gs">gs</option>
+              <option value="xpdf">xpdf</option>
+              <option value="icepdf">icepdf</option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="field-label">To</span>
+            <select id="compare-b">
+              <option value="cairo">cairo</option>
+              <option value="splash">splash</option>
+              <option value="pdfium" selected>pdfium</option>
+              <option value="mupdf">mupdf</option>
+              <option value="pdfjs">pdf.js</option>
+              <option value="pdfbox">pdfbox</option>
+              <option value="gs">gs</option>
+              <option value="xpdf">xpdf</option>
+              <option value="icepdf">icepdf</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <section class="card card-wide" aria-labelledby="card-rend">
+        <h2 id="card-rend" class="card-title">Renderers</h2>
+        <div class="chip-row">
+          <label class="chip" data-engine="cairo"
+            ><input
+              type="checkbox"
+              class="renderer"
+              value="cairo"
+              checked
+            /><span>cairo</span></label
+          >
+          <label class="chip" data-engine="splash"
+            ><input
+              type="checkbox"
+              class="renderer"
+              value="splash"
+              checked
+            /><span>splash</span></label
+          >
+          <label class="chip" data-engine="pdfium"
+            ><input
+              type="checkbox"
+              class="renderer"
+              value="pdfium"
+              checked
+            /><span>pdfium</span></label
+          >
+          <label class="chip" data-engine="mupdf"
+            ><input
+              type="checkbox"
+              class="renderer"
+              value="mupdf"
+              checked
+            /><span>mupdf</span></label
+          >
+          <label class="chip" data-engine="pdfjs"
+            ><input
+              type="checkbox"
+              class="renderer"
+              value="pdfjs"
+              checked
+            /><span>pdf.js</span></label
+          >
+          <label class="chip" data-engine="pdfbox"
+            ><input
+              type="checkbox"
+              class="renderer"
+              value="pdfbox"
+              checked
+            /><span>pdfbox</span></label
+          >
+          <label class="chip" data-engine="gs"
+            ><input type="checkbox" class="renderer" value="gs" checked /><span
+              >ghostscript</span
+            ></label
+          >
+          <label class="chip" data-engine="xpdf"
+            ><input
+              type="checkbox"
+              class="renderer"
+              value="xpdf"
+              checked
+            /><span>xpdf</span></label
+          >
+          <label class="chip" data-engine="icepdf"
+            ><input
+              type="checkbox"
+              class="renderer"
+              value="icepdf"
+              checked
+            /><span>icepdf</span></label
+          >
+        </div>
+      </section>
+    </main>
+
+    <div class="status-wrap">
+      <div id="status" role="status" aria-live="polite">loading wasm…</div>
     </div>
-    <div class="row">
-      <label
-        >Page: <input type="number" id="page" value="1" min="1" step="1"
-      /></label>
-      <span id="pages"></span>
-      <label
-        >DPI: <input type="number" id="dpi" value="96" min="1" step="1"
-      /></label>
-      <label><input type="checkbox" id="antialias" checked /> antialias</label>
-      <label><input type="checkbox" id="transparent" /> transparent bg</label>
-      <fieldset>
-        <legend>renderer</legend>
-        <label
-          ><input type="checkbox" class="renderer" value="cairo" checked />
-          cairo</label
-        >
-        <label
-          ><input type="checkbox" class="renderer" value="splash" checked />
-          splash</label
-        >
-        <label
-          ><input type="checkbox" class="renderer" value="pdfium" checked />
-          pdfium</label
-        >
-        <label
-          ><input type="checkbox" class="renderer" value="mupdf" checked />
-          mupdf</label
-        >
-        <label
-          ><input type="checkbox" class="renderer" value="pdfjs" checked />
-          pdfjs</label
-        >
-        <label
-          ><input type="checkbox" class="renderer" value="pdfbox" checked />
-          pdfbox</label
-        >
-        <label
-          ><input type="checkbox" class="renderer" value="gs" checked />
-          gs</label
-        >
-        <label
-          ><input type="checkbox" class="renderer" value="xpdf" checked />
-          xpdf</label
-        >
-        <label
-          ><input type="checkbox" class="renderer" value="icepdf" checked />
-          icepdf</label
-        >
-      </fieldset>
-      <fieldset>
-        <legend>comparison</legend>
-        <label
-          >from
-          <select id="compare-a">
-            <option value="pdfjs" selected>pdf.js</option>
-            <option value="cairo">cairo</option>
-            <option value="splash">splash</option>
-            <option value="pdfium">pdfium</option>
-            <option value="mupdf">mupdf</option>
-            <option value="pdfbox">pdfbox</option>
-            <option value="gs">gs</option>
-            <option value="xpdf">xpdf</option>
-            <option value="icepdf">icepdf</option>
-          </select></label
-        >
-        <label
-          >to
-          <select id="compare-b">
-            <option value="cairo">cairo</option>
-            <option value="splash">splash</option>
-            <option value="pdfium" selected>pdfium</option>
-            <option value="mupdf">mupdf</option>
-            <option value="pdfjs">pdf.js</option>
-            <option value="pdfbox">pdfbox</option>
-            <option value="gs">gs</option>
-            <option value="xpdf">xpdf</option>
-            <option value="icepdf">icepdf</option>
-          </select></label
-        >
-      </fieldset>
-    </div>
-    <div id="status">loading wasm…</div>
     <div id="renders"></div>
     <div id="diffs"></div>
 
@@ -597,6 +459,77 @@
         const wrap = el("div", "canvas-wrap");
         wrap.appendChild(canvas);
         return wrap;
+      };
+
+      // Per-renderer placeholder cards. Reserved when a render starts so the
+      // user sees one slot per selected engine (with a spinner) instead of
+      // a blank area, then swapped in-place as each engine finishes — or
+      // flipped to a failed state when its worker rejects.
+      const renderSlots = new Map();
+      const createRenderSlots = (names) => {
+        renderSlots.clear();
+        dom.renders.replaceChildren();
+        for (const name of names) {
+          const card = el("div", "render skeleton");
+          card.dataset.renderer = name;
+          const h3 = el("h3");
+          const row = el("span", "render-row");
+          row.appendChild(el("span", "spinner"));
+          row.appendChild(document.createTextNode(rendererLabel(name)));
+          h3.appendChild(row);
+          card.appendChild(h3);
+          const wrap = el("div", "canvas-wrap", "loading…");
+          card.appendChild(wrap);
+          dom.renders.appendChild(card);
+          renderSlots.set(name, card);
+        }
+      };
+      const fillRenderSlot = (name, h3Text, canvas) => {
+        let slot = renderSlots.get(name);
+        if (!slot) {
+          slot = el("div", "render");
+          slot.dataset.renderer = name;
+          dom.renders.appendChild(slot);
+          renderSlots.set(name, slot);
+        }
+        slot.classList.remove("skeleton", "failed");
+        slot.replaceChildren(el("h3", "", h3Text), wrapCanvas(canvas));
+      };
+      const failRenderSlot = (name, err) => {
+        const slot = renderSlots.get(name);
+        if (!slot) return;
+        slot.classList.remove("skeleton");
+        slot.classList.add("failed");
+        slot.replaceChildren(
+          el("h3", "", `${rendererLabel(name)} — failed`),
+          el("div", "canvas-wrap", errorMessage(err)),
+        );
+      };
+
+      // Placeholder diff pair shown while renderers are still in flight —
+      // so the comparison area is visible (with a "waiting for renderers…"
+      // badge) from the moment a render starts, instead of popping in only
+      // after the slowest renderer finishes. renderDiffs() later replaces
+      // it with the real progress bar + skeleton cards.
+      const showDiffWaiting = () => {
+        dom.diffs.replaceChildren();
+        const compareA = dom.compareA.value;
+        const compareB = dom.compareB.value;
+        const pair = el("div", "pair");
+        const head = el("div", "pair-head");
+        head.appendChild(
+          el(
+            "h2",
+            "",
+            `${rendererLabel(compareA)} ↔ ${rendererLabel(compareB)}`,
+          ),
+        );
+        const badge = el("span", "pair-badge");
+        badge.appendChild(el("span", "spinner"));
+        badge.appendChild(document.createTextNode("waiting for renderers…"));
+        head.appendChild(badge);
+        pair.appendChild(head);
+        dom.diffs.appendChild(pair);
       };
 
       const pdfjsDocumentOptions = (data) => ({
@@ -861,13 +794,19 @@
         dom.diffs.replaceChildren();
 
         const pair = el("div", "pair");
-        pair.appendChild(
+        const head = el("div", "pair-head");
+        head.appendChild(
           el(
             "h2",
             "",
             `${rendererLabel(compareA)} ↔ ${rendererLabel(compareB)} comparison`,
           ),
         );
+        const headBadge = el("span", "pair-badge");
+        headBadge.appendChild(el("span", "spinner"));
+        headBadge.appendChild(document.createTextNode("computing diffs…"));
+        head.appendChild(headBadge);
+        pair.appendChild(head);
         dom.diffs.appendChild(pair);
 
         if (compareA === compareB) {
@@ -920,11 +859,25 @@
         pair.appendChild(row);
 
         const resetCard = (card, name) => {
+          card.classList.remove("loading", "failed");
           card.replaceChildren(el("h3", "", name));
+        };
+        const loadingCard = (card, name) => {
+          card.classList.remove("failed");
+          card.classList.add("loading");
+          const h3 = el("h3");
+          const row = el("span", "render-row");
+          row.appendChild(el("span", "spinner"));
+          row.appendChild(document.createTextNode(name));
+          h3.appendChild(row);
+          card.replaceChildren(h3, el("div", "diff-placeholder", "computing…"));
         };
         const failCard = (card, name, error) => {
           resetCard(card, name);
-          card.append(error?.message || String(error));
+          card.classList.add("failed");
+          card.appendChild(
+            el("div", "diff-placeholder", error?.message || String(error)),
+          );
         };
         const fillCard = (card, name, res, dt) => {
           resetCard(card, name);
@@ -950,49 +903,115 @@
 
         const wasmDiffNames = DIFF_WASMS;
         const allNames = [...COMPARATORS.map((c) => c.name), ...wasmDiffNames];
-        const cards = allNames.map(() => {
+        const cards = allNames.map((name) => {
           const c = el("div", "diff");
+          loadingCard(c, name);
           row.appendChild(c);
           return c;
         });
 
-        const mainPromises = COMPARATORS.map(async (cmp, idx) => {
-          const card = cards[idx];
-          const t0 = performance.now();
-          try {
-            const res = await cmp.run(a, b);
-            if (staleDiff(myGen, myDiffGen)) return;
-            fillCard(card, cmp.name, res, performance.now() - t0);
-          } catch (e) {
-            if (staleDiff(myGen, myDiffGen)) return;
-            failCard(card, cmp.name, e);
-          }
-        });
+        const pairLabel = `${rendererLabel(compareA)} ↔ ${rendererLabel(compareB)}`;
+        // Visual progress bar inside the pair header, plus matching text in
+        // the status pill. Insert ahead of the cards row so it sits directly
+        // under the h2.
+        const progress = el("div", "diff-progress");
+        const progressFill = el("div", "diff-progress-fill");
+        progress.appendChild(progressFill);
+        pair.insertBefore(progress, row);
 
-        const wasmPromise = (async () => {
-          try {
-            const results = await runWasmDiffs(a, b);
+        let diffDoneCount = 0;
+        const diffStart = performance.now();
+        const bumpDiffStatus = () => {
+          diffDoneCount++;
+          if (staleDiff(myGen, myDiffGen)) return;
+          const pct = (diffDoneCount / allNames.length) * 100;
+          progressFill.style.width = `${pct}%`;
+          headBadge.replaceChildren();
+          if (diffDoneCount >= allNames.length) {
+            progress.classList.add("done");
+            headBadge.classList.add("done");
+            headBadge.textContent = `${allNames.length} diff${allNames.length === 1 ? "" : "s"} in ${(performance.now() - diffStart).toFixed(0)} ms`;
+          } else {
+            headBadge.appendChild(el("span", "spinner"));
+            headBadge.appendChild(
+              document.createTextNode(
+                `computing diffs… ${diffDoneCount}/${allNames.length}`,
+              ),
+            );
+          }
+          setStatus(
+            diffDoneCount < allNames.length
+              ? `diffing ${pairLabel}: ${diffDoneCount}/${allNames.length} done`
+              : `${pairLabel}: ${allNames.length} diff${allNames.length === 1 ? "" : "s"} ready`,
+          );
+        };
+        setStatus(`diffing ${pairLabel}: 0/${allNames.length} done`);
+
+        // Let the browser paint the skeleton cards before the synchronous
+        // JS comparators (pixelmatch / ssim.js / resemble) start blocking
+        // the main thread — otherwise the loading state never shows.
+        await new Promise((r) =>
+          requestAnimationFrame(() => requestAnimationFrame(r)),
+        );
+        if (staleDiff(myGen, myDiffGen)) return;
+
+        // JS comparators are CPU-bound on the main thread. Run them
+        // serially with a frame yield before each so the progress bar
+        // advances and each skeleton card has time to paint before its
+        // comparator blocks the thread.
+        const mainPromise = (async () => {
+          for (let idx = 0; idx < COMPARATORS.length; idx++) {
+            const cmp = COMPARATORS[idx];
+            const card = cards[idx];
+            await new Promise((r) => requestAnimationFrame(r));
             if (staleDiff(myGen, myDiffGen)) return;
-            for (const r of results) {
-              const idx = allNames.indexOf(r.name);
-              if (idx >= 0) {
-                if (r.error) {
-                  failCard(cards[idx], r.name, r.error);
-                } else {
-                  fillCard(cards[idx], r.name, r, r.time);
-                }
-              }
-            }
-          } catch (e) {
-            if (staleDiff(myGen, myDiffGen)) return;
-            for (const name of wasmDiffNames) {
-              const idx = allNames.indexOf(name);
-              if (idx >= 0) failCard(cards[idx], name, e);
+            const t0 = performance.now();
+            try {
+              const res = await cmp.run(a, b);
+              if (staleDiff(myGen, myDiffGen)) return;
+              fillCard(card, cmp.name, res, performance.now() - t0);
+            } catch (e) {
+              if (staleDiff(myGen, myDiffGen)) return;
+              failCard(card, cmp.name, e);
+            } finally {
+              bumpDiffStatus();
             }
           }
         })();
 
-        await Promise.all([...mainPromises, wasmPromise]);
+        // wasm diffs run in their own workers — fan out one call each so
+        // the progress bar advances per diff instead of in one batch at
+        // the end.
+        const cloneImg = (i) => ({
+          renderer: i.renderer,
+          width: i.width,
+          height: i.height,
+          data: new Uint8ClampedArray(i.data),
+        });
+        const wasmPromises = wasmDiffNames.map(async (name) => {
+          const idx = allNames.indexOf(name);
+          if (idx < 0) return;
+          const card = cards[idx];
+          const aCopy = cloneImg(a);
+          const bCopy = cloneImg(b);
+          const t0 = performance.now();
+          try {
+            const r = await diffWorkers[name].call(
+              "diff",
+              { a: aCopy, b: bCopy },
+              [aCopy.data.buffer, bCopy.data.buffer],
+            );
+            if (staleDiff(myGen, myDiffGen)) return;
+            fillCard(card, name, r, r.time ?? performance.now() - t0);
+          } catch (e) {
+            if (staleDiff(myGen, myDiffGen)) return;
+            failCard(card, name, e);
+          } finally {
+            bumpDiffStatus();
+          }
+        });
+
+        await Promise.all([mainPromise, ...wasmPromises]);
       };
 
       let pdfBytes = null;
@@ -1008,7 +1027,14 @@
 
       const renderSelectedDiff = async () => {
         if (!lastRender || stale(lastRender.renderGen)) {
-          dom.diffs.replaceChildren();
+          // Renders haven't settled yet for the current generation — keep
+          // the "waiting for renderers…" placeholder visible (and refresh
+          // its labels if the user just switched the comparison pair).
+          if (pdfBytes) {
+            showDiffWaiting();
+          } else {
+            dom.diffs.replaceChildren();
+          }
           return;
         }
         const myDiffGen = ++diffGen;
@@ -1125,18 +1151,18 @@
         result.page_width_pt ??= img.page_width_pt;
         result.page_height_pt ??= img.page_height_pt;
 
-        const card = el("div", "render");
-        card.appendChild(
-          el("h3", "", `${img.renderer} — ${img.renderTime.toFixed(0)} ms`),
+        fillRenderSlot(
+          img.renderer,
+          `${img.renderer} — ${img.renderTime.toFixed(0)} ms`,
+          drawRenderedImage(img, dpr),
         );
-        card.appendChild(wrapCanvas(drawRenderedImage(img, dpr)));
-        dom.renders.appendChild(card);
 
         const got = result.images.map((rendered) => rendered.renderer);
-        const waiting = wanted.filter((name) => !got.includes(name));
+        const remaining = wanted.length - got.length;
         setStatus(
-          `page ${page}: ${rendererSummary(result.images)}` +
-            (waiting.length ? `; waiting for ${waiting.join(", ")}` : ""),
+          remaining > 0
+            ? `rendering page ${page}: ${got.length}/${wanted.length} ready — ${rendererSummary(result.images)}`
+            : `page ${page}: ${rendererSummary(result.images)}`,
         );
       };
 
@@ -1151,6 +1177,7 @@
           });
         } catch (e) {
           console.error(`${name} render error:`, e);
+          failRenderSlot(name, e);
         }
       };
 
@@ -1176,9 +1203,20 @@
           appendImage,
         );
 
-      // Diff workers start eagerly; renderer workers remain lazy.
+      // Diff workers start eagerly; renderer workers remain lazy. Update
+      // the status pill as each one resolves so the user sees concrete
+      // progress instead of a stuck "loading wasm…".
+      setStatus(`loading diff engines (0/${DIFF_WASMS.length})…`);
+      let diffReadyCount = 0;
       const diffReady = await Promise.allSettled(
-        DIFF_WASMS.map((name) => diffWorkers[name].ready),
+        DIFF_WASMS.map((name) =>
+          diffWorkers[name].ready.finally(() => {
+            diffReadyCount++;
+            setStatus(
+              `loading diff engines (${diffReadyCount}/${DIFF_WASMS.length})…`,
+            );
+          }),
+        ),
       );
       const failedDiffs = diffReady
         .map((result, index) =>
@@ -1333,6 +1371,11 @@
         const t0 = performance.now();
         const result = { resolution: dpi, images: [] };
         clearOutput();
+        createRenderSlots(selected.all);
+        showDiffWaiting();
+        setStatus(
+          `rendering page ${page}: 0/${selected.all.length} ready (${selected.all.join(", ")})`,
+        );
 
         const appendImage = (img) =>
           appendRenderedImage({
