@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = 974f986
+ * pdfjsBuild = 389853d
  */
 
 ;// ./src/shared/util.js
@@ -16810,7 +16810,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.0.0";
-const build = "974f986";
+const build = "389853d";
 
 ;// ./src/display/editor/color_picker.js
 

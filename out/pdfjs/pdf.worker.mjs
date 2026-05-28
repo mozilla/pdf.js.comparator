@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = 974f986
+ * pdfjsBuild = 389853d
  */
 
 ;// ./src/shared/util.js
@@ -25635,6 +25635,214 @@ class Type1Parser {
     }
     return program;
   }
+  extractCidKeyedFontProgram(properties) {
+    const stream = this.stream;
+    const privateData = new Map([["lenIV", 4]]);
+    const program = {
+      subrs: [],
+      charstrings: [],
+      properties: {
+        privateData
+      }
+    };
+    let cidCount = 0;
+    let cidMapOffset = -1;
+    let fdBytes = 1;
+    let gdBytes = 0;
+    let subrMapOffset = -1;
+    let sdBytes = 0;
+    let subrCount = 0;
+    let startDataLength = 0;
+    let startDataIsHex = false;
+    let foundStartData = false;
+    const previousTokens = [];
+    function rememberToken(value) {
+      previousTokens.push(value);
+      if (previousTokens.length > 4) {
+        previousTokens.shift();
+      }
+    }
+    let token;
+    while ((token = this.getToken()) !== null) {
+      if (token === "StartData") {
+        const dataType = previousTokens.at(-3);
+        const dataLength = previousTokens.at(-1);
+        if (previousTokens.at(-4) !== "(" || previousTokens.at(-2) !== ")" || dataType !== "Binary" && dataType !== "Hex" || !/^\d+$/.test(dataLength)) {
+          return null;
+        }
+        startDataLength = parseInt(dataLength, 10);
+        if (startDataLength <= 0) {
+          return null;
+        }
+        startDataIsHex = dataType === "Hex";
+        foundStartData = true;
+        break;
+      }
+      rememberToken(token);
+      if (token !== "/") {
+        continue;
+      }
+      token = this.getToken();
+      rememberToken(token);
+      switch (token) {
+        case "FontMatrix":
+          properties.fontMatrix = this.readNumberArray();
+          break;
+        case "FontBBox":
+          const fontBBox = this.readNumberArray();
+          properties.ascent = Math.max(fontBBox[3], fontBBox[1]);
+          properties.descent = Math.min(fontBBox[1], fontBBox[3]);
+          properties.ascentScaled = true;
+          break;
+        case "CIDCount":
+          cidCount = this.readInt();
+          break;
+        case "CIDMapOffset":
+          cidMapOffset = this.readInt();
+          break;
+        case "FDBytes":
+          fdBytes = this.readInt();
+          break;
+        case "GDBytes":
+          gdBytes = this.readInt();
+          break;
+        case "SubrMapOffset":
+          subrMapOffset = this.readInt();
+          break;
+        case "SDBytes":
+          sdBytes = this.readInt();
+          break;
+        case "SubrCount":
+          subrCount = this.readInt();
+          break;
+        case "BlueValues":
+        case "OtherBlues":
+        case "FamilyBlues":
+        case "FamilyOtherBlues":
+          this.readNumberArray();
+          break;
+        case "StemSnapH":
+        case "StemSnapV":
+          privateData.set(token, this.readNumberArray());
+          break;
+        case "StdHW":
+        case "StdVW":
+          privateData.set(token, this.readNumberArray()[0]);
+          break;
+        case "BlueShift":
+        case "lenIV":
+        case "BlueFuzz":
+        case "BlueScale":
+        case "LanguageGroup":
+          privateData.set(token, this.readNumber());
+          break;
+        case "ExpansionFactor":
+          privateData.set(token, this.readNumber() || 0.06);
+          break;
+        case "ForceBold":
+          privateData.set(token, this.readBoolean());
+          break;
+      }
+    }
+    if (!foundStartData || cidCount <= 0 || cidMapOffset < 0 || fdBytes < 0 || fdBytes > 4 || gdBytes < 1 || gdBytes > 4) {
+      return null;
+    }
+    const maxLength = stream.end - stream.pos;
+    if (startDataLength > maxLength) {
+      if (!startDataIsHex) {
+        startDataLength = maxLength;
+      } else if (startDataLength > 2 * maxLength) {
+        return null;
+      }
+    }
+    let binary = stream.getBytes(startDataIsHex ? undefined : startDataLength);
+    if (startDataIsHex) {
+      const decoded = new Uint8Array(startDataLength);
+      let digit1 = -1,
+        j = 0;
+      for (let i = 0, ii = binary.length; i < ii && j < startDataLength; i++) {
+        const digit = binary[i];
+        if (!isHexDigit(digit)) {
+          continue;
+        }
+        if (digit1 < 0) {
+          digit1 = digit;
+          continue;
+        }
+        decoded[j++] = parseInt(String.fromCharCode(digit1, digit), 16);
+        digit1 = -1;
+      }
+      if (j !== startDataLength) {
+        return null;
+      }
+      binary = decoded;
+    }
+    const lenIV = privateData.get("lenIV");
+    const cidEntrySize = fdBytes + gdBytes;
+    const subrs = [];
+    function readUint(offset, byteCount) {
+      let n = 0;
+      for (let i = 0; i < byteCount; i++) {
+        n = n << 8 | binary[offset + i];
+      }
+      return n >>> 0;
+    }
+    if (cidMapOffset + (cidCount + 1) * cidEntrySize > binary.length || subrCount > 0 && (subrMapOffset < 0 || sdBytes < 1 || sdBytes > 4 || subrMapOffset + (subrCount + 1) * sdBytes > binary.length)) {
+      return null;
+    }
+    if (fdBytes > 0) {
+      for (let cid = 0; cid < cidCount; cid++) {
+        if (readUint(cidMapOffset + cid * cidEntrySize, fdBytes) !== 0) {
+          return null;
+        }
+      }
+    }
+    if (subrCount > 0) {
+      const subrOffsets = new Array(subrCount + 1);
+      for (let i = 0; i <= subrCount; i++) {
+        subrOffsets[i] = readUint(subrMapOffset + i * sdBytes, sdBytes);
+      }
+      for (let i = 0; i < subrCount; i++) {
+        const start = subrOffsets[i];
+        const end = subrOffsets[i + 1];
+        if (end > binary.length || end < start) {
+          subrs[i] = new Uint8Array(0);
+          continue;
+        }
+        subrs[i] = this.readCharStrings(binary.subarray(start, end), lenIV);
+      }
+    }
+    const charstrings = [];
+    let prevOffset = readUint(cidMapOffset + fdBytes, gdBytes);
+    for (let cid = 0; cid < cidCount; cid++) {
+      const nextOffset = readUint(cidMapOffset + (cid + 1) * cidEntrySize + fdBytes, gdBytes);
+      const glyphName = cid === 0 ? ".notdef" : `cid${cid}`;
+      if (nextOffset > prevOffset && nextOffset <= binary.length) {
+        const encoded = this.readCharStrings(binary.subarray(prevOffset, nextOffset), lenIV);
+        const charString = new Type1CharString();
+        const error = charString.convert(encoded, subrs, this.seacAnalysisEnabled);
+        charstrings.push({
+          glyphName,
+          charstring: error ? [14] : charString.output,
+          width: charString.width,
+          lsb: charString.lsb,
+          seac: charString.seac
+        });
+      } else {
+        const notDef = charstrings[0];
+        charstrings.push({
+          glyphName,
+          charstring: notDef?.charstring.slice() || [0x8b, 0x0e],
+          width: notDef?.width || 0,
+          lsb: notDef?.lsb || 0
+        });
+      }
+      prevOffset = nextOffset;
+    }
+    program.subrs = subrs;
+    program.charstrings = charstrings;
+    return program;
+  }
   extractFontHeader(properties) {
     let token;
     while ((token = this.getToken()) !== null) {
@@ -25776,9 +25984,33 @@ function getEexecBlock(stream, suggestedLength) {
     length: eexecBytes.length
   };
 }
+function isCidKeyedType1File(file) {
+  const sample = file.peekBytes(2048);
+  if (sample.length < 2 || sample[0] !== 0x25 || sample[1] !== 0x21) {
+    return false;
+  }
+  const text = bytesToString(sample);
+  return text.includes("Resource-CIDFont") || /\/CIDFontType\s+0\b/.test(text);
+}
 class Type1Font {
   #rawFileLength;
   constructor(name, file, properties) {
+    let data;
+    if (properties.composite && isCidKeyedType1File(file)) {
+      data = this.#parseCidKeyedType1(file, properties);
+    }
+    data ||= this.#parseType1(file, properties);
+    for (const key in data.properties) {
+      properties[key] = data.properties[key];
+    }
+    const charstrings = data.charstrings;
+    const type2Charstrings = this.getType2Charstrings(charstrings);
+    const subrs = this.getType2Subrs(data.subrs);
+    this.charstrings = charstrings;
+    this.data = this.wrap(name, type2Charstrings, this.charstrings, subrs, properties);
+    this.seacs = this.getSeacs(data.charstrings);
+  }
+  #parseType1(file, properties) {
     const PFB_HEADER_SIZE = 6;
     let headerBlockLength = properties.length1;
     let eexecBlockLength = properties.length2;
@@ -25798,16 +26030,21 @@ class Type1Font {
     const eexecBlock = getEexecBlock(file, eexecBlockLength);
     const eexecBlockParser = new Type1Parser(eexecBlock.stream, true, SEAC_ANALYSIS_ENABLED);
     const data = eexecBlockParser.extractFontProgram(properties);
-    for (const key in data.properties) {
-      properties[key] = data.properties[key];
-    }
     this.#rawFileLength = headerBlock.length + eexecBlock.length;
-    const charstrings = data.charstrings;
-    const type2Charstrings = this.getType2Charstrings(charstrings);
-    const subrs = this.getType2Subrs(data.subrs);
-    this.charstrings = charstrings;
-    this.data = this.wrap(name, type2Charstrings, this.charstrings, subrs, properties);
-    this.seacs = this.getSeacs(data.charstrings);
+    return data;
+  }
+  #parseCidKeyedType1(file, properties) {
+    const fileStart = file.pos;
+    const length = file.end - fileStart;
+    const parser = new Type1Parser(file, false, SEAC_ANALYSIS_ENABLED);
+    const data = parser.extractCidKeyedFontProgram(properties);
+    if (!data) {
+      file.pos = fileStart;
+      warn("Type1Font: unable to parse CID-keyed Type 1 font.");
+      return null;
+    }
+    this.#rawFileLength = length;
+    return data;
   }
   get numGlyphs() {
     return this.charstrings.length + 1;
@@ -34027,6 +34264,8 @@ class PartialEvaluator {
       if (smask?.backdrop) {
         colorSpace ||= ColorSpaceUtils.rgb;
         smask.backdrop = colorSpace.getRgbHex(smask.backdrop, 0);
+      } else if (smask?.subtype === "Luminosity") {
+        smask.backdrop = "#000000";
       }
       newOpList = new CheckedOperatorList();
     } else {
