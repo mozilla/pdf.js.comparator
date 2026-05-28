@@ -506,6 +506,32 @@
         );
       };
 
+      // Placeholder diff pair shown while renderers are still in flight —
+      // so the comparison area is visible (with a "waiting for renderers…"
+      // badge) from the moment a render starts, instead of popping in only
+      // after the slowest renderer finishes. renderDiffs() later replaces
+      // it with the real progress bar + skeleton cards.
+      const showDiffWaiting = () => {
+        dom.diffs.replaceChildren();
+        const compareA = dom.compareA.value;
+        const compareB = dom.compareB.value;
+        const pair = el("div", "pair");
+        const head = el("div", "pair-head");
+        head.appendChild(
+          el(
+            "h2",
+            "",
+            `${rendererLabel(compareA)} ↔ ${rendererLabel(compareB)}`,
+          ),
+        );
+        const badge = el("span", "pair-badge");
+        badge.appendChild(el("span", "spinner"));
+        badge.appendChild(document.createTextNode("waiting for renderers…"));
+        head.appendChild(badge);
+        pair.appendChild(head);
+        dom.diffs.appendChild(pair);
+      };
+
       const pdfjsDocumentOptions = (data) => ({
         data,
         verbosity: 0,
@@ -1001,7 +1027,14 @@
 
       const renderSelectedDiff = async () => {
         if (!lastRender || stale(lastRender.renderGen)) {
-          dom.diffs.replaceChildren();
+          // Renders haven't settled yet for the current generation — keep
+          // the "waiting for renderers…" placeholder visible (and refresh
+          // its labels if the user just switched the comparison pair).
+          if (pdfBytes) {
+            showDiffWaiting();
+          } else {
+            dom.diffs.replaceChildren();
+          }
           return;
         }
         const myDiffGen = ++diffGen;
@@ -1339,6 +1372,7 @@
         const result = { resolution: dpi, images: [] };
         clearOutput();
         createRenderSlots(selected.all);
+        showDiffWaiting();
         setStatus(
           `rendering page ${page}: 0/${selected.all.length} ready (${selected.all.join(", ")})`,
         );
