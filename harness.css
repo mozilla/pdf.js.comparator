@@ -265,6 +265,19 @@ body {
   font-size: 0.78rem;
   color: var(--muted);
   font-family: var(--mono);
+  white-space: nowrap;
+}
+/* Keep the page-count hint inline with its input so the Page and DPI
+   fields have the same height and their inputs stay aligned. */
+.field-input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.field-input-row > input {
+  flex: 1;
+  min-width: 0;
 }
 
 input[type="number"],
