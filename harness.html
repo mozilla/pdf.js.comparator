@@ -548,6 +548,61 @@
         }
       }
 
+      /* skeleton/failed render slots ─ shown per renderer during render */
+      .render-row {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+      }
+      #renders > .render.skeleton .canvas-wrap,
+      #renders > .render.failed .canvas-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--surface-sunken);
+        border-style: dashed;
+        border-color: var(--border-strong);
+        min-width: 11rem;
+        min-height: 7.5rem;
+        padding: 1rem;
+        font-family: var(--mono);
+        font-size: 0.78rem;
+        color: var(--muted);
+        text-align: center;
+        overflow: hidden;
+      }
+      #renders > .render.skeleton {
+        animation: skeleton-pulse 1.6s ease-in-out infinite;
+      }
+      #renders > .render.failed .canvas-wrap {
+        color: var(--error);
+        background: var(--error-tint);
+        border-color: rgba(200, 16, 46, 0.35);
+      }
+      .spinner {
+        width: 0.9rem;
+        height: 0.9rem;
+        border: 2px solid var(--border-strong);
+        border-top-color: var(--accent);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        flex-shrink: 0;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @keyframes skeleton-pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.65;
+        }
+      }
+
       /* ── diffs ──────────────────────────────────────────────────────── */
       #diffs {
         max-width: 80rem;
@@ -618,6 +673,60 @@
         display: block;
         border: 1px solid var(--border);
         border-radius: 4px;
+      }
+
+      .diff-progress {
+        position: relative;
+        height: 4px;
+        background: var(--surface-sunken);
+        border-radius: 999px;
+        overflow: hidden;
+        margin: 0 0 1rem;
+      }
+      .diff-progress-fill {
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 0%;
+        background: linear-gradient(
+          90deg,
+          var(--accent) 0%,
+          #ff7139 70%,
+          #ffa436 100%
+        );
+        border-radius: inherit;
+        transition: width 0.2s ease;
+      }
+      .diff-progress.done {
+        opacity: 0;
+        transition: opacity 0.4s ease 0.25s;
+      }
+
+      #diffs .pair-row > .diff.loading,
+      #diffs .pair-row > .diff.failed {
+        min-width: 9rem;
+      }
+      #diffs .pair-row > .diff.loading {
+        animation: skeleton-pulse 1.6s ease-in-out infinite;
+      }
+      .diff-placeholder {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 9rem;
+        min-height: 4.5rem;
+        padding: 0.75rem;
+        border: 1px dashed var(--border-strong);
+        border-radius: 4px;
+        background: var(--surface);
+        color: var(--muted);
+        font-size: 0.78rem;
+        font-family: var(--mono);
+        text-align: center;
+      }
+      #diffs .pair-row > .diff.failed .diff-placeholder {
+        color: var(--error);
+        background: var(--error-tint);
+        border-color: rgba(200, 16, 46, 0.35);
       }
 
       .ssim-readout {
@@ -1066,6 +1175,51 @@
         return wrap;
       };
 
+      // Per-renderer placeholder cards. Reserved when a render starts so the
+      // user sees one slot per selected engine (with a spinner) instead of
+      // a blank area, then swapped in-place as each engine finishes — or
+      // flipped to a failed state when its worker rejects.
+      const renderSlots = new Map();
+      const createRenderSlots = (names) => {
+        renderSlots.clear();
+        dom.renders.replaceChildren();
+        for (const name of names) {
+          const card = el("div", "render skeleton");
+          card.dataset.renderer = name;
+          const h3 = el("h3");
+          const row = el("span", "render-row");
+          row.appendChild(el("span", "spinner"));
+          row.appendChild(document.createTextNode(rendererLabel(name)));
+          h3.appendChild(row);
+          card.appendChild(h3);
+          const wrap = el("div", "canvas-wrap", "loading…");
+          card.appendChild(wrap);
+          dom.renders.appendChild(card);
+          renderSlots.set(name, card);
+        }
+      };
+      const fillRenderSlot = (name, h3Text, canvas) => {
+        let slot = renderSlots.get(name);
+        if (!slot) {
+          slot = el("div", "render");
+          slot.dataset.renderer = name;
+          dom.renders.appendChild(slot);
+          renderSlots.set(name, slot);
+        }
+        slot.classList.remove("skeleton", "failed");
+        slot.replaceChildren(el("h3", "", h3Text), wrapCanvas(canvas));
+      };
+      const failRenderSlot = (name, err) => {
+        const slot = renderSlots.get(name);
+        if (!slot) return;
+        slot.classList.remove("skeleton");
+        slot.classList.add("failed");
+        slot.replaceChildren(
+          el("h3", "", `${rendererLabel(name)} — failed`),
+          el("div", "canvas-wrap", errorMessage(err)),
+        );
+      };
+
       const pdfjsDocumentOptions = (data) => ({
         data,
         verbosity: 0,
@@ -1387,11 +1541,25 @@
         pair.appendChild(row);
 
         const resetCard = (card, name) => {
+          card.classList.remove("loading", "failed");
           card.replaceChildren(el("h3", "", name));
+        };
+        const loadingCard = (card, name) => {
+          card.classList.remove("failed");
+          card.classList.add("loading");
+          const h3 = el("h3");
+          const row = el("span", "render-row");
+          row.appendChild(el("span", "spinner"));
+          row.appendChild(document.createTextNode(name));
+          h3.appendChild(row);
+          card.replaceChildren(h3, el("div", "diff-placeholder", "computing…"));
         };
         const failCard = (card, name, error) => {
           resetCard(card, name);
-          card.append(error?.message || String(error));
+          card.classList.add("failed");
+          card.appendChild(
+            el("div", "diff-placeholder", error?.message || String(error)),
+          );
         };
         const fillCard = (card, name, res, dt) => {
           resetCard(card, name);
@@ -1417,49 +1585,104 @@
 
         const wasmDiffNames = DIFF_WASMS;
         const allNames = [...COMPARATORS.map((c) => c.name), ...wasmDiffNames];
-        const cards = allNames.map(() => {
+        const cards = allNames.map((name) => {
           const c = el("div", "diff");
+          loadingCard(c, name);
           row.appendChild(c);
           return c;
         });
 
-        const mainPromises = COMPARATORS.map(async (cmp, idx) => {
-          const card = cards[idx];
-          const t0 = performance.now();
-          try {
-            const res = await cmp.run(a, b);
-            if (staleDiff(myGen, myDiffGen)) return;
-            fillCard(card, cmp.name, res, performance.now() - t0);
-          } catch (e) {
-            if (staleDiff(myGen, myDiffGen)) return;
-            failCard(card, cmp.name, e);
-          }
-        });
+        const pairLabel = `${rendererLabel(compareA)} ↔ ${rendererLabel(compareB)}`;
+        // Visual progress bar inside the pair header, plus matching text in
+        // the status pill. Insert ahead of the cards row so it sits directly
+        // under the h2.
+        const progress = el("div", "diff-progress");
+        const progressFill = el("div", "diff-progress-fill");
+        progress.appendChild(progressFill);
+        pair.insertBefore(progress, row);
 
-        const wasmPromise = (async () => {
-          try {
-            const results = await runWasmDiffs(a, b);
+        let diffDoneCount = 0;
+        const bumpDiffStatus = () => {
+          diffDoneCount++;
+          if (staleDiff(myGen, myDiffGen)) return;
+          const pct = (diffDoneCount / allNames.length) * 100;
+          progressFill.style.width = `${pct}%`;
+          if (diffDoneCount >= allNames.length) {
+            progress.classList.add("done");
+          }
+          setStatus(
+            diffDoneCount < allNames.length
+              ? `diffing ${pairLabel}: ${diffDoneCount}/${allNames.length} done`
+              : `${pairLabel}: ${allNames.length} diff${allNames.length === 1 ? "" : "s"} ready`,
+          );
+        };
+        setStatus(`diffing ${pairLabel}: 0/${allNames.length} done`);
+
+        // Let the browser paint the skeleton cards before the synchronous
+        // JS comparators (pixelmatch / ssim.js / resemble) start blocking
+        // the main thread — otherwise the loading state never shows.
+        await new Promise((r) =>
+          requestAnimationFrame(() => requestAnimationFrame(r)),
+        );
+        if (staleDiff(myGen, myDiffGen)) return;
+
+        // JS comparators are CPU-bound on the main thread. Run them
+        // serially with a frame yield before each so the progress bar
+        // advances and each skeleton card has time to paint before its
+        // comparator blocks the thread.
+        const mainPromise = (async () => {
+          for (let idx = 0; idx < COMPARATORS.length; idx++) {
+            const cmp = COMPARATORS[idx];
+            const card = cards[idx];
+            await new Promise((r) => requestAnimationFrame(r));
             if (staleDiff(myGen, myDiffGen)) return;
-            for (const r of results) {
-              const idx = allNames.indexOf(r.name);
-              if (idx >= 0) {
-                if (r.error) {
-                  failCard(cards[idx], r.name, r.error);
-                } else {
-                  fillCard(cards[idx], r.name, r, r.time);
-                }
-              }
-            }
-          } catch (e) {
-            if (staleDiff(myGen, myDiffGen)) return;
-            for (const name of wasmDiffNames) {
-              const idx = allNames.indexOf(name);
-              if (idx >= 0) failCard(cards[idx], name, e);
+            const t0 = performance.now();
+            try {
+              const res = await cmp.run(a, b);
+              if (staleDiff(myGen, myDiffGen)) return;
+              fillCard(card, cmp.name, res, performance.now() - t0);
+            } catch (e) {
+              if (staleDiff(myGen, myDiffGen)) return;
+              failCard(card, cmp.name, e);
+            } finally {
+              bumpDiffStatus();
             }
           }
         })();
 
-        await Promise.all([...mainPromises, wasmPromise]);
+        // wasm diffs run in their own workers — fan out one call each so
+        // the progress bar advances per diff instead of in one batch at
+        // the end.
+        const cloneImg = (i) => ({
+          renderer: i.renderer,
+          width: i.width,
+          height: i.height,
+          data: new Uint8ClampedArray(i.data),
+        });
+        const wasmPromises = wasmDiffNames.map(async (name) => {
+          const idx = allNames.indexOf(name);
+          if (idx < 0) return;
+          const card = cards[idx];
+          const aCopy = cloneImg(a);
+          const bCopy = cloneImg(b);
+          const t0 = performance.now();
+          try {
+            const r = await diffWorkers[name].call(
+              "diff",
+              { a: aCopy, b: bCopy },
+              [aCopy.data.buffer, bCopy.data.buffer],
+            );
+            if (staleDiff(myGen, myDiffGen)) return;
+            fillCard(card, name, r, r.time ?? performance.now() - t0);
+          } catch (e) {
+            if (staleDiff(myGen, myDiffGen)) return;
+            failCard(card, name, e);
+          } finally {
+            bumpDiffStatus();
+          }
+        });
+
+        await Promise.all([mainPromise, ...wasmPromises]);
       };
 
       let pdfBytes = null;
@@ -1592,18 +1815,18 @@
         result.page_width_pt ??= img.page_width_pt;
         result.page_height_pt ??= img.page_height_pt;
 
-        const card = el("div", "render");
-        card.appendChild(
-          el("h3", "", `${img.renderer} — ${img.renderTime.toFixed(0)} ms`),
+        fillRenderSlot(
+          img.renderer,
+          `${img.renderer} — ${img.renderTime.toFixed(0)} ms`,
+          drawRenderedImage(img, dpr),
         );
-        card.appendChild(wrapCanvas(drawRenderedImage(img, dpr)));
-        dom.renders.appendChild(card);
 
         const got = result.images.map((rendered) => rendered.renderer);
-        const waiting = wanted.filter((name) => !got.includes(name));
+        const remaining = wanted.length - got.length;
         setStatus(
-          `page ${page}: ${rendererSummary(result.images)}` +
-            (waiting.length ? `; waiting for ${waiting.join(", ")}` : ""),
+          remaining > 0
+            ? `rendering page ${page}: ${got.length}/${wanted.length} ready — ${rendererSummary(result.images)}`
+            : `page ${page}: ${rendererSummary(result.images)}`,
         );
       };
 
@@ -1618,6 +1841,7 @@
           });
         } catch (e) {
           console.error(`${name} render error:`, e);
+          failRenderSlot(name, e);
         }
       };
 
@@ -1643,9 +1867,20 @@
           appendImage,
         );
 
-      // Diff workers start eagerly; renderer workers remain lazy.
+      // Diff workers start eagerly; renderer workers remain lazy. Update
+      // the status pill as each one resolves so the user sees concrete
+      // progress instead of a stuck "loading wasm…".
+      setStatus(`loading diff engines (0/${DIFF_WASMS.length})…`);
+      let diffReadyCount = 0;
       const diffReady = await Promise.allSettled(
-        DIFF_WASMS.map((name) => diffWorkers[name].ready),
+        DIFF_WASMS.map((name) =>
+          diffWorkers[name].ready.finally(() => {
+            diffReadyCount++;
+            setStatus(
+              `loading diff engines (${diffReadyCount}/${DIFF_WASMS.length})…`,
+            );
+          }),
+        ),
       );
       const failedDiffs = diffReady
         .map((result, index) =>
@@ -1800,6 +2035,10 @@
         const t0 = performance.now();
         const result = { resolution: dpi, images: [] };
         clearOutput();
+        createRenderSlots(selected.all);
+        setStatus(
+          `rendering page ${page}: 0/${selected.all.length} ready (${selected.all.join(", ")})`,
+        );
 
         const appendImage = (img) =>
           appendRenderedImage({
