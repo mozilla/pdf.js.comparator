@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = 389853d
+ * pdfjsBuild = c7a32c3
  */
 
 ;// ./src/shared/util.js
@@ -16433,12 +16433,27 @@ class WorkerTransport {
       pageInfos
     };
     let transfer;
+    const ImageBitmapCtor = globalThis.ImageBitmap;
+    if (typeof ImageBitmapCtor === "function") {
+      const infos = Array.isArray(pageInfos) ? pageInfos : [pageInfos];
+      for (const pageInfo of infos) {
+        if (pageInfo?.image instanceof ImageBitmapCtor) {
+          (transfer ||= []).push(pageInfo.image);
+        }
+      }
+    }
     if (this.annotationStorage.size > 0) {
       const serialized = this.annotationStorage.serializable;
       let {
         map
       } = serialized;
-      transfer = serialized.transfer;
+      if (serialized.transfer?.length) {
+        if (transfer) {
+          transfer.push(...serialized.transfer);
+        } else {
+          transfer = serialized.transfer;
+        }
+      }
       const mapping = this.pagesMapper.getMapping();
       if (mapping) {
         const remapped = new Map();
@@ -16810,7 +16825,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.0.0";
-const build = "389853d";
+const build = "c7a32c3";
 
 ;// ./src/display/editor/color_picker.js
 
