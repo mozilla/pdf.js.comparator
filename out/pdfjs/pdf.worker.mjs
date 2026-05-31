@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = 327822c
+ * pdfjsBuild = 5fbab91
  */
 
 ;// ./src/shared/util.js
@@ -2844,8 +2844,8 @@ class Stream extends BaseStream {
   }
 }
 class StringStream extends Stream {
-  constructor(str) {
-    super(stringToBytes(str));
+  constructor(str, dict = null) {
+    super(stringToBytes(str), NaN, NaN, dict);
   }
 }
 class NullStream extends Stream {
@@ -38450,9 +38450,7 @@ class FakeUnicodeFont {
       const matrix = getRotationMatrix(rotation, w, h);
       appearanceStreamDict.set("Matrix", matrix);
     }
-    const ap = new StringStream(appearance);
-    ap.dict = appearanceStreamDict;
-    return ap;
+    return new StringStream(appearance, appearanceStreamDict);
   }
 }
 
@@ -53278,8 +53276,7 @@ class Annotation {
           separateCanvas: false
         };
       }
-      appearance = new StringStream("");
-      appearance.dict = new Dict();
+      appearance = new StringStream("", new Dict());
     }
     const appearanceDict = appearance.dict;
     const resources = await this.loadResources(RESOURCES_KEYS_OPERATOR_LIST, appearance);
@@ -53608,8 +53605,7 @@ class MarkupAnnotation extends Annotation {
     const formDict = new Dict(xref);
     const appearanceStreamDict = new Dict(xref);
     appearanceStreamDict.setIfName("Subtype", "Form");
-    const appearanceStream = new StringStream(buffer.join(" "));
-    appearanceStream.dict = appearanceStreamDict;
+    const appearanceStream = new StringStream(buffer.join(" "), appearanceStreamDict);
     formDict.set("Fm0", appearanceStream);
     const gsDict = new Dict(xref);
     if (blendMode) {
@@ -53625,8 +53621,7 @@ class MarkupAnnotation extends Annotation {
     const appearanceDict = new Dict(xref);
     appearanceDict.set("Resources", resources);
     appearanceDict.set("BBox", bbox);
-    this.appearance = new StringStream("/GS0 gs /Fm0 Do");
-    this.appearance.dict = appearanceDict;
+    this.appearance = new StringStream("/GS0 gs /Fm0 Do", appearanceDict);
     this._streams.push(this.appearance, appearanceStream);
   }
   static async createNewAnnotation(xref, annotation, changes, params) {
@@ -53964,13 +53959,13 @@ class WidgetAnnotation extends Annotation {
       const AP = new Dict(xref);
       dict.set("AP", AP);
       AP.set("N", newRef);
-      const resources = this._getSaveFieldResources(xref);
-      const appearanceStream = new StringStream(appearance);
-      const appearanceDict = appearanceStream.dict = new Dict(xref);
+      const resources = this._getSaveFieldResources(xref),
+        appearanceDict = new Dict(xref);
       appearanceDict.setIfName("Subtype", "Form");
       appearanceDict.set("Resources", resources);
       const bbox = rotation % 180 === 0 ? [0, 0, this.width, this.height] : [0, 0, this.height, this.width];
       appearanceDict.set("BBox", bbox);
+      const appearanceStream = new StringStream(appearance, appearanceDict);
       const rotationMatrix = this.getRotationMatrix(annotationStorage);
       if (rotationMatrix !== IDENTITY_MATRIX) {
         appearanceDict.set("Matrix", rotationMatrix);
@@ -54674,8 +54669,7 @@ class ButtonWidgetAnnotation extends WidgetAnnotation {
     font.set("PdfJsZaDb", this.fallbackFontDict);
     resources.set("Font", font);
     appearanceStreamDict.set("Resources", resources);
-    this.checkedAppearance = new StringStream(appearance);
-    this.checkedAppearance.dict = appearanceStreamDict;
+    this.checkedAppearance = new StringStream(appearance, appearanceStreamDict);
     this._streams.push(this.checkedAppearance);
   }
   _processCheckBox(params) {
@@ -55338,9 +55332,7 @@ class FreeTextAnnotation extends MarkupAnnotation {
     appearanceStreamDict.set("BBox", rect);
     appearanceStreamDict.set("Resources", resources);
     appearanceStreamDict.set("Matrix", [1, 0, 0, 1, -rect[0], -rect[1]]);
-    const ap = new StringStream(appearance);
-    ap.dict = appearanceStreamDict;
-    return ap;
+    return new StringStream(appearance, appearanceStreamDict);
   }
 }
 class LineAnnotation extends MarkupAnnotation {
@@ -55690,9 +55682,7 @@ class InkAnnotation extends MarkupAnnotation {
       resources.set("ExtGState", extGState);
       appearanceStreamDict.set("Resources", resources);
     }
-    const ap = new StringStream(appearance);
-    ap.dict = appearanceStreamDict;
-    return ap;
+    return new StringStream(appearance, appearanceStreamDict);
   }
   static async createNewAppearanceStreamForHighlight(annotation, xref, params) {
     const {
@@ -55735,9 +55725,7 @@ class InkAnnotation extends MarkupAnnotation {
       r0.set("ca", opacity);
       r0.setIfName("Type", "ExtGState");
     }
-    const ap = new StringStream(appearance);
-    ap.dict = appearanceStreamDict;
-    return ap;
+    return new StringStream(appearance, appearanceStreamDict);
   }
 }
 class HighlightAnnotation extends MarkupAnnotation {
@@ -55850,9 +55838,7 @@ class HighlightAnnotation extends MarkupAnnotation {
       r0.set("ca", opacity);
       r0.setIfName("Type", "ExtGState");
     }
-    const ap = new StringStream(appearance);
-    ap.dict = appearanceStreamDict;
-    return ap;
+    return new StringStream(appearance, appearanceStreamDict);
   }
 }
 class UnderlineAnnotation extends MarkupAnnotation {
@@ -56043,9 +56029,7 @@ class StampAnnotation extends MarkupAnnotation {
     appearanceStreamDict.setIfName("Type", "XObject");
     appearanceStreamDict.set("BBox", rect);
     appearanceStreamDict.set("Length", appearance.length);
-    const ap = new StringStream(appearance);
-    ap.dict = appearanceStreamDict;
-    return ap;
+    return new StringStream(appearance, appearanceStreamDict);
   }
   static async createNewAppearanceStream(annotation, xref, params) {
     if (annotation.oldAnnotation) {
@@ -56077,9 +56061,7 @@ class StampAnnotation extends MarkupAnnotation {
       const matrix = getRotationMatrix(rotation, width, height);
       appearanceStreamDict.set("Matrix", matrix);
     }
-    const ap = new StringStream(appearance);
-    ap.dict = appearanceStreamDict;
-    return ap;
+    return new StringStream(appearance, appearanceStreamDict);
   }
 }
 class FileAttachmentAnnotation extends MarkupAnnotation {
@@ -60518,8 +60500,7 @@ function updateXFA({
     const datasets = xref.fetchIfRef(xfaDatasetsRef);
     xfaData = writeXFADataForAcroform(datasets.getString(), changes);
   }
-  const xfaDataStream = new StringStream(xfaData);
-  xfaDataStream.dict = new Dict(xref);
+  const xfaDataStream = new StringStream(xfaData, new Dict(xref));
   xfaDataStream.dict.setIfName("Type", "EmbeddedFile");
   changes.put(xfaDatasetsRef, {
     data: xfaDataStream
@@ -62559,8 +62540,7 @@ class PDFEditor {
     resourcesDict.set("XObject", xobjectDict);
     resourcesDict.set("ProcSet", [Name.get("PDF"), Name.get("ImageC")]);
     const content = `q ${numberToString(drawW)} 0 0 ${numberToString(drawH)} ` + `${numberToString(tx)} ${numberToString(ty)} cm /Im0 Do Q`;
-    const contentsDict = new Dict(this.xrefWrapper);
-    const contentsStream = new Stream(stringToBytes(content), 0, 0, contentsDict);
+    const contentsStream = new StringStream(content, new Dict(this.xrefWrapper));
     const contentsRef = this.newRef;
     this.xref[contentsRef.num] = contentsStream;
     const pageRef = this.newRef;
@@ -62947,11 +62927,11 @@ class PDFEditor {
       offset += obj.length + 1;
     }
     streamBuffer[0] = objOffsets.join("\n");
-    const objStream = new StringStream(streamBuffer.join("\n"));
-    const objStreamDict = objStream.dict = new Dict();
-    objStreamDict.setIfName("Type", "ObjStm");
-    objStreamDict.set("N", objRefs.length);
-    objStreamDict.set("First", streamBuffer[0].length + 1);
+    const dict = new Dict();
+    dict.setIfName("Type", "ObjStm");
+    dict.set("N", objRefs.length);
+    dict.set("First", streamBuffer[0].length + 1);
+    const objStream = new StringStream(streamBuffer.join("\n"), dict);
     changes.put(objStreamRef, {
       data: objStream
     });
