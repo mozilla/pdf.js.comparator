@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = 145feea
+ * pdfjsBuild = 327822c
  */
 
 ;// ./src/shared/util.js
@@ -26600,15 +26600,7 @@ function getRanges(glyphs, toUnicodeExtraMap, numGlyphs) {
 }
 function createCmapTable(glyphs, toUnicodeExtraMap, numGlyphs) {
   const ranges = getRanges(glyphs, toUnicodeExtraMap, numGlyphs);
-  const numTables = ranges.at(-1)[1] > 0xffff ? 2 : 1;
-  const cmap = new DataBuilder({
-    exactLength: 12
-  });
-  cmap.skip(2);
-  cmap.setInt16(numTables);
-  cmap.setArray([0x00, 0x03]);
-  cmap.setArray([0x00, 0x01]);
-  cmap.setInt32(4 + numTables * 8);
+  const hasNonBmp = ranges.at(-1)[1] > 0xffff;
   let i, ii, j, jj;
   for (i = ranges.length - 1; i >= 0; --i) {
     if (ranges[i][0] <= 0xffff) {
@@ -26637,6 +26629,7 @@ function createCmapTable(glyphs, toUnicodeExtraMap, numGlyphs) {
     }),
     glyphsIds = new DataBuilder({});
   let bias = 0;
+  let format4Overflow = false;
   for (i = 0, ii = bmpLength; i < ii; i++) {
     const [start, end, codes] = ranges[i];
     startCount.setInt16(start);
@@ -26652,7 +26645,12 @@ function createCmapTable(glyphs, toUnicodeExtraMap, numGlyphs) {
       const offset = (segCount - i) * 2 + bias * 2;
       bias += end - start + 1;
       idDeltas.skip(2);
-      idRangeOffsets.setInt16(offset);
+      if (offset > 0xffff) {
+        format4Overflow = true;
+        idRangeOffsets.skip(2);
+      } else {
+        idRangeOffsets.setInt16(offset);
+      }
       for (j = 0, jj = codes.length; j < jj; ++j) {
         glyphsIds.setInt16(codes[j]);
       }
@@ -26682,16 +26680,12 @@ function createCmapTable(glyphs, toUnicodeExtraMap, numGlyphs) {
   format314.setArray(idDeltas.data);
   format314.setArray(idRangeOffsets.data);
   format314.setArray(glyphsIds.data);
-  let cmap31012 = null,
-    format31012 = null,
+  const useFormat4 = !format4Overflow && format314.length + 4 <= 0xffff;
+  const useFormat12 = hasNonBmp || !useFormat4;
+  const numTables = (useFormat4 ? 1 : 0) + (useFormat12 ? 1 : 0);
+  let format31012 = null,
     header31012 = null;
-  if (numTables > 1) {
-    cmap31012 = new DataBuilder({
-      exactLength: 8
-    });
-    cmap31012.setArray([0x00, 0x03]);
-    cmap31012.setArray([0x00, 0x0a]);
-    cmap31012.setInt32(4 + numTables * 8 + 4 + format314.length);
+  if (useFormat12) {
     format31012 = new DataBuilder({});
     for (const range of ranges) {
       let start = range[0];
@@ -26720,16 +26714,38 @@ function createCmapTable(glyphs, toUnicodeExtraMap, numGlyphs) {
     header31012.skip(4);
     header31012.setInt32(format31012.length / 12);
   }
+  const headerLength = 4 + numTables * 8;
+  const format4Length = useFormat4 ? 4 + format314.length : 0;
+  const cmap = new DataBuilder({
+    exactLength: headerLength
+  });
+  cmap.skip(2);
+  cmap.setInt16(numTables);
+  let tableOffset = headerLength;
+  if (useFormat4) {
+    cmap.setArray([0x00, 0x03]);
+    cmap.setArray([0x00, 0x01]);
+    cmap.setInt32(tableOffset);
+    tableOffset += format4Length;
+  }
+  if (useFormat12) {
+    cmap.setArray([0x00, 0x03]);
+    cmap.setArray([0x00, 0x0a]);
+    cmap.setInt32(tableOffset);
+  }
   const table = new DataBuilder({
-    exactLength: 4 + cmap.length + (cmap31012?.length ?? 0) + format314.length + (header31012?.length ?? 0) + (format31012?.length ?? 0)
+    exactLength: cmap.length + format4Length + (header31012?.length ?? 0) + (format31012?.length ?? 0)
   });
   table.setArray(cmap.data);
-  table.setArray(cmap31012?.data ?? []);
-  table.setArray([0x00, 0x04]);
-  table.setInt16(format314.length + 4);
-  table.setArray(format314.data);
-  table.setArray(header31012?.data ?? []);
-  table.setArray(format31012?.data ?? []);
+  if (useFormat4) {
+    table.setArray([0x00, 0x04]);
+    table.setInt16(format314.length + 4);
+    table.setArray(format314.data);
+  }
+  if (useFormat12) {
+    table.setArray(header31012.data);
+    table.setArray(format31012.data);
+  }
   return table.data;
 }
 function validateOS2Table(os2, file) {
