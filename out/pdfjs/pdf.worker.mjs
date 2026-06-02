@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = 5fbab91
+ * pdfjsBuild = b43ef1c
  */
 
 ;// ./src/shared/util.js
@@ -1145,6 +1145,9 @@ class BaseStream {
   }
   makeSubStream(start, length, dict = null) {
     unreachable("Abstract method `makeSubStream` called");
+  }
+  clone() {
+    unreachable("Abstract method `clone` called");
   }
   getBaseStreams() {
     return null;
@@ -2840,7 +2843,7 @@ class Stream extends BaseStream {
     return new Stream(this.bytes.buffer, start, length, dict);
   }
   clone() {
-    return new Stream(this.bytes.buffer, this.start, this.end - this.start, this.dict.clone());
+    return new Stream(this.bytes.buffer, this.start, this.length, this.dict?.clone());
   }
 }
 class StringStream extends Stream {
@@ -3883,14 +3886,14 @@ class DecodeStream extends BaseStream {
     }
     return new Stream(this.buffer, start, length, dict);
   }
-  getBaseStreams() {
-    return this.stream ? this.stream.getBaseStreams() : null;
-  }
   clone() {
     while (!this.eof) {
       this.readBlock();
     }
-    return new Stream(this.buffer, this.start, this.end - this.start, this.dict.clone());
+    return new Stream(this.buffer, 0, this.bufferLength, this.dict?.clone());
+  }
+  getBaseStreams() {
+    return this.stream ? this.stream.getBaseStreams() : null;
   }
 }
 class StreamsSequenceStream extends DecodeStream {
