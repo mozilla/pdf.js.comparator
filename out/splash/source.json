@@ -3,8 +3,8 @@
   "dependencies": {
     "poppler": {
       "repo": "https://gitlab.freedesktop.org/poppler/poppler.git",
-      "ref": "poppler-26.05.0"
+      "ref": "poppler-26.06.0"
     }
   },
-  "fingerprint": "splash=poppler-26.05.0"
+  "fingerprint": "splash=poppler-26.06.0"
 }
