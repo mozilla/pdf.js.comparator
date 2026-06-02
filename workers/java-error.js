@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Mozilla Foundation
 
-// Shared helpers for CheerpJ-backed workers (pdfbox + icepdf). CheerpJ
+// Shared helpers for CheerpJ-backed workers (pdfbox). CheerpJ
 // throws Promise-wrapped proxies of Java Throwables; turning them into a
 // human-readable string takes a multi-step unwrap. Loaded via importScripts;
 // exposes self.JavaError = { unwrap, stackTrace, message }.
