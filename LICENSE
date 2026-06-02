@@ -24,7 +24,7 @@ SOFTWARE.
 
 Note on distributed binaries: the wasm/JAR bundles produced by this repository
 statically include upstream PDF/diff libraries (poppler, pdfium, MuPDF, cairo,
-PDFBox, ICEpdf, Ghostscript, Xpdf, butteraugli, dssim, FLIP). Each of those
+PDFBox, Ghostscript, Xpdf, butteraugli, dssim, FLIP). Each of those
 bundles is governed by the license of the upstream it includes — see the
 license table in README.md. Switching this repository's own source to MIT
 does not change the licenses of the produced binaries.

@@ -456,9 +456,6 @@ select {
 .chip[data-engine="xpdf"] {
   --engine: #b16cea;
 }
-.chip[data-engine="icepdf"] {
-  --engine: #00a4dc;
-}
 
 /* ── status pill ────────────────────────────────────────────────── */
 .status-wrap {
@@ -588,6 +585,13 @@ select {
 #renders > .render.skeleton {
   animation: skeleton-pulse 1.6s ease-in-out infinite;
 }
+/* A card being re-rendered keeps its previous canvas visible but dimmed and
+   pulsing, so the layout height — and the scroll position — stays put while
+   the new render is in flight. */
+#renders > .render.refreshing .canvas-wrap {
+  opacity: 0.5;
+  animation: skeleton-pulse 1.6s ease-in-out infinite;
+}
 #renders > .render.failed .canvas-wrap {
   color: var(--error);
   background: var(--error-tint);
@@ -663,6 +667,13 @@ select {
           font-size: 0.78rem;
           font-weight: 600;
           color: var(--ink);
+          /* Stretch across the card so the help icon sits at the far edge,
+             opposite the metric name. */
+          align-self: stretch;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.5rem;
         }
       }
     }
@@ -687,6 +698,75 @@ select {
   display: block;
   border: 1px solid var(--border);
   border-radius: 4px;
+}
+
+/* Diff card title + "?" help icon (built by diffCardHeading). */
+.diff-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.diff-help {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.05rem;
+  height: 1.05rem;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: help;
+  user-select: none;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+.diff-help:hover,
+.diff-help:focus-visible {
+  color: var(--accent-strong);
+  border-color: var(--accent);
+  background: var(--accent-tint);
+  outline: none;
+}
+/* Hover/focus tooltip. Anchored to the icon's right edge so it grows leftward
+   and never spills past the page edge; sits below the icon to avoid clipping. */
+.diff-tip {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  width: max-content;
+  max-width: 17rem;
+  padding: 0.6rem 0.7rem;
+  border-radius: var(--radius-sm);
+  background: var(--ink);
+  color: #fff;
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  font-weight: 400;
+  line-height: 1.4;
+  text-align: left;
+  white-space: normal;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.15s ease,
+    visibility 0.15s ease;
+}
+.diff-help:hover .diff-tip,
+.diff-help:focus .diff-tip {
+  opacity: 1;
+  visibility: visible;
 }
 
 /* Pair card header — title on the left, live "computing diffs…" badge on
@@ -756,6 +836,15 @@ select {
   min-width: 9rem;
 }
 #diffs .pair-row > .diff.loading {
+  animation: skeleton-pulse 1.6s ease-in-out infinite;
+}
+/* Diffs being recomputed (whole pair while waiting for renderers, or an
+   individual card while its comparator reruns) keep their stale result
+   visible but dimmed/pulsing, so the area's height — and the scroll
+   position — stays stable. */
+#diffs .pair.refreshing .pair-row,
+#diffs .pair-row > .diff.refreshing {
+  opacity: 0.5;
   animation: skeleton-pulse 1.6s ease-in-out infinite;
 }
 .diff-placeholder {

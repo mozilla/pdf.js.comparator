@@ -11,7 +11,6 @@
 [![mupdf](https://github.com/mozilla/pdf.js.comparator/actions/workflows/mupdf.yml/badge.svg?branch=main)](https://github.com/mozilla/pdf.js.comparator/actions/workflows/mupdf.yml)
 [![pdfjs](https://github.com/mozilla/pdf.js.comparator/actions/workflows/pdfjs.yml/badge.svg?branch=main)](https://github.com/mozilla/pdf.js.comparator/actions/workflows/pdfjs.yml)
 [![pdfbox](https://github.com/mozilla/pdf.js.comparator/actions/workflows/pdfbox.yml/badge.svg?branch=main)](https://github.com/mozilla/pdf.js.comparator/actions/workflows/pdfbox.yml)
-[![icepdf](https://github.com/mozilla/pdf.js.comparator/actions/workflows/icepdf.yml/badge.svg?branch=main)](https://github.com/mozilla/pdf.js.comparator/actions/workflows/icepdf.yml)
 [![ghostscript](https://github.com/mozilla/pdf.js.comparator/actions/workflows/gs.yml/badge.svg?branch=main)](https://github.com/mozilla/pdf.js.comparator/actions/workflows/gs.yml)
 [![xpdf](https://github.com/mozilla/pdf.js.comparator/actions/workflows/xpdf.yml/badge.svg?branch=main)](https://github.com/mozilla/pdf.js.comparator/actions/workflows/xpdf.yml)
 [![butteraugli](https://github.com/mozilla/pdf.js.comparator/actions/workflows/butteraugli.yml/badge.svg?branch=main)](https://github.com/mozilla/pdf.js.comparator/actions/workflows/butteraugli.yml)
@@ -22,7 +21,7 @@
 Side-by-side visual comparison of pdf.js against multiple reference PDF
 renderers — **cairo** (poppler+cairo), **splash** (poppler's in-tree
 software rasterizer), **pdfium**, **mupdf**, **PDFBox**, **Ghostscript**,
-**Xpdf**, and **ICEpdf** — with six image-diff algorithms
+and **Xpdf** — with six image-diff algorithms
 layered on top.
 
 **[Open the live harness ›](https://mozilla.github.io/pdf.js.comparator/)** — pulls in whichever wasm bundles you tick and runs everything in the browser; no install needed.
@@ -46,7 +45,6 @@ scripts/
   build-gs.sh            # fetch Ghostscript wasm → out/gs/
   build-xpdf.sh          # Xpdf pdftoppm/pdfinfo → out/xpdf/
   build-pdfbox.sh        # fetch PDFBox jar + CheerpJ patches → out/pdfbox/
-  build-icepdf.sh        # fetch ICEpdf jars + CheerpJ patches → out/icepdf/
   build-butteraugli.sh   # standalone → out/butteraugli/butteraugli.{js,wasm}
   build-dssim.sh         # Rust → out/dssim/dssim.{js,_bg.wasm}
   build-flip.sh          # standalone → out/flip/flip.{js,wasm}
@@ -61,11 +59,12 @@ src/
 workers/
   renderer-worker.js     # generic; ?wasm=<name> picks the bundle
   cli-renderer-worker.js # Ghostscript / Xpdf CLI wasm modules
-  icepdf-worker.js       # ICEpdf under CheerpJ
   pdfbox-worker.js       # PDFBox under CheerpJ
   diff-worker.js         # owns butteraugli + dssim + FLIP wasms
   java-error.js          # shared CheerpJ-error unwrap (importScripts'd)
-harness.html             # the viewer
+harness.html             # the viewer — markup only
+harness.js               # all viewer logic (ES module)
+harness.css              # viewer styles
 .github/workflows/       # one yml per wasm + a deploy yml
 ```
 
@@ -98,7 +97,6 @@ base ──── deps ────┬── cairo
     ├── xpdf
     ├── gs
     ├── java-base ─── pdfbox
-    ├── java-base ─── icepdf
     └── rust-base ─── dssim
                                                 final  ←  COPY --from each sibling
 ```
@@ -150,10 +148,10 @@ The gh-pages branch is assembled by **two independent kinds of workflow**.
 Configure GitHub Pages to serve from the `gh-pages` branch root.
 
 `.github/workflows/deploy.yml` is the lightweight harness deployer. On
-pushes to `main` that touch `harness.html`, `workers/**`, `build.js`,
-`eslint.config.mjs`, `src/common/**`, or the deploy workflow itself, it
-runs `npm run lint` + `npm run format:check`, then publishes
-`index.html` / `harness.html` / `workers/` at the gh-pages root via the
+pushes to `main` that touch `harness.{html,css,js}`, `workers/**`,
+`build.js`, `eslint.config.mjs`, `src/common/**`, or the deploy workflow
+itself, it runs `npm run lint` + `npm run format:check`, then publishes
+`index.html` / `harness.{html,css,js}` / `workers/` at the gh-pages root via the
 local `publish-to-gh-pages` action with keep_files semantics. It does
 **not** rebuild any renderer — the heavy wasm/JAR builds belong to the
 per-renderer workflows, which each publish under their own subpath.
@@ -175,7 +173,6 @@ runs always rebuild.
 | `flip.yml`        | upstream HEAD                                                           |
 | `gs.yml`          | latest `ghostscript-wasm-esm` on npm                                    |
 | `pdfbox.yml`      | latest `org.apache.pdfbox:pdfbox-app` on Maven Central                  |
-| `icepdf.yml`      | latest ICEpdf jar set + direct Maven dependency versions                |
 | `dssim.yml`       | latest `dssim-core` crate                                               |
 | `pdfjs.yml`       | mozilla/pdf.js `master`                                                 |
 
@@ -212,13 +209,11 @@ Workflows pass the resolved upstream versions through `$GITHUB_ENV`
 | PDFBox                       | Apache-2.0                                        |
 | Ghostscript                  | AGPL-3.0 / commercial                             |
 | Xpdf                         | GPL-2.0 / GPL-3.0                                 |
-| ICEpdf                       | Apache-2.0                                        |
-| JAI ImageIO / JPEG2000       | BSD-3-like with Sun notice / JJ2000               |
 | This repository's own source | MIT (see [LICENSE](LICENSE))                      |
 
 This repository's own source — the wrappers in `src/`, all of `workers/`,
-`scripts/`, `build.js`, `harness.html`, the Dockerfile, and the workflow
-files — is MIT-licensed. See [LICENSE](LICENSE).
+`scripts/`, `build.js`, `harness.{html,css,js}`, the Dockerfile, and the
+workflow files — is MIT-licensed. See [LICENSE](LICENSE).
 
 The wasm/JAR bundles produced at build time, however, inherit the license of
 the renderer they include — `mupdf.wasm` is AGPL-3.0, `cairo.wasm` is

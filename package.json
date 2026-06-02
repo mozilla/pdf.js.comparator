@@ -2,8 +2,8 @@
   "name": "pdf.js.comparator",
   "version": "0.0.1",
   "scripts": {
-    "format": "prettier --write README.md build.js eslint.config.mjs harness.html harness.css package.json 'src/common/*.js' 'workers/*.js'",
-    "format:check": "prettier --check README.md build.js eslint.config.mjs harness.html harness.css package.json 'src/common/*.js' 'workers/*.js'",
+    "format": "prettier --write README.md build.js eslint.config.mjs harness.html harness.css harness.js package.json 'src/common/*.js' 'workers/*.js'",
+    "format:check": "prettier --check README.md build.js eslint.config.mjs harness.html harness.css harness.js package.json 'src/common/*.js' 'workers/*.js'",
     "lint": "eslint build.js eslint.config.mjs src/common workers"
   },
   "devDependencies": {

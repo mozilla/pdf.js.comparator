@@ -23,7 +23,6 @@ const RENDERERS = [
   "pdfbox",
   "gs",
   "xpdf",
-  "icepdf",
 ];
 
 function run(cmd, args) {

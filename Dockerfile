@@ -12,7 +12,6 @@
 #       ├── butteraugli (no shared-libs dep)
 #       ├── flip (no shared-libs dep)
 #       ├── gs / pdfjs (download-only)
-#       ├── java-base ─── icepdf
 #       ├── java-base ─── pdfbox
 #       │
 #       └── rust-base ─── dssim
@@ -179,29 +178,6 @@ COPY scripts/build-pdfbox.sh /code/scripts/
 RUN echo "pdfbox version=${PDFBOX_VERSION} cache=${PDFBOX_CACHE_BUST}" && \
     PDFBOX_VERSION="${PDFBOX_VERSION}" bash /code/scripts/build-pdfbox.sh
 
-# ICEpdf: download the jar set and build small CheerpJ compatibility patches.
-FROM java-base AS icepdf
-ARG ICEPDF_VERSION
-ARG BOUNCYCASTLE_VERSION
-ARG TWELVEMONKEYS_VERSION
-ARG ICEPDF_PDFBOX_VERSION
-ARG JBIG2_IMAGEIO_VERSION
-ARG JAI_IMAGEIO_CORE_VERSION
-ARG JAI_IMAGEIO_JPEG2000_VERSION
-ARG COMMONS_LOGGING_VERSION
-ARG ICEPDF_CACHE_BUST
-COPY scripts/build-icepdf.sh /code/scripts/
-RUN echo "icepdf version=${ICEPDF_VERSION} cache=${ICEPDF_CACHE_BUST}" && \
-    ICEPDF_VERSION="${ICEPDF_VERSION}" \
-    BOUNCYCASTLE_VERSION="${BOUNCYCASTLE_VERSION}" \
-    TWELVEMONKEYS_VERSION="${TWELVEMONKEYS_VERSION}" \
-    PDFBOX_VERSION="${ICEPDF_PDFBOX_VERSION}" \
-    JBIG2_IMAGEIO_VERSION="${JBIG2_IMAGEIO_VERSION}" \
-    JAI_IMAGEIO_CORE_VERSION="${JAI_IMAGEIO_CORE_VERSION}" \
-    JAI_IMAGEIO_JPEG2000_VERSION="${JAI_IMAGEIO_JPEG2000_VERSION}" \
-    COMMONS_LOGGING_VERSION="${COMMONS_LOGGING_VERSION}" \
-    bash /code/scripts/build-icepdf.sh
-
 # dssim is Rust-only.
 FROM rust-base AS dssim
 ARG DSSIM_CORE_VERSION
@@ -222,6 +198,7 @@ COPY docker/nginx.conf /etc/nginx/nginx.conf
 COPY harness.html /www/index.html
 COPY harness.html /www/harness.html
 COPY harness.css  /www/harness.css
+COPY harness.js   /www/harness.js
 COPY workers      /www/workers
 COPY --from=cairo       /js/cairo       /www/out/cairo
 COPY --from=splash      /js/splash      /www/out/splash
@@ -234,5 +211,4 @@ COPY --from=pdfjs       /js/pdfjs       /www/out/pdfjs
 COPY --from=pdfbox      /js/pdfbox      /www/out/pdfbox
 COPY --from=gs          /js/gs          /www/out/gs
 COPY --from=xpdf        /js/xpdf        /www/out/xpdf
-COPY --from=icepdf      /js/icepdf      /www/out/icepdf
 EXPOSE 8000

@@ -17,6 +17,7 @@ on:
       - "eslint.config.mjs"
       - "harness.html"
       - "harness.css"
+      - "harness.js"
       - "package-lock.json"
       - "package.json"
       - "src/common/**"
@@ -64,6 +65,7 @@ jobs:
           cp harness.html site/index.html
           cp harness.html site/harness.html
           cp harness.css  site/harness.css
+          cp harness.js   site/harness.js
           cp -R workers site/workers
           touch site/.nojekyll
 

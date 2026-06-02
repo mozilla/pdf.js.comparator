@@ -17,7 +17,6 @@ const TARGETS = {
   dssim: resolveDssim,
   flip: resolveFlip,
   gs: resolveGhostscript,
-  icepdf: resolveIcepdf,
   mupdf: resolveMupdf,
   pdfbox: resolvePdfbox,
   pdfium: resolvePdfium,
@@ -285,63 +284,6 @@ async function resolvePdfbox() {
     values: {
       pdfbox_version: version,
     },
-  };
-}
-
-async function resolveIcepdf() {
-  // `icepdf_pdfbox_version` rather than `pdfbox_version` so the env var
-  // doesn't collide with the standalone PDFBox renderer's resolver when
-  // both run in deploy.yml.
-  const versions = {
-    icepdf_version: await latestMavenVersion(
-      "com/github/pcorless/icepdf",
-      "icepdf-core",
-    ),
-    bouncycastle_version: await latestMavenVersion(
-      "org/bouncycastle",
-      "bcprov-jdk18on",
-    ),
-    twelvemonkeys_version: await latestMavenVersion(
-      "com/twelvemonkeys/imageio",
-      "imageio-core",
-    ),
-    icepdf_pdfbox_version: await latestMavenVersion(
-      "org/apache/pdfbox",
-      "pdfbox",
-    ),
-    jbig2_imageio_version: await latestMavenVersion(
-      "org/apache/pdfbox",
-      "jbig2-imageio",
-    ),
-    jai_imageio_core_version: await latestMavenVersion(
-      "com/github/jai-imageio",
-      "jai-imageio-core",
-    ),
-    jai_imageio_jpeg2000_version: await latestMavenVersion(
-      "com/github/jai-imageio",
-      "jai-imageio-jpeg2000",
-    ),
-    commons_logging_version: await latestMavenVersion(
-      "commons-logging",
-      "commons-logging",
-    ),
-  };
-  // Spell the fingerprint out explicitly: the auto-stripped key for
-  // `icepdf_pdfbox_version` would be `icepdf_pdfbox`, but build-icepdf.sh
-  // writes `pdfbox=` (kept distinct from `icepdf=` only at the env-var
-  // layer). Listing each segment also matches the build's key order.
-  return {
-    fingerprint: [
-      `icepdf=${versions.icepdf_version}`,
-      `bouncycastle=${versions.bouncycastle_version}`,
-      `twelvemonkeys=${versions.twelvemonkeys_version}`,
-      `pdfbox=${versions.icepdf_pdfbox_version}`,
-      `jbig2_imageio=${versions.jbig2_imageio_version}`,
-      `jai_imageio_core=${versions.jai_imageio_core_version}`,
-      `jai_imageio_jpeg2000=${versions.jai_imageio_jpeg2000_version}`,
-      `commons_logging=${versions.commons_logging_version}`,
-    ].join(";"),
-    values: versions,
   };
 }
 
