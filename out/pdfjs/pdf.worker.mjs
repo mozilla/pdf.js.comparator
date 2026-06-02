@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = 27b345a
+ * pdfjsBuild = 19046a6
  */
 
 ;// ./src/shared/util.js
@@ -34290,7 +34290,8 @@ class PartialEvaluator {
         smask,
         isolated: false,
         knockout: false,
-        needsIsolation: false
+        needsIsolation: false,
+        isGray: false
       };
       const groupSubtype = group.get("S");
       let colorSpace = null;
@@ -34302,6 +34303,7 @@ class PartialEvaluator {
           colorSpace = cs instanceof ColorSpace ? cs : await this._handleColorSpace(cs);
         }
       }
+      groupOptions.isGray = colorSpace?.numComps === 1;
       if (smask?.backdrop) {
         colorSpace ||= ColorSpaceUtils.rgb;
         smask.backdrop = colorSpace.getRgbHex(smask.backdrop, 0);
