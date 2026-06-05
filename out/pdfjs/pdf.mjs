@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = 091f459
+ * pdfjsBuild = 173e083
  */
 
 ;// ./src/shared/util.js
@@ -2030,7 +2030,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "787ce57e-f98e-41a3-af07-e6be1b6a1879";
+const INTERNAL_EVT = "1a9f75f1-79d2-48d2-b0f9-2eb90aeee16c";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -2373,55 +2373,89 @@ class CommandManager {
   }
 }
 class KeyboardManager {
+  static ALT = 0x1;
+  static CTRL = 0x2;
+  static META = 0x4;
+  static SHIFT = 0x8;
   constructor(callbacks) {
-    this.buffer = [];
     this.callbacks = new Map();
-    this.allKeys = new Set();
     const {
       isMac
     } = FeatureTest.platform;
     for (const [keys, callback, options = {}] of callbacks) {
+      const hasMacOverride = keys.some(k => k.startsWith("mac+"));
       for (const key of keys) {
-        const isMacKey = key.startsWith("mac+");
-        if (isMac && isMacKey) {
-          this.callbacks.set(key.slice(4), {
-            callback,
-            options
-          });
-          this.allKeys.add(key.split("+").at(-1));
-        } else if (!isMac && !isMacKey) {
-          this.callbacks.set(key, {
-            callback,
-            options
-          });
-          this.allKeys.add(key.split("+").at(-1));
+        let shortcut = key;
+        if (hasMacOverride) {
+          const isMacKey = key.startsWith("mac+");
+          if (isMac !== isMacKey) {
+            continue;
+          }
+          if (isMacKey) {
+            shortcut = key.slice(4);
+          }
         }
+        const [keyName, modifiers] = KeyboardManager.#parseShortcut(shortcut);
+        if (keyName === null) {
+          continue;
+        }
+        this.callbacks.getOrInsertComputed(keyName, () => []).push({
+          callback,
+          options,
+          modifiers
+        });
       }
     }
   }
-  #serialize(event) {
-    if (event.altKey) {
-      this.buffer.push("alt");
+  static #parseShortcut(value) {
+    let keyPart = null;
+    let modifiers = 0;
+    for (let part of value.split("+")) {
+      part = part.trim();
+      if (!part) {
+        continue;
+      }
+      const upper = part.toUpperCase();
+      const modifier = KeyboardManager[upper];
+      if (modifier) {
+        modifiers |= modifier;
+        continue;
+      }
+      if (keyPart !== null) {
+        warn(`KeyboardManager: multiple keys in shortcut "${value}"`);
+        break;
+      }
+      keyPart = upper === "SPACE" ? " " : part;
     }
-    if (event.ctrlKey) {
-      this.buffer.push("ctrl");
+    if (keyPart === null) {
+      warn(`KeyboardManager: no key found in shortcut "${value}"`);
     }
-    if (event.metaKey) {
-      this.buffer.push("meta");
+    return [keyPart, modifiers];
+  }
+  static #codeToKey(code) {
+    const match = /^(?:Key([A-Z])|(?:Digit|Numpad)(\d))$/.exec(code);
+    if (!match) {
+      return null;
     }
-    if (event.shiftKey) {
-      this.buffer.push("shift");
-    }
-    this.buffer.push(event.key);
-    const str = this.buffer.join("+");
-    this.buffer.length = 0;
-    return str;
+    return match[1]?.toLowerCase() ?? match[2];
   }
   exec(self, event) {
-    if (!this.allKeys.has(event.key)) {
-      return;
+    let shortcuts = this.callbacks.get(event.key);
+    if (!shortcuts) {
+      if (/^[a-z]$/i.test(event.key)) {
+        return;
+      }
+      const fallback = KeyboardManager.#codeToKey(event.code);
+      if (fallback === null || fallback === event.key) {
+        return;
+      }
+      shortcuts = this.callbacks.get(fallback);
+      if (!shortcuts) {
+        return;
+      }
     }
-    const info = this.callbacks.get(this.#serialize(event));
+    const eventModifiers = (event.altKey ? KeyboardManager.ALT : 0) | (event.ctrlKey ? KeyboardManager.CTRL : 0) | (event.metaKey ? KeyboardManager.META : 0) | (event.shiftKey ? KeyboardManager.SHIFT : 0);
+    const info = shortcuts.find(shortcut => shortcut.modifiers === eventModifiers);
     if (!info) {
       return;
     }
@@ -2554,33 +2588,33 @@ class AnnotationEditorUIManager {
       checker: textInputChecker
     }], [["Backspace", "alt+Backspace", "ctrl+Backspace", "shift+Backspace", "mac+Backspace", "mac+alt+Backspace", "mac+ctrl+Backspace", "Delete", "ctrl+Delete", "shift+Delete", "mac+Delete"], proto.delete, {
       checker: textInputChecker
-    }], [["Enter", "mac+Enter"], proto.addNewEditorFromKeyboard, {
+    }], [["Enter"], proto.addNewEditorFromKeyboard, {
       checker: (self, {
         target: el
       }) => !(el instanceof HTMLButtonElement) && self.#container.contains(el) && !self.isEnterHandled
-    }], [[" ", "mac+ "], proto.addNewEditorFromKeyboard, {
+    }], [["Space"], proto.addNewEditorFromKeyboard, {
       checker: (self, {
         target: el
       }) => !(el instanceof HTMLButtonElement) && self.#container.contains(document.activeElement)
-    }], [["Escape", "mac+Escape"], proto.unselectAll], [["ArrowLeft", "mac+ArrowLeft"], proto.translateSelectedEditors, {
+    }], [["Escape"], proto.unselectAll], [["ArrowLeft"], proto.translateSelectedEditors, {
       args: [-small, 0],
       checker: arrowChecker
     }], [["ctrl+ArrowLeft", "mac+shift+ArrowLeft"], proto.translateSelectedEditors, {
       args: [-big, 0],
       checker: arrowChecker
-    }], [["ArrowRight", "mac+ArrowRight"], proto.translateSelectedEditors, {
+    }], [["ArrowRight"], proto.translateSelectedEditors, {
       args: [small, 0],
       checker: arrowChecker
     }], [["ctrl+ArrowRight", "mac+shift+ArrowRight"], proto.translateSelectedEditors, {
       args: [big, 0],
       checker: arrowChecker
-    }], [["ArrowUp", "mac+ArrowUp"], proto.translateSelectedEditors, {
+    }], [["ArrowUp"], proto.translateSelectedEditors, {
       args: [0, -small],
       checker: arrowChecker
     }], [["ctrl+ArrowUp", "mac+shift+ArrowUp"], proto.translateSelectedEditors, {
       args: [0, -big],
       checker: arrowChecker
-    }], [["ArrowDown", "mac+ArrowDown"], proto.translateSelectedEditors, {
+    }], [["ArrowDown"], proto.translateSelectedEditors, {
       args: [0, small],
       checker: arrowChecker
     }], [["ctrl+ArrowDown", "mac+shift+ArrowDown"], proto.translateSelectedEditors, {
@@ -4940,23 +4974,23 @@ class AnnotationEditor {
     const resize = AnnotationEditor.prototype._resizeWithKeyboard;
     const small = AnnotationEditorUIManager.TRANSLATE_SMALL;
     const big = AnnotationEditorUIManager.TRANSLATE_BIG;
-    return shadow(this, "_resizerKeyboardManager", new KeyboardManager([[["ArrowLeft", "mac+ArrowLeft"], resize, {
+    return shadow(this, "_resizerKeyboardManager", new KeyboardManager([[["ArrowLeft"], resize, {
       args: [-small, 0]
     }], [["ctrl+ArrowLeft", "mac+shift+ArrowLeft"], resize, {
       args: [-big, 0]
-    }], [["ArrowRight", "mac+ArrowRight"], resize, {
+    }], [["ArrowRight"], resize, {
       args: [small, 0]
     }], [["ctrl+ArrowRight", "mac+shift+ArrowRight"], resize, {
       args: [big, 0]
-    }], [["ArrowUp", "mac+ArrowUp"], resize, {
+    }], [["ArrowUp"], resize, {
       args: [0, -small]
     }], [["ctrl+ArrowUp", "mac+shift+ArrowUp"], resize, {
       args: [0, -big]
-    }], [["ArrowDown", "mac+ArrowDown"], resize, {
+    }], [["ArrowDown"], resize, {
       args: [0, small]
     }], [["ctrl+ArrowDown", "mac+shift+ArrowDown"], resize, {
       args: [0, big]
-    }], [["Escape", "mac+Escape"], AnnotationEditor.prototype._stopResizingWithKeyboard]]));
+    }], [["Escape"], AnnotationEditor.prototype._stopResizingWithKeyboard]]));
   }
   constructor(parameters) {
     this.parent = parameters.parent;
@@ -16893,7 +16927,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.0.0";
-const build = "091f459";
+const build = "173e083";
 
 ;// ./src/display/editor/color_picker.js
 
@@ -16912,7 +16946,7 @@ class ColorPicker {
   #uiManager = null;
   static #l10nColor = null;
   static get _keyboardManager() {
-    return shadow(this, "_keyboardManager", new KeyboardManager([[["Escape", "mac+Escape"], ColorPicker.prototype._hideDropdownFromKeyboard], [[" ", "mac+ "], ColorPicker.prototype._colorSelectFromKeyboard], [["ArrowDown", "ArrowRight", "mac+ArrowDown", "mac+ArrowRight"], ColorPicker.prototype._moveToNext], [["ArrowUp", "ArrowLeft", "mac+ArrowUp", "mac+ArrowLeft"], ColorPicker.prototype._moveToPrevious], [["Home", "mac+Home"], ColorPicker.prototype._moveToBeginning], [["End", "mac+End"], ColorPicker.prototype._moveToEnd]]));
+    return shadow(this, "_keyboardManager", new KeyboardManager([[["Escape"], ColorPicker.prototype._hideDropdownFromKeyboard], [["Space"], ColorPicker.prototype._colorSelectFromKeyboard], [["ArrowDown", "ArrowRight"], ColorPicker.prototype._moveToNext], [["ArrowUp", "ArrowLeft"], ColorPicker.prototype._moveToPrevious], [["Home"], ColorPicker.prototype._moveToBeginning], [["End"], ColorPicker.prototype._moveToEnd]]));
   }
   constructor({
     editor = null,
@@ -20768,25 +20802,25 @@ class FreeTextEditor extends AnnotationEditor {
     const big = AnnotationEditorUIManager.TRANSLATE_BIG;
     return shadow(this, "_keyboardManager", new KeyboardManager([[["ctrl+s", "mac+meta+s", "ctrl+p", "mac+meta+p"], proto.commitOrRemove, {
       bubbles: true
-    }], [["ctrl+Enter", "mac+meta+Enter", "Escape", "mac+Escape"], proto.commitOrRemove], [["ArrowLeft", "mac+ArrowLeft"], proto._translateEmpty, {
+    }], [["ctrl+Enter", "mac+meta+Enter"], proto.commitOrRemove], [["Escape"], proto.commitOrRemove], [["ArrowLeft"], proto._translateEmpty, {
       args: [-small, 0],
       checker: arrowChecker
     }], [["ctrl+ArrowLeft", "mac+shift+ArrowLeft"], proto._translateEmpty, {
       args: [-big, 0],
       checker: arrowChecker
-    }], [["ArrowRight", "mac+ArrowRight"], proto._translateEmpty, {
+    }], [["ArrowRight"], proto._translateEmpty, {
       args: [small, 0],
       checker: arrowChecker
     }], [["ctrl+ArrowRight", "mac+shift+ArrowRight"], proto._translateEmpty, {
       args: [big, 0],
       checker: arrowChecker
-    }], [["ArrowUp", "mac+ArrowUp"], proto._translateEmpty, {
+    }], [["ArrowUp"], proto._translateEmpty, {
       args: [0, -small],
       checker: arrowChecker
     }], [["ctrl+ArrowUp", "mac+shift+ArrowUp"], proto._translateEmpty, {
       args: [0, -big],
       checker: arrowChecker
-    }], [["ArrowDown", "mac+ArrowDown"], proto._translateEmpty, {
+    }], [["ArrowDown"], proto._translateEmpty, {
       args: [0, small],
       checker: arrowChecker
     }], [["ctrl+ArrowDown", "mac+shift+ArrowDown"], proto._translateEmpty, {
@@ -22107,13 +22141,13 @@ class HighlightEditor extends AnnotationEditor {
   static _freeHighlightClipId = "";
   static get _keyboardManager() {
     const proto = HighlightEditor.prototype;
-    return shadow(this, "_keyboardManager", new KeyboardManager([[["ArrowLeft", "mac+ArrowLeft"], proto._moveCaret, {
+    return shadow(this, "_keyboardManager", new KeyboardManager([[["ArrowLeft"], proto._moveCaret, {
       args: [0]
-    }], [["ArrowRight", "mac+ArrowRight"], proto._moveCaret, {
+    }], [["ArrowRight"], proto._moveCaret, {
       args: [1]
-    }], [["ArrowUp", "mac+ArrowUp"], proto._moveCaret, {
+    }], [["ArrowUp"], proto._moveCaret, {
       args: [2]
-    }], [["ArrowDown", "mac+ArrowDown"], proto._moveCaret, {
+    }], [["ArrowDown"], proto._moveCaret, {
       args: [3]
     }]]));
   }
