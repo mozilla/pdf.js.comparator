@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = 173e083
+ * pdfjsBuild = 9c437e6
  */
 
 ;// ./src/shared/util.js
@@ -3025,10 +3025,10 @@ class ChunkedStream extends Stream {
   }
 }
 class ChunkedStreamManager {
-  aborted = false;
+  #aborted = false;
   currRequestId = 0;
   _chunksNeededByRequest = new Map();
-  _loadedStreamCapability = Promise.withResolvers();
+  #loadedStreamCapability = Promise.withResolvers();
   _promisesByRequest = new Map();
   _requestsByChunk = new Map();
   constructor(pdfStream, args) {
@@ -3047,7 +3047,7 @@ class ChunkedStreamManager {
         value,
         done
       } = await rangeReader.read();
-      if (this.aborted) {
+      if (this.#aborted) {
         chunks = null;
         return;
       }
@@ -3071,7 +3071,7 @@ class ChunkedStreamManager {
       const missingChunks = this.stream.getMissingChunks();
       this._requestChunks(missingChunks);
     }
-    return this._loadedStreamCapability.promise;
+    return this.#loadedStreamCapability.promise;
   }
   _requestChunks(chunks) {
     const requestId = this.currRequestId++;
@@ -3106,7 +3106,7 @@ class ChunkedStreamManager {
       }
     }
     return capability.promise.catch(reason => {
-      if (this.aborted) {
+      if (this.#aborted) {
         return;
       }
       throw reason;
@@ -3183,7 +3183,7 @@ class ChunkedStreamManager {
       stream.onReceiveData(begin, chunk);
     }
     if (stream.isDataLoaded) {
-      this._loadedStreamCapability.resolve(stream);
+      this.#loadedStreamCapability.resolve(stream);
     }
     const loadedRequests = [];
     for (let curChunk = beginChunk; curChunk < endChunk; ++curChunk) {
@@ -3227,9 +3227,6 @@ class ChunkedStreamManager {
       total: length
     });
   }
-  onError(err) {
-    this._loadedStreamCapability.reject(err);
-  }
   getBeginChunk(begin) {
     return Math.floor(begin / this.chunkSize);
   }
@@ -3237,11 +3234,12 @@ class ChunkedStreamManager {
     return Math.floor((end - 1) / this.chunkSize) + 1;
   }
   abort(reason) {
-    this.aborted = true;
+    this.#aborted = true;
     this.pdfStream?.cancelAllRequests(reason);
     for (const capability of this._promisesByRequest.values()) {
       capability.reject(reason);
     }
+    this.#loadedStreamCapability.reject(reason);
   }
 }
 
@@ -10129,16 +10127,23 @@ class Jbig2Stream extends DecodeStream {
   get isImageStream() {
     return true;
   }
+  static stripFileHeader(bytes) {
+    if (bytes.length >= 9 && bytes[0] === 0x97 && bytes[1] === 0x4a && bytes[2] === 0x42 && bytes[3] === 0x32 && bytes[4] === 0x0d && bytes[5] === 0x0a && bytes[6] === 0x1a && bytes[7] === 0x0a) {
+      const headerLength = (bytes[8] & 2) === 0 ? 13 : 9;
+      return bytes.subarray(headerLength);
+    }
+    return bytes;
+  }
   async decodeImage(bytes, length, _decoderOptions) {
     if (this.eof) {
       return this.buffer;
     }
-    bytes ||= this.bytes;
+    bytes = Jbig2Stream.stripFileHeader(bytes || this.bytes);
     let globals = null;
     if (this.params instanceof Dict) {
       const globalsStream = this.params.get("JBIG2Globals");
       if (globalsStream instanceof BaseStream) {
-        globals = globalsStream.getBytes();
+        globals = Jbig2Stream.stripFileHeader(globalsStream.getBytes());
       }
     }
     this.buffer = await JBig2CCITTFaxImage.instance.decode(bytes, this.dict.get("Width"), this.dict.get("Height"), globals);
@@ -63534,7 +63539,7 @@ class WorkerMessageHandler {
           pdfManager.requestLoadedStream().then(function () {
             ensureNotTerminated();
             loadDocument(true).then(onSuccess, onFailure);
-          });
+          }, onFailure);
         });
       }
       ensureNotTerminated();
@@ -63548,7 +63553,7 @@ class WorkerMessageHandler {
           handler.send("DataLoaded", {
             length: stream.bytes.byteLength
           });
-        });
+        }, () => {});
       }).then(pdfManagerReady, onFailure);
     }
     handler.on("GetPage", function (data) {
