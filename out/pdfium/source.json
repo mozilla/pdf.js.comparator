@@ -12,8 +12,8 @@
     "fast_float": {
       "repo": "https://github.com/fastfloat/fast_float.git",
       "ref": "HEAD",
-      "commit": "6258cbc5a1a1ed0aba08330f16ce4dab14935872"
+      "commit": "e0b53eaf63c6d00e0725788ef1dbb759aa321d79"
     }
   },
-  "fingerprint": "pdfium=91b9d569b34be4f38eed7b3c49b227356c3aadad;fast_float=6258cbc5a1a1ed0aba08330f16ce4dab14935872;abseil=e6141e0cc53ac9af7f1b1f81bc3d7fb67502a158"
+  "fingerprint": "pdfium=91b9d569b34be4f38eed7b3c49b227356c3aadad;fast_float=e0b53eaf63c6d00e0725788ef1dbb759aa321d79;abseil=e6141e0cc53ac9af7f1b1f81bc3d7fb67502a158"
 }
