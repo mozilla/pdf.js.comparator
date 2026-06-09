@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = 7f5b421
+ * pdfjsBuild = ce08a80
  */
 
 ;// ./src/shared/util.js
@@ -40964,9 +40964,7 @@ class Catalog {
     if (obj instanceof Dict && obj.has("EmbeddedFiles")) {
       const nameTree = new NameTree(obj.getRaw("EmbeddedFiles"), this.xref);
       for (const [key, value] of nameTree.getAll()) {
-        const fs = new FileSpec(value);
-        attachments ??= Object.create(null);
-        attachments[stringToPDFString(key, true)] = fs.serializable;
+        (attachments ??= new Map()).set(stringToPDFString(key, true), new FileSpec(value).serializable);
       }
     }
     return shadow(this, "attachments", attachments);
@@ -41523,7 +41521,7 @@ class Catalog {
           }
           if (docAttachments && id) {
             resultObj.attachmentId = id;
-            resultObj.attachment = docAttachments[id];
+            resultObj.attachment = docAttachments.get(id);
             const attachmentDest = fetchRemoteDest(action);
             if (attachmentDest) {
               resultObj.attachmentDest = attachmentDest;
@@ -54118,7 +54116,7 @@ class WidgetAnnotation extends Annotation {
       return this._getMultilineAppearance(defaultAppearance, encodedLines, font, fontSize, totalWidth, totalHeight, alignment, defaultHPadding, defaultVPadding, descent, lineHeight, annotationStorage);
     }
     if (this.data.comb) {
-      return this._getCombAppearance(defaultAppearance, font, encodedLines[0], fontSize, totalWidth, totalHeight, defaultHPadding, defaultVPadding, descent, lineHeight, alignment, bidi(lines[0]).dir === "rtl", annotationStorage);
+      return this._getCombAppearance(defaultAppearance, font, encodedLines[0], fontSize, totalWidth, totalHeight, defaultVPadding, descent, lineHeight, alignment, bidi(lines[0]).dir === "rtl", annotationStorage);
     }
     const bottomPadding = defaultVPadding + descent;
     if (alignment === 0 || alignment > 2) {
@@ -54352,25 +54350,38 @@ class TextWidgetAnnotation extends WidgetAnnotation {
   get hasTextContent() {
     return !!this.appearance && !this._needAppearances;
   }
-  _getCombAppearance(defaultAppearance, font, text, fontSize, width, height, hPadding, vPadding, descent, lineHeight, alignment, isRTL, annotationStorage) {
+  _getCombAppearance(defaultAppearance, font, text, fontSize, width, height, vPadding, descent, lineHeight, alignment, isRTL, annotationStorage) {
     const combWidth = width / this.data.maxLen;
     const colors = this.getBorderAndBackgroundAppearances(annotationStorage);
-    const buf = [];
-    const positions = font.getCharPositions(text);
-    for (const [start, end] of positions) {
-      buf.push(`(${escapeString(text.substring(start, end))}) Tj`);
-    }
+    const cells = font.getCharPositions(text).map(([start, end]) => {
+      const glyph = text.substring(start, end);
+      return {
+        glyph,
+        width: this._getTextWidth(glyph, font) * fontSize
+      };
+    });
     if (isRTL) {
-      buf.reverse();
+      cells.reverse();
     }
-    const textWidth = combWidth * positions.length;
-    let hShift = hPadding;
+    const textWidth = combWidth * cells.length;
+    let hShift = 0;
     if (alignment === 1) {
       hShift += Math.floor((width - textWidth) / (2 * combWidth)) * combWidth;
     } else if (alignment === 2) {
       hShift += width - textWidth;
     }
-    const renderedComb = buf.join(` ${numberToString(combWidth)} 0 Td `);
+    const buf = [];
+    let previousWidth = 0;
+    for (let i = 0, ii = cells.length; i < ii; i++) {
+      const {
+        glyph,
+        width: glyphWidth
+      } = cells[i];
+      const shift = i === 0 ? (combWidth - glyphWidth) / 2 : combWidth + (previousWidth - glyphWidth) / 2;
+      buf.push(`${numberToString(shift)} 0 Td (${escapeString(glyph)}) Tj`);
+      previousWidth = glyphWidth;
+    }
+    const renderedComb = buf.join(" ");
     return `/Tx BMC q ${colors}BT ` + defaultAppearance + ` 1 0 0 1 ${numberToString(hShift)} ${numberToString(vPadding + descent)} Tm ${renderedComb}` + " ET Q EMC";
   }
   _getMultilineAppearance(defaultAppearance, lines, font, fontSize, width, height, alignment, hPadding, vPadding, descent, lineHeight, annotationStorage) {
