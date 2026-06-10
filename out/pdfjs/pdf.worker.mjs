@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = ce08a80
+ * pdfjsBuild = ac64bcf
  */
 
 ;// ./src/shared/util.js
