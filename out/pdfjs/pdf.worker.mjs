@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = 63db4bb
+ * pdfjsBuild = ca34359
  */
 
 ;// ./src/shared/util.js
@@ -41219,6 +41219,19 @@ class Catalog {
         }
       }
       if (!Array.isArray(kids)) {
+        let type = currentNode.getRaw("Type");
+        if (type instanceof Ref) {
+          try {
+            type = await xref.fetchAsync(type);
+          } catch (ex) {
+            addPageError(ex);
+            break;
+          }
+        }
+        if (isName(type, "Page") || !currentNode.has("Kids")) {
+          addPageDict(currentNode, null);
+          break;
+        }
         addPageError(new FormatError("Page dictionary kids object is not an array."));
         break;
       }
@@ -53038,6 +53051,13 @@ class Annotation {
     this._fallbackFontDict = null;
     this._needAppearances = false;
   }
+  _getOperatorListNoAppearance() {
+    return {
+      opList: new OperatorList(),
+      separateForm: false,
+      separateCanvas: false
+    };
+  }
   _hasFlag(flags, flag) {
     return !!(flags & flag);
   }
@@ -53271,6 +53291,9 @@ class Annotation {
     }
     return resources;
   }
+  get _ownCanvasRequiresForms() {
+    return false;
+  }
   async getOperatorList(evaluator, task, intent, annotationStorage) {
     const {
       hasOwnCanvas,
@@ -53278,28 +53301,20 @@ class Annotation {
       rect
     } = this.data;
     let appearance = this.appearance;
-    const isUsingOwnCanvas = !!(hasOwnCanvas && intent & RenderingIntentFlag.DISPLAY);
+    const isUsingOwnCanvas = !!(hasOwnCanvas && intent & RenderingIntentFlag.DISPLAY && (!this._ownCanvasRequiresForms || intent & RenderingIntentFlag.ANNOTATIONS_FORMS));
     if (isUsingOwnCanvas && (this.width === 0 || this.height === 0)) {
       this.data.hasOwnCanvas = false;
-      return {
-        opList: new OperatorList(),
-        separateForm: false,
-        separateCanvas: false
-      };
+      return this._getOperatorListNoAppearance();
     }
     if (!appearance) {
       if (!isUsingOwnCanvas) {
-        return {
-          opList: new OperatorList(),
-          separateForm: false,
-          separateCanvas: false
-        };
+        return this._getOperatorListNoAppearance();
       }
       appearance = new StringStream("", new Dict());
     }
     const appearanceDict = appearance.dict;
     const resources = await this.loadResources(RESOURCES_KEYS_OPERATOR_LIST, appearance);
-    const bbox = lookupRect(appearanceDict.getArray("BBox"), [0, 0, 1, 1]);
+    const bbox = lookupRect(appearanceDict.getArray("BBox"), [0, 0, this.width, this.height]);
     const matrix = lookupMatrix(appearanceDict.getArray("Matrix"), IDENTITY_MATRIX);
     const transform = getTransformMatrix(rect, bbox, matrix);
     const opList = new OperatorList();
@@ -53833,11 +53848,9 @@ class WidgetAnnotation extends Annotation {
   }
   async getOperatorList(evaluator, task, intent, annotationStorage) {
     if (intent & RenderingIntentFlag.ANNOTATIONS_FORMS && !(this instanceof SignatureWidgetAnnotation) && !this.data.noHTML && !this.data.hasOwnCanvas) {
-      return {
-        opList: new OperatorList(),
-        separateForm: true,
-        separateCanvas: false
-      };
+      const list = this._getOperatorListNoAppearance();
+      list.separateForm = true;
+      return list;
     }
     if (!this._hasText) {
       return super.getOperatorList(evaluator, task, intent, annotationStorage);
@@ -54505,21 +54518,55 @@ class ButtonWidgetAnnotation extends WidgetAnnotation {
     this.data.radioButton = isRadio && !isPushButton;
     this.data.pushButton = isPushButton;
     this.data.isTooltipOnly = false;
+    this.data.hasOwnCanvas = true;
+    this.data.noHTML = false;
     if (this.data.checkBox) {
       this._processCheckBox(params);
     } else if (this.data.radioButton) {
       this._processRadioButton(params);
     } else if (this.data.pushButton) {
-      this.data.hasOwnCanvas = true;
-      this.data.noHTML = false;
       this._processPushButton(params);
     } else {
       warn("Invalid field flags for button widget annotation");
     }
   }
+  get _ownCanvasRequiresForms() {
+    return this.data.checkBox || this.data.radioButton;
+  }
+  #getOperatorListForAppearance(evaluator, task, intent, annotationStorage, rotation, appearance) {
+    if (!appearance) {
+      return this._getOperatorListNoAppearance();
+    }
+    const savedAppearance = this.appearance;
+    const savedMatrix = lookupMatrix(appearance.dict.getArray("Matrix"), IDENTITY_MATRIX);
+    if (rotation) {
+      appearance.dict.set("Matrix", this.getRotationMatrix(annotationStorage));
+    }
+    this.appearance = appearance;
+    const operatorList = super.getOperatorList(evaluator, task, intent, annotationStorage);
+    this.appearance = savedAppearance;
+    appearance.dict.set("Matrix", savedMatrix);
+    return operatorList;
+  }
   async getOperatorList(evaluator, task, intent, annotationStorage) {
     if (this.data.pushButton) {
       return super.getOperatorList(evaluator, task, intent, false, annotationStorage);
+    }
+    if (intent & RenderingIntentFlag.DISPLAY && intent & RenderingIntentFlag.ANNOTATIONS_FORMS && (this.data.checkBox || this.data.radioButton)) {
+      const setCanvasName = (operatorList, name) => {
+        const index = operatorList.fnArray.indexOf(OPS.beginAnnotation);
+        if (index !== -1) {
+          operatorList.argsArray[index].push(name);
+        }
+      };
+      const checked = await this.#getOperatorListForAppearance(evaluator, task, intent, annotationStorage, null, this.checkedAppearance);
+      setCanvasName(checked.opList, "checked");
+      const unchecked = await this.#getOperatorListForAppearance(evaluator, task, intent, annotationStorage, null, this.uncheckedAppearance);
+      setCanvasName(unchecked.opList, "unchecked");
+      checked.opList.addOpList(unchecked.opList);
+      checked.separateForm ||= unchecked.separateForm;
+      checked.separateCanvas ||= unchecked.separateCanvas;
+      return checked;
     }
     let value = null;
     let rotation = null;
@@ -54534,24 +54581,7 @@ class ButtonWidgetAnnotation extends WidgetAnnotation {
     if (value === null || value === undefined) {
       value = this.data.checkBox ? this.data.fieldValue === this.data.exportValue : this.data.fieldValue === this.data.buttonValue;
     }
-    const appearance = value ? this.checkedAppearance : this.uncheckedAppearance;
-    if (appearance) {
-      const savedAppearance = this.appearance;
-      const savedMatrix = lookupMatrix(appearance.dict.getArray("Matrix"), IDENTITY_MATRIX);
-      if (rotation) {
-        appearance.dict.set("Matrix", this.getRotationMatrix(annotationStorage));
-      }
-      this.appearance = appearance;
-      const operatorList = super.getOperatorList(evaluator, task, intent, annotationStorage);
-      this.appearance = savedAppearance;
-      appearance.dict.set("Matrix", savedMatrix);
-      return operatorList;
-    }
-    return {
-      opList: new OperatorList(),
-      separateForm: false,
-      separateCanvas: false
-    };
+    return this.#getOperatorListForAppearance(evaluator, task, intent, annotationStorage, rotation, value ? this.checkedAppearance : this.uncheckedAppearance);
   }
   async save(evaluator, task, annotationStorage, changes) {
     if (this.data.checkBox) {
@@ -54706,19 +54736,16 @@ class ButtonWidgetAnnotation extends WidgetAnnotation {
   }
   _processCheckBox(params) {
     const customAppearance = params.dict.get("AP");
-    if (!(customAppearance instanceof Dict)) {
-      return;
-    }
-    const normalAppearance = customAppearance.get("N");
+    let normalAppearance = customAppearance instanceof Dict ? customAppearance.get("N") : null;
     if (!(normalAppearance instanceof Dict)) {
-      return;
+      normalAppearance = null;
     }
     const asValue = this._decodeFormValue(params.dict.get("AS"));
     if (typeof asValue === "string") {
       this.data.fieldValue = asValue;
     }
     const yes = this.data.fieldValue !== null && this.data.fieldValue !== "Off" ? this.data.fieldValue : "Yes";
-    const exportValues = [...normalAppearance.getKeys()];
+    const exportValues = normalAppearance ? [...normalAppearance.getKeys()] : [];
     if (exportValues.length === 0) {
       exportValues.push("Off", yes);
     } else if (exportValues.length === 1) {
@@ -54739,9 +54766,9 @@ class ButtonWidgetAnnotation extends WidgetAnnotation {
       this.data.fieldValue = "Off";
     }
     this.data.exportValue = exportValues[1];
-    const checkedAppearance = normalAppearance.get(this.data.exportValue);
+    const checkedAppearance = normalAppearance?.get(this.data.exportValue);
     this.checkedAppearance = checkedAppearance instanceof BaseStream ? checkedAppearance : null;
-    const uncheckedAppearance = normalAppearance.get("Off");
+    const uncheckedAppearance = normalAppearance?.get("Off");
     this.uncheckedAppearance = uncheckedAppearance instanceof BaseStream ? uncheckedAppearance : null;
     if (this.checkedAppearance) {
       this._streams.push(this.checkedAppearance);
