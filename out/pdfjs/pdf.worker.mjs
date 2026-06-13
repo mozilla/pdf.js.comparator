@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = e75a7cf
+ * pdfjsBuild = 01948af
  */
 
 ;// ./src/shared/util.js
@@ -63716,12 +63716,8 @@ class WorkerMessageHandler {
       return pdfManager.getPage(pageIndex).then(function (page) {
         const task = new WorkerTask(`GetAnnotations: page ${pageIndex}`);
         startWorkerTask(task);
-        return page.getAnnotationsData(handler, task, intent).then(data => {
+        return page.getAnnotationsData(handler, task, intent).finally(() => {
           finishWorkerTask(task);
-          return data;
-        }, reason => {
-          finishWorkerTask(task);
-          throw reason;
         });
       });
     });
@@ -63859,7 +63855,7 @@ class WorkerMessageHandler {
           newAnnotationPromises.push(pdfManager.getPage(pageIndex).then(page => {
             const task = new WorkerTask(`Save (editor): page ${pageIndex}`);
             startWorkerTask(task);
-            return page.saveNewAnnotations(handler, task, annotations, imagePromises, changes).finally(function () {
+            return page.saveNewAnnotations(handler, task, annotations, imagePromises, changes).finally(() => {
               finishWorkerTask(task);
             });
           }));
@@ -63891,7 +63887,7 @@ class WorkerMessageHandler {
           promises.push(pdfManager.getPage(pageIndex).then(function (page) {
             const task = new WorkerTask(`Save: page ${pageIndex}`);
             startWorkerTask(task);
-            return page.save(handler, task, annotationStorage, changes).finally(function () {
+            return page.save(handler, task, annotationStorage, changes).finally(() => {
               finishWorkerTask(task);
             });
           }));
@@ -63981,18 +63977,18 @@ class WorkerMessageHandler {
           annotationStorage: data.annotationStorage,
           modifiedIds: data.modifiedIds,
           pageIndex
-        }).then(function (operatorListInfo) {
-          finishWorkerTask(task);
+        }).then(operatorListInfo => {
           if (start) {
             info(`page=${pageIndex + 1} - getOperatorList: time=` + `${Date.now() - start}ms, len=${operatorListInfo.length}`);
           }
           sink.close();
-        }, function (reason) {
-          finishWorkerTask(task);
+        }, reason => {
           if (task.terminated) {
             return;
           }
           sink.error(reason);
+        }).finally(() => {
+          finishWorkerTask(task);
         });
       });
     });
@@ -64013,18 +64009,18 @@ class WorkerMessageHandler {
           sink,
           includeMarkedContent,
           disableNormalization
-        }).then(function () {
-          finishWorkerTask(task);
+        }).then(() => {
           if (start) {
             info(`page=${pageIndex + 1} - getTextContent: time=` + `${Date.now() - start}ms`);
           }
           sink.close();
-        }, function (reason) {
-          finishWorkerTask(task);
+        }, reason => {
           if (task.terminated) {
             return;
           }
           sink.error(reason);
+        }).finally(() => {
+          finishWorkerTask(task);
         });
       });
     });
