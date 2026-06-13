@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = 5873e1c
+ * pdfjsBuild = e75a7cf
  */
 
 ;// ./src/shared/util.js
@@ -2023,7 +2023,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "f3b5110f-4339-4179-a856-1241a75a0b4e";
+const INTERNAL_EVT = "d6989d25-e858-4d7b-abc7-959f0ace5886";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -2392,7 +2392,7 @@ class KeyboardManager {
         if (keyName === null) {
           continue;
         }
-        this.callbacks.getOrInsertComputed(keyName, () => []).push({
+        this.callbacks.getOrInsertComputed(keyName, makeArr).push({
           callback,
           options,
           modifiers
@@ -6830,9 +6830,7 @@ class AnnotationStorage {
       const {
         type
       } = editorStats;
-      if (!typeToEditor.has(type)) {
-        typeToEditor.set(type, Object.getPrototypeOf(value).constructor);
-      }
+      typeToEditor.getOrInsertComputed(type, () => Object.getPrototypeOf(value).constructor);
       stats ||= Object.create(null);
       const map = stats[type] ||= new Map();
       for (const [key, val] of Object.entries(editorStats)) {
@@ -11290,11 +11288,7 @@ class CanvasGraphics {
     }
     let knockoutFilter = "none";
     if (needsAlphaScaling && this.#knockoutFilterCache instanceof Map) {
-      knockoutFilter = this.#knockoutFilterCache.get(alpha);
-      if (!knockoutFilter) {
-        knockoutFilter = this.filterFactory.addKnockoutFilter(alpha);
-        this.#knockoutFilterCache.set(alpha, knockoutFilter);
-      }
+      knockoutFilter = this.#knockoutFilterCache.getOrInsertComputed(alpha, () => this.filterFactory.addKnockoutFilter(alpha));
     }
     if (!needsAlphaScaling || knockoutFilter !== "none") {
       if (reuseEntry) {
@@ -12611,11 +12605,7 @@ class CanvasGraphics {
           context
         } = this.annotationCanvas;
         if (canvasName) {
-          let canvases = this.annotationCanvasMap.get(id);
-          if (!canvases) {
-            canvases = [];
-            this.annotationCanvasMap.set(id, canvases);
-          }
+          const canvases = this.annotationCanvasMap.getOrInsertComputed(id, makeArr);
           canvas.setAttribute("data-canvas-name", canvasName);
           const index = canvases.findIndex(c => c.getAttribute("data-canvas-name") === canvasName);
           if (index === -1) {
@@ -16934,7 +16924,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.0.0";
-const build = "5873e1c";
+const build = "e75a7cf";
 
 ;// ./src/display/editor/color_picker.js
 
