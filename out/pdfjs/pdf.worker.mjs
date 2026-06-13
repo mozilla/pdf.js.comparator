@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = ca34359
+ * pdfjsBuild = 5873e1c
  */
 
 ;// ./src/shared/util.js
@@ -39744,10 +39744,7 @@ class StructElementNode {
     }
     for (let af of AFs) {
       af = this.xref.fetchIfRef(af);
-      if (!(af instanceof Dict)) {
-        continue;
-      }
-      if (!isName(af.get("Type"), "Filespec")) {
+      if (!isDict(af, "Filespec")) {
         continue;
       }
       if (!isName(af.get("AFRelationship"), "Supplement")) {
