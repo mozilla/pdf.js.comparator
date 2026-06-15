@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = 67e6ff0
+ * pdfjsBuild = 7f7b38b
  */
 
 ;// ./src/shared/util.js
@@ -2023,7 +2023,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "bdad58b4-c87b-47c2-802b-7e10374793ea";
+const INTERNAL_EVT = "61f5ec6c-3002-49bd-8cd2-65a51add5ce2";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -16922,7 +16922,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.0.0";
-const build = "67e6ff0";
+const build = "7f7b38b";
 
 ;// ./src/display/editor/color_picker.js
 
@@ -22110,9 +22110,6 @@ class HighlightOutline extends Outline {
   }
   get box() {
     return this.#box;
-  }
-  get classNamesForOutlining() {
-    return ["highlightOutline"];
   }
 }
 class FreeHighlightOutliner extends FreeDrawOutliner {

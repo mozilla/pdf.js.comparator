@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = 67e6ff0
+ * pdfjsBuild = 7f7b38b
  */
 
 ;// ./src/shared/util.js
@@ -63759,12 +63759,7 @@ class WorkerMessageHandler {
             task = new WorkerTask("GetAnnotationsByType");
             startWorkerTask(task);
           }
-          pagePromises.push(pdfManager.getPage(i).then(async page => {
-            if (!page) {
-              return [];
-            }
-            return page.collectAnnotationsByType(handler, task, types, annotationPromises, annotationGlobals) || [];
-          }));
+          pagePromises.push(pdfManager.getPage(i).then(page => page.collectAnnotationsByType(handler, task, types, annotationPromises, annotationGlobals)));
         }
         await Promise.all(pagePromises);
         const annotations = await Promise.all(annotationPromises);
