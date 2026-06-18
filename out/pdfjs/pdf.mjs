@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = 3956ac1
+ * pdfjsBuild = e20c810
  */
 
 ;// ./src/shared/util.js
@@ -2023,7 +2023,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "3f21629c-7999-410d-bed7-5d35b37309b3";
+const INTERNAL_EVT = "89835fdd-6b86-4a84-80bb-e8c32505b594";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -10526,10 +10526,6 @@ class CanvasExtraState {
   }
 }
 function putBinaryImageData(ctx, imgData) {
-  if (imgData instanceof ImageData) {
-    ctx.putImageData(imgData, 0, 0);
-    return;
-  }
   const {
     width,
     height,
@@ -12814,8 +12810,6 @@ class CanvasGraphics {
       const result = this.applyTransferMapsToBitmap(imgData);
       imgToPaint = result.img;
       inlineImgCanvas = result.canvasEntry;
-    } else if (typeof HTMLElement === "function" && imgData instanceof HTMLElement || !imgData.data) {
-      imgToPaint = imgData;
     } else {
       const tmpCanvas = this.canvasFactory.create(width, height);
       putBinaryImageData(tmpCanvas.context, imgData);
@@ -16922,7 +16916,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.0.0";
-const build = "3956ac1";
+const build = "e20c810";
 
 ;// ./src/display/editor/color_picker.js
 

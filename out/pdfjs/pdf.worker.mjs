@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = 3956ac1
+ * pdfjsBuild = e20c810
  */
 
 ;// ./src/shared/util.js
@@ -18673,9 +18673,10 @@ class CFFParser {
         }
       }
       if (maxZoneHeight > 0) {
+        const PRECISION = 1e5;
         const lowerBound = 0.5 / maxZoneHeight;
-        const minBlueScale = lowerBound <= DEFAULT_BLUE_SCALE ? lowerBound : -Infinity;
-        const maxBlueScale = 1 / maxZoneHeight;
+        const minBlueScale = lowerBound <= DEFAULT_BLUE_SCALE ? Math.ceil(lowerBound * PRECISION) / PRECISION : -Infinity;
+        const maxBlueScale = Math.floor(PRECISION / maxZoneHeight) / PRECISION;
         const clamped = MathClamp(blueScale, minBlueScale, maxBlueScale);
         if (clamped !== blueScale) {
           privateDict.setByName("BlueScale", clamped);
