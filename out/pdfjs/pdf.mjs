@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = 59df671
+ * pdfjsBuild = 124228e
  */
 
 ;// ./src/shared/util.js
@@ -2023,7 +2023,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "5ebe3a8a-edaa-45d9-b1f0-3c75e22149cb";
+const INTERNAL_EVT = "df83d7cc-3d41-4c20-b0fb-599e31450c87";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -11971,12 +11971,12 @@ class CanvasGraphics {
       this.showType3Text(opIdx, glyphs);
       this.dependencyTracker?.recordShowTextOperation(opIdx);
       this.#endKnockoutElement(started);
-      return undefined;
+      return;
     }
     const fontSize = current.fontSize;
     if (fontSize === 0) {
       this.dependencyTracker?.recordOperation(opIdx);
-      return undefined;
+      return;
     }
     const started = this.#beginKnockoutElement(current.fillAlpha);
     const ctx = this.ctx;
@@ -12050,7 +12050,7 @@ class CanvasGraphics {
       ctx.restore();
       this.compose();
       this.#endKnockoutElement(started);
-      return undefined;
+      return;
     }
     let x = 0,
       i;
@@ -12121,7 +12121,6 @@ class CanvasGraphics {
     this.compose();
     this.dependencyTracker?.recordShowTextOperation(opIdx);
     this.#endKnockoutElement(started);
-    return undefined;
   }
   showType3Text(opIdx, glyphs) {
     const ctx = this.ctx;
@@ -16916,7 +16915,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.0.0";
-const build = "59df671";
+const build = "124228e";
 
 ;// ./src/display/editor/color_picker.js
 
