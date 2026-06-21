@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = 124228e
+ * pdfjsBuild = 8ebc238
  */
 
 ;// ./src/shared/util.js
@@ -2023,7 +2023,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "df83d7cc-3d41-4c20-b0fb-599e31450c87";
+const INTERNAL_EVT = "b1657d5e-7f5d-4db2-906f-3abc09328a27";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -3800,9 +3800,6 @@ class AnnotationEditorUIManager {
     this.#dispatchUpdateStates({
       hasSelectedEditor: true
     });
-  }
-  isSelected(editor) {
-    return this.#selectedEditors.has(editor);
   }
   get firstSelectedEditor() {
     return this.#selectedEditors.values().next().value;
@@ -16915,7 +16912,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.0.0";
-const build = "124228e";
+const build = "8ebc238";
 
 ;// ./src/display/editor/color_picker.js
 
