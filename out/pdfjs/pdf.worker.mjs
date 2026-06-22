@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = 28a7606
+ * pdfjsBuild = 1ddf644
  */
 
 ;// ./src/shared/util.js
@@ -54110,7 +54110,7 @@ class WidgetAnnotation extends Annotation {
       return this._getMultilineAppearance(defaultAppearance, encodedLines, font, fontSize, totalWidth, totalHeight, alignment, defaultHPadding, defaultVPadding, descent, lineHeight, annotationStorage);
     }
     if (this.data.comb) {
-      return this._getCombAppearance(defaultAppearance, font, encodedLines[0], fontSize, totalWidth, totalHeight, defaultVPadding, descent, lineHeight, alignment, bidi(lines[0]).dir === "rtl", annotationStorage);
+      return this._getCombAppearance(defaultAppearance, font, encodedLines[0], fontSize, totalWidth, totalHeight, alignment, bidi(lines[0]).dir === "rtl", annotationStorage);
     }
     const bottomPadding = defaultVPadding + descent;
     if (alignment === 0 || alignment > 2) {
@@ -54344,7 +54344,7 @@ class TextWidgetAnnotation extends WidgetAnnotation {
   get hasTextContent() {
     return !!this.appearance && !this._needAppearances;
   }
-  _getCombAppearance(defaultAppearance, font, text, fontSize, width, height, vPadding, descent, lineHeight, alignment, isRTL, annotationStorage) {
+  _getCombAppearance(defaultAppearance, font, text, fontSize, width, height, alignment, isRTL, annotationStorage) {
     const combWidth = width / this.data.maxLen;
     const colors = this.getBorderAndBackgroundAppearances(annotationStorage);
     const cells = font.getCharPositions(text).map(([start, end]) => {
@@ -54376,7 +54376,8 @@ class TextWidgetAnnotation extends WidgetAnnotation {
       previousWidth = glyphWidth;
     }
     const renderedComb = buf.join(" ");
-    return `/Tx BMC q ${colors}BT ` + defaultAppearance + ` 1 0 0 1 ${numberToString(hShift)} ${numberToString(vPadding + descent)} Tm ${renderedComb}` + " ET Q EMC";
+    const vShift = (height - (font.capHeight || font.ascent || 1) * fontSize) / 2;
+    return `/Tx BMC q ${colors}BT ` + defaultAppearance + ` 1 0 0 1 ${numberToString(hShift)} ${numberToString(vShift)} Tm ${renderedComb}` + " ET Q EMC";
   }
   _getMultilineAppearance(defaultAppearance, lines, font, fontSize, width, height, alignment, hPadding, vPadding, descent, lineHeight, annotationStorage) {
     const buf = [];
