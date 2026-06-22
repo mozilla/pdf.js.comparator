@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = 8ebc238
+ * pdfjsBuild = 28a7606
  */
 
 ;// ./src/shared/util.js
@@ -39215,6 +39215,7 @@ class MetadataParser {
 
 
 
+
 const MAX_DEPTH = 40;
 const StructElementType = {
   PAGE_CONTENT: 1,
@@ -39724,24 +39725,11 @@ class StructElementNode {
     }
     for (let af of AFs) {
       af = this.xref.fetchIfRef(af);
-      if (!isDict(af, "Filespec")) {
+      if (!isDict(af, "Filespec") || !isName(af.get("AFRelationship"), "Supplement")) {
         continue;
       }
-      if (!isName(af.get("AFRelationship"), "Supplement")) {
-        continue;
-      }
-      const ef = af.get("EF");
-      if (!(ef instanceof Dict)) {
-        continue;
-      }
-      const fileStream = ef.get("UF") || ef.get("F");
-      if (!(fileStream instanceof BaseStream)) {
-        continue;
-      }
-      if (!isName(fileStream.dict.get("Type"), "EmbeddedFile")) {
-        continue;
-      }
-      if (!isName(fileStream.dict.get("Subtype"), "application/mathml+xml")) {
+      const fileStream = FileSpec.pickPlatformItem(af.get("EF"));
+      if (!(fileStream instanceof BaseStream) || !isDict(fileStream.dict, "EmbeddedFile") || !isName(fileStream.dict.get("Subtype"), "application/mathml+xml")) {
         continue;
       }
       return stringToUTF8String(fileStream.getString());
@@ -39991,11 +39979,18 @@ class StructTreePage {
         obj.alt = stringToPDFString(alt);
       }
       if (obj.role === "Formula") {
-        const {
-          mathML
-        } = node;
-        if (mathML) {
-          obj.mathML = mathML;
+        try {
+          const {
+            mathML
+          } = node;
+          if (mathML) {
+            obj.mathML = mathML;
+          }
+        } catch (ex) {
+          if (ex instanceof MissingDataException) {
+            throw ex;
+          }
+          warn(`Ignoring mathML: "${ex}".`);
         }
       }
       const a = node.dict.get("A");
@@ -58936,8 +58931,7 @@ class Page {
     await this._parsedAnnotations;
     try {
       const structTree = await this.pdfManager.ensure(this, "_parseStructTree", [structTreeRoot]);
-      const data = await this.pdfManager.ensure(structTree, "serializable");
-      return data;
+      return await this.pdfManager.ensure(structTree, "serializable");
     } catch (ex) {
       warn(`getStructTree: "${ex}".`);
       return null;
