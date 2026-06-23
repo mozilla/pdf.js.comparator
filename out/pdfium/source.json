@@ -7,7 +7,7 @@
     "abseil": {
       "repo": "https://github.com/abseil/abseil-cpp.git",
       "ref": "HEAD",
-      "commit": "41253e45ef6cc814ffe297db03a388379007f3cf"
+      "commit": "ad568ab75f7464eb232855bd0f0a625aa1b784f0"
     },
     "fast_float": {
       "repo": "https://github.com/fastfloat/fast_float.git",
@@ -15,5 +15,5 @@
       "commit": "8ec5d236e2a9bc6b89a191212920c2237144f936"
     }
   },
-  "fingerprint": "pdfium=f00c4b926b31b15e1810560f02b8ccde81a63c64;fast_float=8ec5d236e2a9bc6b89a191212920c2237144f936;abseil=41253e45ef6cc814ffe297db03a388379007f3cf"
+  "fingerprint": "pdfium=f00c4b926b31b15e1810560f02b8ccde81a63c64;fast_float=8ec5d236e2a9bc6b89a191212920c2237144f936;abseil=ad568ab75f7464eb232855bd0f0a625aa1b784f0"
 }
