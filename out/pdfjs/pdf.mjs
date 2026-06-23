@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = 813d194
+ * pdfjsBuild = e6539f6
  */
 
 ;// ./src/shared/util.js
@@ -144,6 +144,13 @@ const AnnotationType = {
 const AnnotationReplyType = (/* unused pure expression or super */ null && ({
   GROUP: "Group",
   REPLY: "R"
+}));
+const AnnotationRenditionOperation = (/* unused pure expression or super */ null && ({
+  PLAY_OR_RESUME: 0,
+  STOP: 1,
+  PAUSE: 2,
+  RESUME: 3,
+  PLAY: 4
 }));
 const AnnotationFlag = (/* unused pure expression or super */ null && ({
   INVISIBLE: 0x01,
@@ -2024,7 +2031,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "d5a27e1e-1969-41ce-a94f-42b72d46db30";
+const INTERNAL_EVT = "aab752c3-9e5f-4e48-967f-3c2f912433ab";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -16917,7 +16924,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.0.0";
-const build = "813d194";
+const build = "e6539f6";
 
 ;// ./src/display/editor/color_picker.js
 
@@ -17403,7 +17410,8 @@ class AnnotationElementFactory {
       case AnnotationType.FILEATTACHMENT:
         return new FileAttachmentAnnotationElement(parameters);
       case AnnotationType.RICHMEDIA:
-        return new RichMediaAnnotationElement(parameters);
+      case AnnotationType.SCREEN:
+        return new MediaAnnotationElement(parameters);
       default:
         return new AnnotationElement(parameters);
     }
@@ -17640,7 +17648,7 @@ class AnnotationElement {
     } = this;
     const container = document.createElement("section");
     container.setAttribute("data-annotation-id", data.id);
-    if (!(this instanceof WidgetAnnotationElement) && !(this instanceof LinkAnnotationElement) && !(this instanceof RichMediaAnnotationElement)) {
+    if (!(this instanceof WidgetAnnotationElement) && !(this instanceof LinkAnnotationElement) && !(this instanceof MediaAnnotationElement)) {
       container.tabIndex = 0;
     }
     const {
@@ -20443,7 +20451,7 @@ class FileAttachmentAnnotationElement extends AnnotationElement {
     }
   }
 }
-class RichMediaAnnotationElement extends AnnotationElement {
+class MediaAnnotationElement extends AnnotationElement {
   #abortController = new AbortController();
   #contentUrl = null;
   #media = null;
@@ -20453,12 +20461,12 @@ class RichMediaAnnotationElement extends AnnotationElement {
     });
   }
   render() {
-    this.container.classList.add("richMediaAnnotation");
+    this.container.classList.add("mediaAnnotation");
     const {
       filename
     } = this.data.richMedia;
     const button = document.createElement("button");
-    button.className = "richMediaPlayButton";
+    button.className = "mediaPlayButton";
     button.type = "button";
     button.title = button.ariaLabel = filename;
     button.addEventListener("click", () => this.#load(button), {
@@ -20495,7 +20503,7 @@ class RichMediaAnnotationElement extends AnnotationElement {
     const isAudio = contentType.startsWith("audio/");
     const media = document.createElement(isAudio ? "audio" : "video");
     this.#media = media;
-    media.className = "richMediaContent";
+    media.className = "mediaContent";
     this._setBackgroundColor(media);
     media.src = url;
     media.title = filename;
