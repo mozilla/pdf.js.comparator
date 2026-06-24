@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.0.0
- * pdfjsBuild = 04eeeec
+ * pdfjsBuild = 5964e88
  */
 
 ;// ./src/shared/util.js
@@ -52601,6 +52601,7 @@ class AnnotationFactory {
   static createGlobals(pdfManager) {
     return Promise.all([pdfManager.ensureCatalog("acroForm"), pdfManager.ensureDoc("xfaDatasets"), pdfManager.ensureCatalog("structTreeRoot"), pdfManager.ensureCatalog("baseUrl"), pdfManager.ensureCatalog("attachments"), pdfManager.ensureCatalog("globalColorSpaceCache")]).then(([acroForm, xfaDatasets, structTreeRoot, baseUrl, attachments, globalColorSpaceCache]) => ({
       pdfManager,
+      catalog: pdfManager.pdfDocument.catalog,
       acroForm: acroForm instanceof Dict ? acroForm : Dict.empty,
       xfaDatasets,
       structTreeRoot,
@@ -52965,6 +52966,7 @@ function getTransformMatrix(rect, bbox, matrix) {
   return [xRatio, 0, 0, yRatio, rect[0] - minX * xRatio, rect[1] - minY * yRatio];
 }
 class Annotation {
+  appearance = null;
   _oc = undefined;
   constructor(params) {
     const {
@@ -53251,7 +53253,6 @@ class Annotation {
     }
   }
   setAppearance(dict) {
-    this.appearance = null;
     const appearanceStates = dict.get("AP");
     if (!(appearanceStates instanceof Dict)) {
       return;
@@ -53265,7 +53266,7 @@ class Annotation {
       return;
     }
     const as = dict.get("AS");
-    if (!(as instanceof Name) || !normalAppearanceState.has(as.name)) {
+    if (!(as instanceof Name)) {
       return;
     }
     const appearance = normalAppearanceState.get(as.name);
@@ -53462,6 +53463,15 @@ class Annotation {
       }
     }
     return fieldName.join(".");
+  }
+  _getAttachmentId(fsDict, fsRef, annotationGlobals) {
+    if (!(fsDict instanceof Dict)) {
+      return undefined;
+    }
+    if (!(fsRef instanceof Ref)) {
+      fsRef = FileSpec.pickPlatformItem(fsDict.get("EF"), true);
+    }
+    return fsRef instanceof Ref ? annotationGlobals.catalog.getAttachmentIdForAnnotation(fsRef) : undefined;
   }
   get width() {
     return this.data.rect[2] - this.data.rect[0];
@@ -56228,24 +56238,10 @@ class FileAttachmentAnnotation extends MarkupAnnotation {
       dict
     } = params;
     const fsDict = dict.get("FS");
-    const file = new FileSpec(fsDict);
-    const {
-      catalog
-    } = annotationGlobals.pdfManager.pdfDocument;
-    let fileId;
-    if (fsDict instanceof Dict) {
-      let contentRef = dict.getRaw("FS");
-      if (!(contentRef instanceof Ref)) {
-        contentRef = FileSpec.pickPlatformItem(fsDict.get("EF"), true);
-      }
-      if (contentRef instanceof Ref) {
-        fileId = catalog?.getAttachmentIdForAnnotation(contentRef);
-      }
-    }
     this.data.hasOwnCanvas = this.data.noRotate;
     this.data.noHTML = false;
-    this.data.fileId = fileId;
-    this.data.file = file.serializable;
+    this.data.fileId = this._getAttachmentId(fsDict, dict.getRaw("FS"), annotationGlobals);
+    this.data.file = new FileSpec(fsDict).serializable;
     const name = dict.get("Name");
     this.data.name = name instanceof Name ? stringToPDFString(name.name) : "PushPin";
     const fillAlpha = dict.get("ca");
@@ -56263,15 +56259,10 @@ class MediaAnnotation extends Annotation {
     assetDict,
     filename,
     contentType
-  }, catalog) {
-    let contentRef = assetRef;
-    if (!(contentRef instanceof Ref)) {
-      contentRef = FileSpec.pickPlatformItem(assetDict.get("EF"), true);
-    }
-    const fileId = contentRef instanceof Ref ? catalog?.getAttachmentIdForAnnotation(contentRef) : undefined;
+  }, annotationGlobals) {
     this.data.noHTML = false;
     this.data.richMedia = {
-      fileId,
+      fileId: this._getAttachmentId(assetDict, assetRef, annotationGlobals),
       filename,
       contentType
     };
@@ -56318,9 +56309,6 @@ class RichMediaAnnotation extends MediaAnnotation {
       xref,
       annotationGlobals
     } = params;
-    const {
-      catalog
-    } = annotationGlobals.pdfManager.pdfDocument;
     const content = dict.get("RichMediaContent");
     if (!(content instanceof Dict)) {
       return;
@@ -56330,7 +56318,7 @@ class RichMediaAnnotation extends MediaAnnotation {
       warn("RichMedia annotation has no playable asset.");
       return;
     }
-    this._setMediaData(asset, catalog);
+    this._setMediaData(asset, annotationGlobals);
   }
   static #findAsset(content, xref) {
     const configurations = content.get("Configurations");
@@ -56392,10 +56380,10 @@ class ScreenAnnotation extends MediaAnnotation {
     if (!asset) {
       return;
     }
-    this._setMediaData(asset, annotationGlobals.pdfManager.pdfDocument.catalog);
+    this._setMediaData(asset, annotationGlobals);
   }
   static #findAsset(dict, xref) {
-    for (const action of this.#renditionActions(dict, xref)) {
+    for (const action of this.#renditionActions(dict)) {
       const asset = this.#findRenditionAsset(action.get("R"), xref, new RefSet());
       if (asset) {
         return asset;
@@ -56403,15 +56391,14 @@ class ScreenAnnotation extends MediaAnnotation {
     }
     return null;
   }
-  static *#renditionActions(dict, xref) {
-    const action = xref.fetchIfRef(dict.getRaw("A"));
+  static *#renditionActions(dict) {
+    const action = dict.get("A");
     if (action instanceof Dict && isName(action.get("S"), "Rendition") && this.#isPlayAction(action)) {
       yield action;
     }
     const additionalActions = dict.get("AA");
     if (additionalActions instanceof Dict) {
-      for (const key of additionalActions.getKeys()) {
-        const aa = xref.fetchIfRef(additionalActions.getRaw(key));
+      for (const [, aa] of additionalActions) {
         if (aa instanceof Dict && isName(aa.get("S"), "Rendition") && this.#isPlayAction(aa)) {
           yield aa;
         }
