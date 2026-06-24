@@ -21,8 +21,8 @@
  */
 
 /**
- * pdfjsVersion = 6.0.0
- * pdfjsBuild = 5964e88
+ * pdfjsVersion = 6.1.0
+ * pdfjsBuild = 1084432
  */
 
 ;// ./src/shared/util.js
@@ -1451,7 +1451,7 @@ function escapePDFName(str) {
     return str;
   }
   if (start < str.length) {
-    buffer.push(str.substring(start, str.length));
+    buffer.push(str.substring(start));
   }
   return buffer.join("");
 }
@@ -1585,7 +1585,7 @@ function encodeToXmlString(str) {
     return str;
   }
   if (start < str.length) {
-    buffer.push(str.substring(start, str.length));
+    buffer.push(str.substring(start));
   }
   return buffer.join("");
 }
@@ -38712,6 +38712,7 @@ class FileSpec {
 
 ;// ./src/core/xml_parser.js
 
+
 const XMLParserErrorCode = {
   NoError: 0,
   EndOfDocument: -1,
@@ -38738,12 +38739,16 @@ function isWhitespaceString(s) {
   return true;
 }
 class XMLParserBase {
+  static get _entityRegex() {
+    return shadow(this, "_entityRegex", /&(?:#x([^;]+)|#([^;]+)|([^;]+));/g);
+  }
   _resolveEntities(s) {
-    return s.replaceAll(/&([^;]+);/g, (all, entity) => {
-      if (entity.substring(0, 2) === "#x") {
-        return String.fromCodePoint(parseInt(entity.substring(2), 16));
-      } else if (entity.at(0) === "#") {
-        return String.fromCodePoint(parseInt(entity.substring(1), 10));
+    return s.replaceAll(XMLParserBase._entityRegex, (_, hex, dec, entity) => {
+      if (hex) {
+        return String.fromCodePoint(parseInt(hex, 16));
+      }
+      if (dec) {
+        return String.fromCodePoint(parseInt(dec, 10));
       }
       switch (entity) {
         case "lt":
@@ -54476,7 +54481,7 @@ class TextWidgetAnnotation extends WidgetAnnotation {
       }
     }
     if (startChunk < line.length) {
-      chunks.push(line.substring(startChunk, line.length));
+      chunks.push(line.substring(startChunk));
     }
     return chunks;
   }
@@ -63712,7 +63717,7 @@ class WorkerMessageHandler {
       docId,
       apiVersion
     } = docParams;
-    const workerVersion = "6.0.0";
+    const workerVersion = "6.1.0";
     if (apiVersion !== workerVersion) {
       throw new Error(`The API version "${apiVersion}" does not match ` + `the Worker version "${workerVersion}".`);
     }
