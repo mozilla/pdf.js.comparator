@@ -183,6 +183,16 @@ if [ ! -f "${WASM_PREFIX}/lib/libpdfium.a" ] || \
         echo "pdfium: skipping ${HB_SKIP_COUNT} harfbuzz-dependent source(s):" && \
         sed 's/^/  /' "${HB_SKIP}"
 
+    # core/fxcodec/brotli/* is excluded for the same reason as the harfbuzz
+    # sources above: pdfium main grew a BrotliDecode stream filter whose only
+    # source, brotli_decoder.cpp, #includes the gn-vendored
+    # third_party/brotli/include/brotli/decode.h — a tree our gclient-less
+    # clone never fetches. We don't ship libbrotli in the wasm sysroot and
+    # don't need to: the filter's sole call site in fpdf_parser_decode.cpp is
+    # behind `#if defined(PDF_ENABLE_BROTLI)`, which our build_config.h never
+    # defines, so nothing references BrotliDecoder and the linker would GC it
+    # anyway. (brotli_decoder.h itself is a plain internal header with no
+    # third_party include, so dropping just the .cpp is safe.)
     mapfile -t SRCS < <(find core constants fpdfsdk \
         third_party/agg23 third_party/bigint third_party/pdfium_base \
         \( -name "*.cc" -o -name "*.cpp" -o -name "*.c" \) \
@@ -199,6 +209,7 @@ if [ ! -f "${WASM_PREFIX}/lib/libpdfium.a" ] || \
         ! -path "core/fxge/skrifa/*" \
         ! -path "core/fxcodec/bmp/*" ! -path "core/fxcodec/gif/*" \
         ! -path "core/fxcodec/png/*" ! -path "core/fxcodec/tiff/*" \
+        ! -path "core/fxcodec/brotli/*" \
         ! -name "progressive_decoder.cpp" \
         ! -name "*_progressive_decoder.cpp" \
         ! -name "code_point_view.cpp" \
