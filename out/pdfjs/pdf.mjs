@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.1.0
- * pdfjsBuild = 86ffd68
+ * pdfjsBuild = 8bdd159
  */
 
 ;// ./src/shared/util.js
@@ -534,6 +534,9 @@ class FeatureTest {
     input.setAttribute("alpha", "");
     input.value = "#ff000080";
     return shadow(this, "isAlphaColorInputSupported", input.value !== "#ff0000");
+  }
+  static get isBackdropFilterSupported() {
+    return shadow(this, "isBackdropFilterSupported", typeof CSS !== "undefined" && CSS.supports("backdrop-filter", "blur(1px)"));
   }
 }
 class Util {
@@ -2031,7 +2034,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "f4c64641-d0e0-4476-ac17-1fb6a00a6253";
+const INTERNAL_EVT = "06b30b06-f649-4362-975d-8c63e67baf21";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -16924,7 +16927,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.1.0";
-const build = "86ffd68";
+const build = "8bdd159";
 
 ;// ./src/display/editor/color_picker.js
 
