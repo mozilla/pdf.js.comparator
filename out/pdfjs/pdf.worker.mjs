@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.1.0
- * pdfjsBuild = 8bdd159
+ * pdfjsBuild = 6353ace
  */
 
 ;// ./src/shared/util.js
@@ -63182,7 +63182,7 @@ class PDFEditor {
     const {
       pageLabels
     } = this;
-    if (!pageLabels || pageLabels.length === 0) {
+    if (!pageLabels?.length) {
       return;
     }
     const {
@@ -63253,7 +63253,7 @@ class PDFEditor {
     const {
       structTreeKids
     } = this;
-    if (!structTreeKids || structTreeKids.length === 0) {
+    if (!structTreeKids?.length) {
       return;
     }
     const {

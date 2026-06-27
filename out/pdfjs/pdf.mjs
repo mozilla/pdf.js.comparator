@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.1.0
- * pdfjsBuild = 8bdd159
+ * pdfjsBuild = 6353ace
  */
 
 ;// ./src/shared/util.js
@@ -2034,7 +2034,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "06b30b06-f649-4362-975d-8c63e67baf21";
+const INTERNAL_EVT = "8d03e531-b809-4628-a412-136ddaae08a0";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -16927,7 +16927,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.1.0";
-const build = "8bdd159";
+const build = "6353ace";
 
 ;// ./src/display/editor/color_picker.js
 
@@ -21478,7 +21478,7 @@ class FreeTextEditor extends AnnotationEditor {
           }
         }
       } = data;
-      if (!textContent || textContent.length === 0) {
+      if (!textContent?.length) {
         return null;
       }
       initialData = data = {
@@ -23828,7 +23828,7 @@ class InkDrawOutliner {
     return Outline._normalizePoint(x, y, this.#parentWidth, this.#parentHeight, this.#rotation);
   }
   isEmpty() {
-    return !this.#lines || this.#lines.length === 0;
+    return !this.#lines?.length;
   }
   isCancellable() {
     return this.#points.length <= 10;
