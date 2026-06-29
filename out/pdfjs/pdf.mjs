@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.1.0
- * pdfjsBuild = 1651e57
+ * pdfjsBuild = 649fb9c
  */
 
 ;// ./src/shared/util.js
@@ -2034,7 +2034,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "81e0d648-2f02-4555-ad01-90143e61a9c7";
+const INTERNAL_EVT = "212ee94c-f8b9-420d-b2f3-68e783a7e16a";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -16927,7 +16927,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.1.0";
-const build = "1651e57";
+const build = "649fb9c";
 
 ;// ./src/display/editor/color_picker.js
 
@@ -17414,6 +17414,7 @@ class AnnotationElementFactory {
         return new FileAttachmentAnnotationElement(parameters);
       case AnnotationType.RICHMEDIA:
       case AnnotationType.SCREEN:
+      case AnnotationType.SOUND:
         return new MediaAnnotationElement(parameters);
       default:
         return new AnnotationElement(parameters);

@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.1.0
- * pdfjsBuild = 1651e57
+ * pdfjsBuild = 649fb9c
  */
 
 ;// ./src/shared/util.js
@@ -39235,6 +39235,95 @@ class MetadataParser {
   }
 }
 
+;// ./src/core/sound.js
+
+
+const WAV_HEADER_SIZE = 44;
+function getSoundFormat(dict) {
+  if (!dict || dict.has("CO")) {
+    return null;
+  }
+  const sampleRate = dict.get("R");
+  if (!Number.isInteger(sampleRate) || sampleRate <= 0) {
+    return null;
+  }
+  const channels = dict.get("C") ?? 1;
+  if (!Number.isInteger(channels) || channels < 1 || channels > 2) {
+    return null;
+  }
+  const bitsPerSample = dict.get("B") ?? 8;
+  if (bitsPerSample !== 8 && bitsPerSample !== 16) {
+    return null;
+  }
+  const e = dict.get("E");
+  let encoding = "Raw";
+  if (e !== undefined) {
+    encoding = e instanceof Name ? e.name : null;
+  }
+  if (encoding !== "Raw" && encoding !== "Signed") {
+    return null;
+  }
+  return {
+    channels,
+    sampleRate,
+    bitsPerSample,
+    encoding
+  };
+}
+function soundStreamToWav(stream, samples) {
+  const format = getSoundFormat(stream.dict);
+  if (!format) {
+    return null;
+  }
+  const {
+    channels,
+    sampleRate,
+    bitsPerSample,
+    encoding
+  } = format;
+  const blockAlign = channels * (bitsPerSample >> 3);
+  const dataLength = samples.length - samples.length % blockAlign;
+  if (dataLength === 0) {
+    return null;
+  }
+  const wav = new Uint8Array(WAV_HEADER_SIZE + dataLength);
+  const view = new DataView(wav.buffer);
+  wav.set(stringToBytes("RIFF"), 0);
+  view.setUint32(4, WAV_HEADER_SIZE - 8 + dataLength, true);
+  wav.set(stringToBytes("WAVE"), 8);
+  wav.set(stringToBytes("fmt "), 12);
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, channels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * blockAlign, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, bitsPerSample, true);
+  wav.set(stringToBytes("data"), 36);
+  view.setUint32(40, dataLength, true);
+  if (bitsPerSample === 16) {
+    const signed = encoding === "Signed";
+    for (let i = 0; i < dataLength; i += 2) {
+      let value = samples[i] << 8 | samples[i + 1];
+      if (signed) {
+        if (value >= 0x8000) {
+          value -= 0x10000;
+        }
+      } else {
+        value -= 0x8000;
+      }
+      view.setInt16(WAV_HEADER_SIZE + i, value, true);
+    }
+  } else if (encoding === "Signed") {
+    for (let i = 0; i < dataLength; i++) {
+      wav[WAV_HEADER_SIZE + i] = samples[i] + 128 & 0xff;
+    }
+  } else {
+    wav.set(samples.subarray(0, dataLength), WAV_HEADER_SIZE);
+  }
+  return wav;
+}
+
 ;// ./src/core/struct_tree.js
 
 
@@ -40079,6 +40168,7 @@ class StructTreePage {
 
 
 
+
 const isRef = v => v instanceof Ref;
 const isValidExplicitDest = _isValidExplicitDest.bind(null, isRef, isName);
 function fetchDest(dest) {
@@ -40105,6 +40195,7 @@ class Catalog {
   #actualNumPages = null;
   #annotationAttachmentIdByRef = new RefSetCache();
   #annotationAttachmentRefById = new Map();
+  #soundAttachmentIds = new Set();
   #catDict = null;
   builtInCMapCache = new Map();
   fontCache = new RefSetCache();
@@ -40128,19 +40219,21 @@ class Catalog {
   cloneDict() {
     return this.#catDict.clone();
   }
-  getAttachmentIdForAnnotation(ref) {
+  getAttachmentIdForAnnotation(ref, isSound = false) {
     let id = this.#annotationAttachmentIdByRef.get(ref);
-    if (id) {
-      return id;
+    if (!id) {
+      const baseId = `attachmentRef:${ref.toString()}`;
+      id = baseId;
+      let i = 1;
+      while (this.#annotationAttachmentRefById.has(id) || this.attachments?.has(id)) {
+        id = `${baseId}-${i++}`;
+      }
+      this.#annotationAttachmentIdByRef.put(ref, id);
+      this.#annotationAttachmentRefById.set(id, ref);
     }
-    const baseId = `attachmentRef:${ref.toString()}`;
-    id = baseId;
-    let i = 1;
-    while (this.#annotationAttachmentRefById.has(id) || this.attachments?.has(id)) {
-      id = `${baseId}-${i++}`;
+    if (isSound) {
+      this.#soundAttachmentIds.add(id);
     }
-    this.#annotationAttachmentIdByRef.put(ref, id);
-    this.#annotationAttachmentRefById.set(id, ref);
     return id;
   }
   get version() {
@@ -40975,7 +41068,11 @@ class Catalog {
     if (ref) {
       const target = this.xref.fetch(ref);
       if (target instanceof BaseStream) {
-        return FileSpec.readStreamContent(target);
+        const content = FileSpec.readStreamContent(target);
+        if (this.#soundAttachmentIds.has(id)) {
+          return soundStreamToWav(target, content) ?? content;
+        }
+        return content;
       }
       return target instanceof Dict ? FileSpec.readContent(target) : null;
     }
@@ -52596,6 +52693,7 @@ class XFAFactory {
 
 
 
+
 class AnnotationFactory {
   static createGlobals(pdfManager) {
     return Promise.all([pdfManager.ensureCatalog("acroForm"), pdfManager.ensureDoc("xfaDatasets"), pdfManager.ensureCatalog("structTreeRoot"), pdfManager.ensureCatalog("baseUrl"), pdfManager.ensureCatalog("attachments"), pdfManager.ensureCatalog("globalColorSpaceCache")]).then(([acroForm, xfaDatasets, structTreeRoot, baseUrl, attachments, globalColorSpaceCache]) => ({
@@ -52702,6 +52800,8 @@ class AnnotationFactory {
         return new RichMediaAnnotation(parameters);
       case "Screen":
         return new ScreenAnnotation(parameters);
+      case "Sound":
+        return new SoundAnnotation(parameters);
       default:
         if (!collectFields) {
           if (!subtype) {
@@ -53463,14 +53563,14 @@ class Annotation {
     }
     return fieldName.join(".");
   }
-  _getAttachmentId(fsDict, fsRef, annotationGlobals) {
+  _getAttachmentId(fsDict, fsRef, annotationGlobals, isSound = false) {
     if (!(fsDict instanceof Dict)) {
       return undefined;
     }
     if (!(fsRef instanceof Ref)) {
       fsRef = FileSpec.pickPlatformItem(fsDict.get("EF"), true);
     }
-    return fsRef instanceof Ref ? annotationGlobals.catalog.getAttachmentIdForAnnotation(fsRef) : undefined;
+    return fsRef instanceof Ref ? annotationGlobals.catalog.getAttachmentIdForAnnotation(fsRef, isSound) : undefined;
   }
   get width() {
     return this.data.rect[2] - this.data.rect[0];
@@ -56257,11 +56357,12 @@ class MediaAnnotation extends Annotation {
     assetRef,
     assetDict,
     filename,
-    contentType
+    contentType,
+    wrapSound = false
   }, annotationGlobals) {
     this.data.noHTML = false;
     this.data.richMedia = {
-      fileId: this._getAttachmentId(assetDict, assetRef, annotationGlobals),
+      fileId: this._getAttachmentId(assetDict, assetRef, annotationGlobals, wrapSound),
       filename,
       contentType
     };
@@ -56475,6 +56576,40 @@ class ScreenAnnotation extends MediaAnnotation {
       filename,
       contentType
     };
+  }
+}
+class SoundAnnotation extends MediaAnnotation {
+  constructor(params) {
+    super(params);
+    const {
+      dict,
+      xref,
+      annotationGlobals
+    } = params;
+    const soundRef = dict.getRaw("Sound");
+    if (!(soundRef instanceof Ref)) {
+      return;
+    }
+    let sound;
+    try {
+      sound = xref.fetch(soundRef);
+    } catch (ex) {
+      if (ex instanceof MissingDataException) {
+        throw ex;
+      }
+      warn(`SoundAnnotation: "${ex}".`);
+      return;
+    }
+    if (!(sound instanceof BaseStream) || !getSoundFormat(sound.dict)) {
+      return;
+    }
+    this._setMediaData({
+      assetRef: soundRef,
+      assetDict: sound.dict,
+      filename: "sound.wav",
+      contentType: "audio/wav",
+      wrapSound: true
+    }, annotationGlobals);
   }
 }
 
