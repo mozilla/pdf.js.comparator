@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.1.0
- * pdfjsBuild = 25eae30
+ * pdfjsBuild = 2578f6b
  */
 
 ;// ./src/shared/util.js
@@ -2034,7 +2034,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "84c5fb49-abc5-4d49-abb9-7b5cffb7e149";
+const INTERNAL_EVT = "cccf7222-dcd1-411e-8dfa-c11b8753e3fa";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -15484,6 +15484,12 @@ class PDFDocumentProxy {
   getFieldObjects() {
     return this._transport.getFieldObjects();
   }
+  getSignatures() {
+    return this._transport.getSignatures();
+  }
+  getSignatureData(id) {
+    return this._transport.getSignatureData(id);
+  }
   hasJSActions() {
     return this._transport.hasJSActions();
   }
@@ -16626,6 +16632,12 @@ class WorkerTransport {
   getFieldObjects() {
     return this.#cacheSimpleMethod("GetFieldObjects");
   }
+  getSignatures() {
+    return this.#cacheSimpleMethod("GetSignatures");
+  }
+  getSignatureData(id) {
+    return this.messageHandler.sendWithPromise("GetSignatureData", id);
+  }
   hasJSActions() {
     return this.#cacheSimpleMethod("HasJSActions");
   }
@@ -16927,7 +16939,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.1.0";
-const build = "25eae30";
+const build = "2578f6b";
 
 ;// ./src/display/editor/color_picker.js
 
