@@ -7,8 +7,8 @@
     },
     "poppler": {
       "repo": "https://gitlab.freedesktop.org/poppler/poppler.git",
-      "ref": "poppler-26.06.0"
+      "ref": "poppler-26.07.0"
     }
   },
-  "fingerprint": "cairo=1.18.4;poppler=poppler-26.06.0"
+  "fingerprint": "cairo=1.18.4;poppler=poppler-26.07.0"
 }
