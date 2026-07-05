@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.1.0
- * pdfjsBuild = 330cc4f
+ * pdfjsBuild = e148b15
  */
 
 ;// ./src/shared/util.js
@@ -28834,7 +28834,7 @@ class Font {
     const getCharCode = this.toUnicode instanceof IdentityToUnicodeMap ? unicode => this.toUnicode.charCodeOf(unicode) : unicode => this.toUnicode.charCodeOf(String.fromCodePoint(unicode));
     for (let i = 0, ii = str.length; i < ii; i++) {
       const unicode = str.codePointAt(i);
-      if (unicode > 0xd7ff && (unicode < 0xe000 || unicode > 0xfffd)) {
+      if (unicode > 0xffff) {
         i++;
       }
       if (this.toUnicode) {
