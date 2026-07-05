@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.1.0
- * pdfjsBuild = e148b15
+ * pdfjsBuild = 98ccc87
  */
 
 ;// ./src/shared/util.js
@@ -2034,7 +2034,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "4f13db06-1c68-4b87-9aa1-e6a3fd2f0e68";
+const INTERNAL_EVT = "fdac2164-834a-4d19-9ea2-bf7df6ed7a91";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -14920,7 +14920,7 @@ class TextLayer {
           this.#container = document.createElement("span");
           this.#container.classList.add("markedContent");
           if (item.id) {
-            this.#container.setAttribute("id", `${item.id}`);
+            this.#container.setAttribute("id", item.id);
           }
           if (item.tag === "Artifact") {
             this.#container.ariaHidden = true;
@@ -16939,7 +16939,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.1.0";
-const build = "e148b15";
+const build = "98ccc87";
 
 ;// ./src/display/editor/color_picker.js
 
