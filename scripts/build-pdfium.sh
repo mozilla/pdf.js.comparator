@@ -216,6 +216,38 @@ if [ ! -f "${WASM_PREFIX}/lib/libpdfium.a" ] || \
         ! -name "fx_memory_pa.cpp" \
         2>/dev/null | sort | grep -vFxf "${HB_SKIP}")
 
+    # Abseil ships a handful of out-of-line runtime-support functions that its
+    # otherwise header-only facilities fall back on. pdfium's render subset
+    # uses one such facility — core/fpdfapi/page/cpdf_sampledfunc.cpp holds its
+    # sample inputs in an absl::InlinedVector — and because we build with
+    # -fno-exceptions, InlinedVector's capacity-overflow path calls the
+    # out-of-line absl::ThrowStdLengthError (absl/base/throw_delegate.cc)
+    # rather than `throw`. That fallback in turn expands ABSL_RAW_LOG(FATAL, …)
+    # to absl::raw_log_internal::RawLog (absl/base/internal/raw_logging.cc).
+    # Both are ordinary (non-template) functions, so header inclusion can't
+    # synthesize them, and our gclient-less clone — which never compiles abseil,
+    # it only points -I at abseil's headers — leaves them undefined at the final
+    # renderer link (wasm-ld: undefined symbol: absl::ThrowStdLengthError).
+    # Compile exactly these two support TUs into libpdfium.a; every other bit of
+    # abseil pdfium reaches lives in inline/template code the compiler emits
+    # on demand. Locate them by filename rather than a fixed path because abseil
+    # relocates them between revisions — throw_delegate.cc moved from
+    # absl/base/internal/ up to absl/base/ in mid-2026, which is the move that
+    # first broke this build.
+    mapfile -t ABSL_SUPPORT < <(find third_party/abseil-cpp/absl \
+        \( -name "throw_delegate.cc" -o -name "raw_logging.cc" \) \
+        ! -path "*/testing/*" 2>/dev/null | sort)
+    if [ "${#ABSL_SUPPORT[@]}" -ne 2 ]; then
+        echo "pdfium: ERROR: expected abseil throw_delegate.cc + raw_logging.cc," \
+             "found ${#ABSL_SUPPORT[@]}: ${ABSL_SUPPORT[*]:-<none>}" >&2
+        echo "pdfium: (abseil likely renamed or relocated them again — update" \
+             "the find above to match)" >&2
+        exit 1
+    fi
+    echo "pdfium: adding ${#ABSL_SUPPORT[@]} abseil support source(s):"
+    printf '  %s\n' "${ABSL_SUPPORT[@]}"
+    SRCS+=("${ABSL_SUPPORT[@]}")
+
     echo "pdfium: ${#SRCS[@]} sources to compile"
     mkdir -p obj
 
