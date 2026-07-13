@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.1.0
- * pdfjsBuild = 5e3272c
+ * pdfjsBuild = accfa9a
  */
 
 ;// ./src/shared/util.js
@@ -2034,7 +2034,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "a0f01792-7d60-4d9f-b9ae-010be208388a";
+const INTERNAL_EVT = "50be4a69-3a79-434f-9a28-50be26765979";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -2658,7 +2658,7 @@ class AnnotationEditorUIManager {
       capture: true,
       signal
     });
-    window.addEventListener("beforeunload", this.#beforeUnload.bind(this), {
+    window.addEventListener("beforeunload", this.endCurrentEditing.bind(this), {
       capture: true,
       signal
     });
@@ -3014,7 +3014,7 @@ class AnnotationEditorUIManager {
   commentSelection(methodOfCreation = "") {
     this.highlightSelection(methodOfCreation, true);
   }
-  #beforeUnload(e) {
+  endCurrentEditing() {
     this.commitOrRemove();
     this.currentLayer?.endDrawingSession(false);
   }
@@ -16945,7 +16945,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.1.0";
-const build = "5e3272c";
+const build = "accfa9a";
 
 ;// ./src/display/editor/color_picker.js
 
