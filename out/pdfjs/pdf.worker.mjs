@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.1.0
- * pdfjsBuild = 244fb9e
+ * pdfjsBuild = 16290af
  */
 
 ;// ./src/shared/util.js
@@ -57307,7 +57307,24 @@ class DecryptStream extends DecodeStream {
   }
 }
 
+;// ./src/core/sasl_prep.js
+const NON_ASCII_SPACES = new Set([0x00a0, 0x1680, 0x2000, 0x2001, 0x2002, 0x2003, 0x2004, 0x2005, 0x2006, 0x2007, 0x2008, 0x2009, 0x200a, 0x200b, 0x202f, 0x205f, 0x3000]);
+const COMMONLY_MAPPED_TO_NOTHING = new Set([0x00ad, 0x034f, 0x1806, 0x180b, 0x180c, 0x180d, 0x200b, 0x200c, 0x200d, 0x2060, 0xfe00, 0xfe01, 0xfe02, 0xfe03, 0xfe04, 0xfe05, 0xfe06, 0xfe07, 0xfe08, 0xfe09, 0xfe0a, 0xfe0b, 0xfe0c, 0xfe0d, 0xfe0e, 0xfe0f, 0xfeff]);
+function saslPrep(str) {
+  let mapped = "";
+  for (const char of str) {
+    const code = char.codePointAt(0);
+    if (NON_ASCII_SPACES.has(code)) {
+      mapped += " ";
+    } else if (!COMMONLY_MAPPED_TO_NOTHING.has(code)) {
+      mapped += char;
+    }
+  }
+  return mapped.normalize("NFKC");
+}
+
 ;// ./src/core/crypto.js
+
 
 
 
@@ -57830,6 +57847,14 @@ class CipherTransform {
     return bytesToString(data);
   }
 }
+function utf8PasswordToBytes(password) {
+  try {
+    password = utf8StringToString(password);
+  } catch {
+    warn("CipherTransformFactory: Unable to convert UTF8 encoded password.");
+  }
+  return stringToBytes(password);
+}
 class CipherTransformFactory {
   #fileId;
   static get _defaultPasswordBytes() {
@@ -58023,16 +58048,19 @@ class CipherTransformFactory {
     const encryptMetadata = (algorithm === 4 || algorithm === 5) && dict.get("EncryptMetadata") !== false;
     this.encryptMetadata = encryptMetadata;
     const fileIdBytes = stringToBytes(fileId);
-    let passwordBytes;
+    let passwordBytes, rawPasswordBytes;
     if (password) {
-      if (algorithm === 5) {
-        try {
-          password = utf8StringToString(password);
-        } catch {
-          warn("CipherTransformFactory: Unable to convert UTF8 encoded password.");
+      if (revision === 6) {
+        const preppedPassword = saslPrep(password);
+        passwordBytes = utf8PasswordToBytes(preppedPassword);
+        if (preppedPassword !== password) {
+          rawPasswordBytes = utf8PasswordToBytes(password);
         }
+      } else if (algorithm === 5) {
+        passwordBytes = utf8PasswordToBytes(password);
+      } else {
+        passwordBytes = stringToBytes(password);
       }
-      passwordBytes = stringToBytes(password);
     }
     let encryptionKey;
     if (algorithm !== 5) {
@@ -58046,7 +58074,12 @@ class CipherTransformFactory {
       const ownerEncryption = stringToBytes(dict.get("OE"));
       const userEncryption = stringToBytes(dict.get("UE"));
       const perms = stringToBytes(dict.get("Perms"));
-      encryptionKey = this.#createEncryptionKey20(revision, passwordBytes, ownerPassword, ownerValidationSalt, ownerKeySalt, uBytes, userPassword, userValidationSalt, userKeySalt, ownerEncryption, userEncryption, perms);
+      for (const candidate of rawPasswordBytes ? [passwordBytes, rawPasswordBytes] : [passwordBytes]) {
+        encryptionKey = this.#createEncryptionKey20(revision, candidate, ownerPassword, ownerValidationSalt, ownerKeySalt, uBytes, userPassword, userValidationSalt, userKeySalt, ownerEncryption, userEncryption, perms);
+        if (encryptionKey) {
+          break;
+        }
+      }
     }
     if (!encryptionKey) {
       if (!password) {
@@ -60268,20 +60301,17 @@ class PDFDocument {
       if (!(field instanceof Dict)) {
         continue;
       }
+      if (isName(field.get("FT"), "Sig")) {
+        const sigDict = this.xref.fetchIfRef(field.get("V"));
+        if (sigDict instanceof Dict) {
+          const parsed = this.#parseSignatureDict(field, sigDict, fieldRef);
+          if (parsed) {
+            out.push(parsed);
+          }
+        }
+      }
       if (field.has("Kids")) {
         this.#collectSignatureFields(field.get("Kids"), out, visitedRefs);
-        continue;
-      }
-      if (!isName(field.get("FT"), "Sig")) {
-        continue;
-      }
-      const sigDict = this.xref.fetchIfRef(field.get("V"));
-      if (!(sigDict instanceof Dict)) {
-        continue;
-      }
-      const parsed = this.#parseSignatureDict(field, sigDict, fieldRef);
-      if (parsed) {
-        out.push(parsed);
       }
     }
   }
@@ -63075,28 +63105,37 @@ class PDFEditor {
       }
     }
     const resourcesValuesCache = new Map();
+    const fixAppearanceResources = async stream => {
+      let resources = stream.dict.getRaw("Resources");
+      resources &&= this.xrefWrapper.fetchIfRef(resources);
+      if (!(resources instanceof Dict)) {
+        const newResourcesRef = await resourcesValuesCache.getOrInsertComputed(acroFormDefaultResources, () => this.#cloneObject(acroFormDefaultResources, xref));
+        stream.dict.set("Resources", newResourcesRef);
+        return;
+      }
+      for (const [resKey, resValue] of acroFormDefaultResources.getRawEntries()) {
+        if (resources.has(resKey)) {
+          continue;
+        }
+        let newResValue = resValue;
+        if (resValue instanceof Ref) {
+          newResValue = await this.#collectDependencies(resValue, true, xref);
+        } else if (resValue instanceof Dict || resValue instanceof BaseStream || Array.isArray(resValue)) {
+          newResValue = await resourcesValuesCache.getOrInsertComputed(resValue, () => this.#cloneObject(resValue, xref));
+        }
+        resources.set(resKey, newResValue);
+      }
+    };
     for (const field of drToFix) {
       const ap = field.get("AP");
       for (const [, value] of ap) {
-        if (!(value instanceof BaseStream)) {
-          continue;
-        }
-        let resources = value.dict.getRaw("Resources");
-        if (!resources) {
-          const newResourcesRef = await resourcesValuesCache.getOrInsertComputed(acroFormDefaultResources, () => this.#cloneObject(acroFormDefaultResources, xref));
-          value.dict.set("Resources", newResourcesRef);
-          continue;
-        }
-        resources = xref.fetchIfRef(resources);
-        for (const [resKey, resValue] of acroFormDefaultResources.getRawEntries()) {
-          if (!resources.has(resKey)) {
-            let newResValue = resValue;
-            if (resValue instanceof Ref) {
-              newResValue = await this.#collectDependencies(resValue, true, xref);
-            } else if (resValue instanceof Dict || resValue instanceof BaseStream || Array.isArray(resValue)) {
-              newResValue = await resourcesValuesCache.getOrInsertComputed(resValue, () => this.#cloneObject(resValue, xref));
+        if (value instanceof BaseStream) {
+          await fixAppearanceResources(value);
+        } else if (value instanceof Dict) {
+          for (const [, stream] of value) {
+            if (stream instanceof BaseStream) {
+              await fixAppearanceResources(stream);
             }
-            resources.set(resKey, newResValue);
           }
         }
       }
