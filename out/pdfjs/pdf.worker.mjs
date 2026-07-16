@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.1.0
- * pdfjsBuild = e39b239
+ * pdfjsBuild = 244fb9e
  */
 
 ;// ./src/shared/util.js
@@ -58025,7 +58025,7 @@ class CipherTransformFactory {
     const fileIdBytes = stringToBytes(fileId);
     let passwordBytes;
     if (password) {
-      if (revision === 6) {
+      if (algorithm === 5) {
         try {
           password = utf8StringToString(password);
         } catch {
@@ -58091,7 +58091,7 @@ class CipherTransformFactory {
         if (!this.encryptionKey) {
           throw new PasswordException("No password given", PasswordResponses.NEED_PASSWORD);
         }
-        if (this.algorithm === 5) {
+        if (this.algorithm === 5 || cfm.name === "AESV3") {
           return AES256Cipher.bind(null, this.encryptionKey);
         }
         if (cfm.name === "V2") {
@@ -58099,9 +58099,6 @@ class CipherTransformFactory {
         }
         if (cfm.name === "AESV2") {
           return AES128Cipher.bind(null, this.#buildObjectKey(num, gen, this.encryptionKey, true));
-        }
-        if (cfm.name === "AESV3") {
-          return AES256Cipher.bind(null, this.encryptionKey);
         }
         throw new FormatError("Unknown crypto method");
       };
