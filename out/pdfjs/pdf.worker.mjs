@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.1.0
- * pdfjsBuild = dd7e373
+ * pdfjsBuild = b832748
  */
 
 ;// ./src/shared/util.js
@@ -786,6 +786,11 @@ const makeArr = () => [];
 const makeMap = () => new Map();
 const makeObj = () => Object.create(null);
 const makeSet = () => new Set();
+if (typeof Iterator.prototype.join !== "function") {
+  Iterator.prototype.join = function (separator) {
+    return [...this].join(separator);
+  };
+}
 
 ;// ./src/core/primitives.js
 
@@ -6489,21 +6494,18 @@ class MeshStreamReader {
     return colorSpace.getRgb(color, 0);
   }
 }
-let bCache = Object.create(null);
-function buildB(count) {
-  const lut = [];
-  for (let i = 0; i <= count; i++) {
+let bCache = null;
+function getB(count) {
+  return (bCache ??= new Map()).getOrInsertComputed(count, () => Array.from({
+    length: count + 1
+  }, (_, i) => {
     const t = i / count,
       t_ = 1 - t;
-    lut.push(new Float32Array([t_ ** 3, 3 * t * t_ ** 2, 3 * t ** 2 * t_, t ** 3]));
-  }
-  return lut;
-}
-function getB(count) {
-  return bCache[count] ||= buildB(count);
+    return new Float32Array([t_ ** 3, 3 * t * t_ ** 2, 3 * t ** 2 * t_, t ** 3]);
+  }));
 }
 function clearPatternCaches() {
-  bCache = Object.create(null);
+  bCache?.clear();
 }
 class MeshShading extends BaseShading {
   static MIN_SPLIT_PATCH_CHUNKS_AMOUNT = 3;
@@ -21896,10 +21898,10 @@ class Commands {
   }
 }
 class CompiledFont {
+  #compiledGlyphs = new Map();
+  #compiledCharCodeToGlyphId = new Map();
   constructor(fontMatrix) {
     this.fontMatrix = fontMatrix;
-    this.compiledGlyphs = Object.create(null);
-    this.compiledCharCodeToGlyphId = Object.create(null);
   }
   static get NOOP() {
     return shadow(this, "NOOP", FeatureTest.isFloat16ArraySupported ? new Float16Array(0) : new Float32Array(0));
@@ -21909,22 +21911,18 @@ class CompiledFont {
       charCode,
       glyphId
     } = lookupCmap(this.cmap, unicode);
-    let fn = this.compiledGlyphs[glyphId],
-      compileEx;
-    if (fn === undefined) {
+    const path = this.#compiledGlyphs.getOrInsertComputed(glyphId, () => {
       try {
-        fn = this.compileGlyph(this.glyphs[glyphId], glyphId);
+        return this.compileGlyph(this.glyphs[glyphId], glyphId);
       } catch (ex) {
-        fn = CompiledFont.NOOP;
-        compileEx = ex;
+        return ex;
       }
-      this.compiledGlyphs[glyphId] = fn;
+    });
+    this.#compiledCharCodeToGlyphId.getOrInsert(charCode, glyphId);
+    if (path instanceof Error) {
+      throw path;
     }
-    this.compiledCharCodeToGlyphId[charCode] ??= glyphId;
-    if (compileEx) {
-      throw compileEx;
-    }
-    return fn;
+    return path;
   }
   compileGlyph(code, glyphId) {
     if (!code?.length || code[0] === 14) {
@@ -21955,7 +21953,7 @@ class CompiledFont {
       charCode,
       glyphId
     } = lookupCmap(this.cmap, unicode);
-    return this.compiledGlyphs[glyphId] !== undefined && this.compiledCharCodeToGlyphId[charCode] !== undefined;
+    return this.#compiledGlyphs.has(glyphId) && this.#compiledCharCodeToGlyphId.has(charCode);
   }
 }
 class TrueTypeCompiled extends CompiledFont {
@@ -33137,7 +33135,7 @@ class PDFImage {
         this.jpxDecoderOptions = {
           numComponents: 0,
           isIndexedColormap: false,
-          smaskInData: dict.has("SMaskInData"),
+          smaskInData: dict.get("SMaskInData") >= 1,
           reducePower
         };
         if (reducePower) {
@@ -33193,6 +33191,20 @@ class PDFImage {
     if (!this.imageMask) {
       let colorSpace = dict.getRaw("CS") || dict.getRaw("ColorSpace");
       const hasColorSpace = !!colorSpace;
+      if (this.jpxDecoderOptions?.smaskInData && dict.get("SMaskInData") === 2) {
+        this.jpxPremultiplied = true;
+        if (this.matte) {
+          const matteColorSpace = ColorSpaceUtils.parse({
+            cs: hasColorSpace ? colorSpace : Name.get("DeviceRGB"),
+            xref,
+            resources: isInline ? res : null,
+            pdfFunctionFactory,
+            globalColorSpaceCache,
+            localColorSpaceCache
+          });
+          this.preblendMatte = matteColorSpace.getRgb(this.matte, 0);
+        }
+      }
       if (!hasColorSpace) {
         if (this.jpxDecoderOptions) {
           colorSpace = Name.get("DeviceRGBA");
@@ -33561,16 +33573,7 @@ class PDFImage {
       stride: 4
     });
   }
-  undoPreblend(buffer, width, height) {
-    const matte = this.smask?.matte;
-    if (!matte) {
-      return;
-    }
-    const matteRgb = this.colorSpace.getRgb(matte, 0);
-    const matteR = matteRgb[0];
-    const matteG = matteRgb[1];
-    const matteB = matteRgb[2];
-    const length = width * height * 4;
+  static #undoPreblend(buffer, length, matteR, matteG, matteB) {
     for (let i = 0; i < length; i += 4) {
       const alpha = buffer[i + 3];
       if (alpha === 0) {
@@ -33584,6 +33587,14 @@ class PDFImage {
       buffer[i + 1] = (buffer[i + 1] - matteG) * k + matteG;
       buffer[i + 2] = (buffer[i + 2] - matteB) * k + matteB;
     }
+  }
+  undoPreblend(buffer, width, height) {
+    const matte = this.smask?.matte;
+    if (!matte) {
+      return;
+    }
+    const matteRgb = this.colorSpace.getRgb(matte, 0);
+    PDFImage.#undoPreblend(buffer, width * height * 4, matteRgb[0], matteRgb[1], matteRgb[2]);
   }
   async createImageData(forceRGBA = false, isOffscreenCanvasSupported = false) {
     const drawWidth = this.drawWidth;
@@ -33606,6 +33617,10 @@ class PDFImage {
       const imgArray = imgData.data = await this.getImageBytes(originalHeight * originalWidth * 4, {
         internal: isOffscreenCanvasSupported && mustBeResized
       });
+      if (this.jpxPremultiplied) {
+        const matteRgb = this.preblendMatte;
+        PDFImage.#undoPreblend(imgArray, imgArray.length, matteRgb?.[0] ?? 0, matteRgb?.[1] ?? 0, matteRgb?.[2] ?? 0);
+      }
       if (isOffscreenCanvasSupported) {
         if (!mustBeResized) {
           return this.createBitmap(ImageKind.RGBA_32BPP, drawWidth, drawHeight, imgArray);
@@ -43259,7 +43274,7 @@ class XFAObject {
   [_getUnsetAttributes](protoAttributes) {
     const allAttr = this[_attributeNames];
     const setAttr = this[_setAttributes];
-    return [...protoAttributes].filter(x => allAttr.has(x) && !setAttr.has(x));
+    return protoAttributes.keys().filter(x => allAttr.has(x) && !setAttr.has(x)).toArray();
   }
   [$resolvePrototypes](ids, ancestors = new Set()) {
     for (const child of this[_children]) {
@@ -52639,10 +52654,7 @@ class XFAFactory {
     return this.dataHandler.serialize(storage);
   }
   static _createDocument(data) {
-    if (!data["/xdp:xdp"]) {
-      return data["xdp:xdp"];
-    }
-    return Object.values(data).join("");
+    return !data.get("/xdp:xdp") ? data.get("xdp:xdp") : data.values().join("");
   }
   static getRichTextAsHtml(rc) {
     if (!rc || typeof rc !== "string") {
@@ -59741,13 +59753,13 @@ class PDFDocument {
     if (!streams) {
       return null;
     }
-    const data = Object.create(null);
+    const data = new Map();
     for (const [key, stream] of streams) {
       if (!stream) {
         continue;
       }
       try {
-        data[key] = stringToUTF8String(stream.getString());
+        data.set(key, stringToUTF8String(stream.getString()));
       } catch {
         warn("XFA - Invalid utf-8 string.");
         return null;
@@ -61882,11 +61894,18 @@ class PDFEditor {
       }
       for (let attr of attributes) {
         attr = this.xrefWrapper.fetchIfRef(attr);
+        if (!(attr instanceof Dict)) {
+          continue;
+        }
         if (isName(attr.get("O"), "Table") && attr.has("Headers")) {
           const headers = this.xrefWrapper.fetchIfRef(attr.getRaw("Headers"));
           if (Array.isArray(headers)) {
             for (let i = 0, ii = headers.length; i < ii; i++) {
-              const newId = dedupIDs.get(stringToPDFString(headers[i], false));
+              const header = this.xrefWrapper.fetchIfRef(headers[i]);
+              if (typeof header !== "string") {
+                continue;
+              }
+              const newId = dedupIDs.get(stringToPDFString(header, false));
               if (newId) {
                 headers[i] = newId;
               }
@@ -62253,7 +62272,7 @@ class PDFEditor {
         if (!isName(annotationDict.get("Subtype"), "Link")) {
           if (isName(annotationDict.get("Subtype"), "Widget")) {
             hasSignatureAnnotations ||= isName(annotationDict.get("FT"), "Sig");
-            const parentRef = annotationDict.get("Parent") || null;
+            const parentRef = annotationDict.getRaw("Parent") || null;
             annotationDict.delete("Parent");
             fieldToParent.put(annotationRef, parentRef);
           }
@@ -62976,7 +62995,7 @@ class PDFEditor {
   #fixFields(fieldToParent, xref) {
     const newFields = [];
     const processed = new RefSet();
-    for (const [fieldRef, parentRef] of fieldToParent) {
+    for (const [fieldRef, parentRef] of fieldToParent.items()) {
       if (!parentRef) {
         newFields.push(fieldRef);
         continue;
