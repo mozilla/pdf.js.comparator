@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.1.0
- * pdfjsBuild = 547236b
+ * pdfjsBuild = cd03276
  */
 
 ;// ./src/shared/util.js
@@ -55291,6 +55291,7 @@ class ChoiceWidgetAnnotation extends WidgetAnnotation {
   }
 }
 class SignatureWidgetAnnotation extends WidgetAnnotation {
+  _hasValueFromXFA = false;
   constructor(params) {
     super(params);
     this.data.fieldValue = null;
@@ -61178,7 +61179,7 @@ function writeXFADataForAcroform(str, changes) {
       path,
       value
     } = xfa;
-    if (!path) {
+    if (!path || value === null) {
       continue;
     }
     const nodePath = parseXFAPath(path);
