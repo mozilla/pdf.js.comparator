@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.1.0
- * pdfjsBuild = cd03276
+ * pdfjsBuild = 997dabf
  */
 
 ;// ./src/shared/util.js
@@ -31123,6 +31123,17 @@ class PsWasmCompiler {
       this._code.push(b);
     } while (n !== 0);
   }
+  _emitSLEB128(n) {
+    for (;;) {
+      const b = n & 0x7f;
+      n >>= 7;
+      if (n === 0 && (b & 0x40) === 0 || n === -1 && (b & 0x40) !== 0) {
+        this._code.push(b);
+        return;
+      }
+      this._code.push(b | 0x80);
+    }
+  }
   _emitF64Const(value) {
     this._code.push(wasm_compiler_OP.f64_const);
     PsWasmCompiler.#f64View.setFloat64(0, value, true);
@@ -31331,11 +31342,11 @@ class PsWasmCompiler {
     const shift = first.value;
     if (shift > 0) {
       code.push(wasm_compiler_OP.i32_const);
-      this._emitULEB128(shift);
+      this._emitSLEB128(shift);
       code.push(wasm_compiler_OP.i32_shl);
     } else if (shift < 0) {
       code.push(wasm_compiler_OP.i32_const);
-      this._emitULEB128(-shift);
+      this._emitSLEB128(-shift);
       code.push(wasm_compiler_OP.i32_shr_s);
     }
     code.push(wasm_compiler_OP.f64_convert_i32_s);
@@ -31616,7 +31627,7 @@ class PsWasmCompiler {
       const min = this._range[i * 2];
       const max = this._range[i * 2 + 1];
       code.push(wasm_compiler_OP.i32_const);
-      this._emitULEB128(i * 8);
+      this._emitSLEB128(i * 8);
       if (!this._compileNode(outputs[i])) {
         return null;
       }
