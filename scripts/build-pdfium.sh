@@ -193,6 +193,14 @@ if [ ! -f "${WASM_PREFIX}/lib/libpdfium.a" ] || \
     # defines, so nothing references BrotliDecoder and the linker would GC it
     # anyway. (brotli_decoder.h itself is a plain internal header with no
     # third_party include, so dropping just the .cpp is safe.)
+    #
+    # core/fxcodec/codec_memory_sk_stream.cpp is dropped for the same reason:
+    # it is a Skia-only translation unit (gn only compiles it when skia is on)
+    # whose header unconditionally #includes third_party/skia/…/SkStream.h — a
+    # tree we never fetch. We build with PDF_USE_SKIA off (the skia backend dir
+    # is already excluded via `! -path "*/skia/*"` below); this file just
+    # happens to live in core/fxcodec/, so it needs its own exclusion. Nothing
+    # we compile includes its header, so dropping the .cpp is safe.
     mapfile -t SRCS < <(find core constants fpdfsdk \
         third_party/agg23 third_party/bigint third_party/pdfium_base \
         \( -name "*.cc" -o -name "*.cpp" -o -name "*.c" \) \
@@ -214,6 +222,7 @@ if [ ! -f "${WASM_PREFIX}/lib/libpdfium.a" ] || \
         ! -name "*_progressive_decoder.cpp" \
         ! -name "code_point_view.cpp" \
         ! -name "fx_memory_pa.cpp" \
+        ! -name "codec_memory_sk_stream.cpp" \
         2>/dev/null | sort | grep -vFxf "${HB_SKIP}")
 
     # Abseil ships a handful of out-of-line runtime-support functions that its
