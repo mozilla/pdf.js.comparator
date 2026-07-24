@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.2.0
- * pdfjsBuild = fe0b880
+ * pdfjsBuild = 05e100c
  */
 
 ;// ./src/shared/util.js
@@ -480,9 +480,6 @@ function stringToBytes(str) {
     bytes[i] = str.charCodeAt(i) & 0xff;
   }
   return bytes;
-}
-function objectSize(obj) {
-  return Object.keys(obj).length;
 }
 class FeatureTest {
   static get isLittleEndian() {
@@ -1556,7 +1553,7 @@ function collectActions(xref, dict, eventType) {
       actions.Action = list;
     }
   }
-  return objectSize(actions) > 0 ? actions : null;
+  return Object.keys(actions).length ? actions : null;
 }
 const XMLEntities = {
   0x3c: "&lt;",
@@ -60310,7 +60307,7 @@ class PDFDocument {
       }
       await Promise.all(allPromises);
       return {
-        allFields: objectSize(allFields) > 0 ? allFields : null,
+        allFields: Object.keys(allFields).length ? allFields : null,
         orphanFields
       };
     });
@@ -63161,7 +63158,7 @@ class PDFEditor {
       if (data.parentRef) {
         newKid.set("Parent", data.parentRef);
       }
-      if (acroFormDefaultAppearance && isName(newKid.get("FT"), "Tx") && !newKid.has("DA")) {
+      if (acroFormDefaultAppearance && !newKid.has("DA")) {
         daToFix.push(newKid);
       }
       if (acroFormDefaultResources && !newKid.has("Kids") && newKid.get("AP") instanceof Dict) {
@@ -63172,6 +63169,13 @@ class PDFEditor {
       }
     }
     for (const field of daToFix) {
+      const fieldType = getInheritableProperty({
+        dict: field,
+        key: "FT"
+      });
+      if (!isName(fieldType, "Tx")) {
+        continue;
+      }
       const da = getInheritableProperty({
         dict: field,
         key: "DA"

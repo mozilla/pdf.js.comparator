@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.2.0
- * pdfjsBuild = fe0b880
+ * pdfjsBuild = 05e100c
  */
 
 ;// ./src/shared/util.js
@@ -480,9 +480,6 @@ function stringToBytes(str) {
     bytes[i] = str.charCodeAt(i) & 0xff;
   }
   return bytes;
-}
-function objectSize(obj) {
-  return Object.keys(obj).length;
 }
 class FeatureTest {
   static get isLittleEndian() {
@@ -2040,7 +2037,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "d9208ff6-da2a-4c15-8aa3-118676250eee";
+const INTERNAL_EVT = "26ec5c23-ec87-475e-b91a-031ca7a55a56";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -16953,7 +16950,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.2.0";
-const build = "fe0b880";
+const build = "05e100c";
 
 ;// ./src/display/editor/color_picker.js
 
