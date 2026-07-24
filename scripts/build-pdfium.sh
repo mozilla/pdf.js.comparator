@@ -131,6 +131,28 @@ cat > "${PDFIUM_SRC}/third_party/icu/source/common/unicode/uchar.h" <<'EOF'
 #endif
 EOF
 
+# The exported renderer never passes FPDF_ANNOT. Compile that branch out so
+# annotation appearance generation (and its new ICU bidi dependency) stays
+# outside this render-only build. Turning the branch into `if (false)` makes the
+# whole appearance-gen chain (CPDF_AnnotList -> CPDF_GenerateAP -> cpvt_* ->
+# CFX_BidiResolver) compile-time dead, so plain -O2 dead-code elimination drops it
+# from the wasm — deterministically, without relying on the linker to prove the
+# runtime flag never sets FPDF_ANNOT.
+#
+# COUPLED with the `! -name "cfx_bidi_resolver.cpp"` glob exclusion in Phase 4:
+# this cut is what makes dropping that ICU-dependent source safe (nothing reachable
+# then references CFX_BidiResolver, so cpvt_section.o's undefined ref never links).
+# Do not remove one edit without the other, or the renderer link breaks with
+# `undefined symbol: CFX_BidiResolver::Create`. If you ever need annotations
+# rendered, revert BOTH edits (and re-provide ICU bidi). NB: FPDF_ANNOT in the
+# renderer's flags is now a silent no-op.
+PDFIUM_RENDERPAGE="${PDFIUM_SRC}/fpdfsdk/cpdfsdk_renderpage.cpp"
+if ! grep -qF "if (flags & FPDF_ANNOT) {" "${PDFIUM_RENDERPAGE}"; then
+    echo "pdfium: ERROR: annotation render branch changed upstream" >&2
+    exit 1
+fi
+sed -i 's/if (flags & FPDF_ANNOT) {/if (false) {/' "${PDFIUM_RENDERPAGE}"
+
 # Symlinks so pdfium's third_party/{libjpeg,zlib,libpng} include paths
 # resolve to the system headers we built earlier.
 mkdir -p "${PDFIUM_SRC}/third_party/libjpeg" \
@@ -201,6 +223,19 @@ if [ ! -f "${WASM_PREFIX}/lib/libpdfium.a" ] || \
     # is already excluded via `! -path "*/skia/*"` below); this file just
     # happens to live in core/fxcodec/, so it needs its own exclusion. Nothing
     # we compile includes its header, so dropping the .cpp is safe.
+    #
+    # core/fxcrt/cfx_bidi_resolver.cpp is dropped for a DIFFERENT reason than the
+    # files above — read this before touching it. It #includes ICU's
+    # third_party/icu/.../ubidi.h (a real UBiDi engine, unstubbable, and we ship
+    # no ICU), so it can't compile. But unlike the skia/brotli files, code we
+    # compile DOES reference its symbols: cpvt_section.cpp (variable-text layout)
+    # calls CFX_BidiResolver::Create/GetVisualRunsForLine. Dropping it is only safe
+    # because the Phase 3 `if (flags & FPDF_ANNOT)` -> `if (false)` patch makes that
+    # entire chain (CPDF_AnnotList -> CPDF_GenerateAP -> cpvt_* -> CFX_BidiResolver)
+    # compile-time dead, so nothing reachable references it and cpvt_section.o's
+    # undefined ref never reaches the link. COUPLED with that patch: keep both or
+    # neither, else the renderer link fails with
+    # `undefined symbol: CFX_BidiResolver::Create`.
     mapfile -t SRCS < <(find core constants fpdfsdk \
         third_party/agg23 third_party/bigint third_party/pdfium_base \
         \( -name "*.cc" -o -name "*.cpp" -o -name "*.c" \) \
@@ -223,6 +258,7 @@ if [ ! -f "${WASM_PREFIX}/lib/libpdfium.a" ] || \
         ! -name "code_point_view.cpp" \
         ! -name "fx_memory_pa.cpp" \
         ! -name "codec_memory_sk_stream.cpp" \
+        ! -name "cfx_bidi_resolver.cpp" \
         2>/dev/null | sort | grep -vFxf "${HB_SKIP}")
 
     # Abseil ships a handful of out-of-line runtime-support functions that its
