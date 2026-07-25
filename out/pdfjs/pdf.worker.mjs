@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.2.0
- * pdfjsBuild = 05e100c
+ * pdfjsBuild = b75ca17
  */
 
 ;// ./src/shared/util.js
@@ -58159,55 +58159,55 @@ class CipherTransformFactory {
 
 
 class XRef {
+  #cacheMap = new Map();
+  #entries = [];
+  #newPersistentRefNum = null;
+  #newTemporaryRefNum = null;
+  #parsedWithRecovery = false;
+  #pendingRefs = new RefSet();
+  #persistentRefsCache = null;
+  #xrefSectionOffsets = new Set();
+  #xrefSectionsComplete = true;
+  #xrefStms = new Set();
   constructor(stream, pdfManager) {
     this.stream = stream;
     this.pdfManager = pdfManager;
-    this.entries = [];
-    this._xrefStms = new Set();
-    this._xrefSectionOffsets = new Set();
-    this._xrefSectionsComplete = true;
-    this._parsedWithRecovery = false;
-    this._cacheMap = new Map();
-    this._pendingRefs = new RefSet();
-    this._newPersistentRefNum = null;
-    this._newTemporaryRefNum = null;
-    this._persistentRefsCache = null;
   }
   getNewPersistentRef(obj) {
-    if (this._newPersistentRefNum === null) {
-      this._newPersistentRefNum = this.entries.length || 1;
+    if (this.#newPersistentRefNum === null) {
+      this.#newPersistentRefNum = this.#entries.length || 1;
     }
-    const num = this._newPersistentRefNum++;
-    this._cacheMap.set(num, obj);
+    const num = this.#newPersistentRefNum++;
+    this.#cacheMap.set(num, obj);
     return Ref.get(num, 0);
   }
   getNewTemporaryRef() {
-    if (this._newTemporaryRefNum === null) {
-      this._newTemporaryRefNum = this.entries.length || 1;
-      if (this._newPersistentRefNum) {
-        this._persistentRefsCache = new Map();
-        for (let i = this._newTemporaryRefNum; i < this._newPersistentRefNum; i++) {
-          this._persistentRefsCache.set(i, this._cacheMap.get(i));
-          this._cacheMap.delete(i);
+    if (this.#newTemporaryRefNum === null) {
+      this.#newTemporaryRefNum = this.#entries.length || 1;
+      if (this.#newPersistentRefNum) {
+        this.#persistentRefsCache = new Map();
+        for (let i = this.#newTemporaryRefNum; i < this.#newPersistentRefNum; i++) {
+          this.#persistentRefsCache.set(i, this.#cacheMap.get(i));
+          this.#cacheMap.delete(i);
         }
       }
     }
-    return Ref.get(this._newTemporaryRefNum++, 0);
+    return Ref.get(this.#newTemporaryRefNum++, 0);
   }
   resetNewTemporaryRef() {
-    this._newTemporaryRefNum = null;
-    if (this._persistentRefsCache) {
-      for (const [num, obj] of this._persistentRefsCache) {
-        this._cacheMap.set(num, obj);
+    this.#newTemporaryRefNum = null;
+    if (this.#persistentRefsCache) {
+      for (const [num, obj] of this.#persistentRefsCache) {
+        this.#cacheMap.set(num, obj);
       }
     }
-    this._persistentRefsCache = null;
+    this.#persistentRefsCache = null;
   }
   setStartXRef(startXRef) {
     this.startXRefQueue = [startXRef];
   }
   parse(recoveryMode = false) {
-    this._parsedWithRecovery = recoveryMode;
+    this.#parsedWithRecovery = recoveryMode;
     let trailerDict;
     if (!recoveryMode) {
       trailerDict = this.readXRef();
@@ -58261,31 +58261,29 @@ class XRef {
     throw new InvalidPDFException("Invalid Root reference.");
   }
   processXRefTable(parser) {
-    if (!("tableState" in this)) {
-      this.tableState = {
-        entryNum: 0,
-        streamPos: parser.lexer.stream.pos,
-        parserBuf1: parser.buf1,
-        parserBuf2: parser.buf2
-      };
-    }
+    this._tableState ??= {
+      entryNum: 0,
+      streamPos: parser.lexer.stream.pos,
+      parserBuf1: parser.buf1,
+      parserBuf2: parser.buf2
+    };
     const obj = this.readXRefTable(parser);
     if (!isCmd(obj, "trailer")) {
       throw new FormatError("Invalid XRef table: could not find trailer dictionary");
     }
     let dict = parser.getObj();
-    if (!(dict instanceof Dict) && dict.dict) {
+    if (dict instanceof BaseStream) {
       dict = dict.dict;
     }
     if (!(dict instanceof Dict)) {
       throw new FormatError("Invalid XRef table: could not parse trailer dictionary");
     }
-    delete this.tableState;
+    delete this._tableState;
     return dict;
   }
   readXRefTable(parser) {
     const stream = parser.lexer.stream;
-    const tableState = this.tableState;
+    const tableState = this._tableState;
     stream.pos = tableState.streamPos;
     parser.buf1 = tableState.parserBuf1;
     parser.buf2 = tableState.parserBuf2;
@@ -58308,9 +58306,10 @@ class XRef {
         tableState.entryNum = i;
         tableState.parserBuf1 = parser.buf1;
         tableState.parserBuf2 = parser.buf2;
-        const entry = {};
-        entry.offset = parser.getObj();
-        entry.gen = parser.getObj();
+        const entry = {
+          offset: parser.getObj(),
+          gen: parser.getObj()
+        };
         const type = parser.getObj();
         if (type instanceof Cmd) {
           switch (type.cmd) {
@@ -58328,9 +58327,7 @@ class XRef {
         if (i === 0 && entry.free && first === 1) {
           first = 0;
         }
-        if (!this.entries[i + first]) {
-          this.entries[i + first] = entry;
-        }
+        this.#entries[first + i] ??= entry;
       }
       tableState.entryNum = 0;
       tableState.streamPos = stream.pos;
@@ -58339,7 +58336,7 @@ class XRef {
       delete tableState.firstEntryNum;
       delete tableState.entryCount;
     }
-    if (this.entries[0] && !this.entries[0].free) {
+    if (this.#entries[0] && !this.#entries[0].free) {
       throw new FormatError("Invalid XRef table: unexpected first object");
     }
     return obj;
@@ -58406,9 +58403,10 @@ class XRef {
           }
           generation = generation << 8 | generationByte;
         }
-        const entry = {};
-        entry.offset = offset;
-        entry.gen = generation;
+        const entry = {
+          offset,
+          gen: generation
+        };
         switch (type) {
           case 0:
             entry.free = true;
@@ -58421,9 +58419,7 @@ class XRef {
           default:
             throw new FormatError(`Invalid XRef entry type: ${type}`);
         }
-        if (!this.entries[first + i]) {
-          this.entries[first + i] = entry;
-        }
+        this.#entries[first + i] ??= entry;
       }
       streamState.entryNum = 0;
       streamState.streamPos = stream.pos;
@@ -58472,8 +58468,8 @@ class XRef {
     const trailerBytes = new Uint8Array([116, 114, 97, 105, 108, 101, 114]);
     const startxrefBytes = new Uint8Array([115, 116, 97, 114, 116, 120, 114, 101, 102]);
     const xrefBytes = new Uint8Array([47, 88, 82, 101, 102]);
-    this.entries.length = 0;
-    this._cacheMap.clear();
+    this.#entries.length = 0;
+    this.#cacheMap.clear();
     const stream = this.stream;
     stream.pos = 0;
     const buffer = stream.getBytes(),
@@ -58510,9 +58506,9 @@ class XRef {
         const startPos = position + token.length;
         let contentLength,
           updateEntries = false;
-        if (!this.entries[num]) {
+        if (!this.#entries[num]) {
           updateEntries = true;
-        } else if (this.entries[num].gen === gen) {
+        } else if (this.#entries[num].gen === gen) {
           try {
             const parser = new Parser({
               lexer: new Lexer(stream.makeSubStream(startPos))
@@ -58528,7 +58524,7 @@ class XRef {
           }
         }
         if (updateEntries) {
-          this.entries[num] = {
+          this.#entries[num] = {
             offset: position - stream.start,
             gen,
             uncompressed: true
@@ -58550,7 +58546,7 @@ class XRef {
         const xrefTagOffset = skipUntil(content, 0, xrefBytes);
         if (xrefTagOffset < contentLength && content[xrefTagOffset + 5] < 64) {
           xrefStms.push(position - stream.start);
-          this._xrefStms.add(position - stream.start);
+          this.#xrefStms.add(position - stream.start);
         }
         position += contentLength;
       } else if (token.startsWith("trailer") && (token.length === 7 || /\s/.test(token[7]))) {
@@ -58640,8 +58636,8 @@ class XRef {
       return this.topDict;
     }
     if (!trailerDicts.length) {
-      for (const num in this.entries) {
-        const entry = this.entries[num];
+      for (const num in this.#entries) {
+        const entry = this.#entries[num];
         if (!entry) {
           continue;
         }
@@ -58686,8 +58682,8 @@ class XRef {
           dict = this.processXRefTable(parser);
           this.topDict ||= dict;
           obj = dict.get("XRefStm");
-          if (Number.isInteger(obj) && !this._xrefStms.has(obj)) {
-            this._xrefStms.add(obj);
+          if (Number.isInteger(obj) && !this.#xrefStms.has(obj)) {
+            this.#xrefStms.add(obj);
             this.startXRefQueue.push(obj);
           }
         } else if (Number.isInteger(obj)) {
@@ -58702,7 +58698,7 @@ class XRef {
         } else {
           throw new FormatError("Invalid XRef stream header");
         }
-        this._xrefSectionOffsets.add(startXRef);
+        this.#xrefSectionOffsets.add(startXRef);
         obj = dict.get("Prev");
         if (Number.isInteger(obj)) {
           this.startXRefQueue.push(obj);
@@ -58713,7 +58709,7 @@ class XRef {
         if (e instanceof MissingDataException) {
           throw e;
         }
-        this._xrefSectionsComplete = false;
+        this.#xrefSectionsComplete = false;
         info("(while reading XRef): " + e);
       }
       this.startXRefQueue.shift();
@@ -58727,37 +58723,31 @@ class XRef {
     throw new XRefParseException();
   }
   countUpdatesAfter(offset) {
-    if (this._parsedWithRecovery || !this._xrefSectionsComplete) {
+    if (this.#parsedWithRecovery || !this.#xrefSectionsComplete) {
       return null;
     }
     const relativeOffset = offset - this.stream.start;
     let count = 0;
-    for (const sectionOffset of this._xrefSectionOffsets) {
-      if (sectionOffset >= relativeOffset && !this._xrefStms.has(sectionOffset)) {
+    for (const sectionOffset of this.#xrefSectionOffsets) {
+      if (sectionOffset >= relativeOffset && !this.#xrefStms.has(sectionOffset)) {
         count++;
       }
     }
     return count;
   }
   getEntry(i) {
-    const xrefEntry = this.entries[i];
-    if (xrefEntry && !xrefEntry.free && xrefEntry.offset) {
-      return xrefEntry;
-    }
-    return null;
+    const entry = this.#entries[i];
+    return entry && !entry.free && entry.offset ? entry : null;
   }
   fetchIfRef(obj, suppressEncryption = false) {
-    if (obj instanceof Ref) {
-      return this.fetch(obj, suppressEncryption);
-    }
-    return obj;
+    return obj instanceof Ref ? this.fetch(obj, suppressEncryption) : obj;
   }
   fetch(ref, suppressEncryption = false) {
     if (!(ref instanceof Ref)) {
       throw new Error("ref object is not a reference");
     }
     const num = ref.num;
-    const cacheEntry = this._cacheMap.get(num);
+    const cacheEntry = this.#cacheMap.get(num);
     if (cacheEntry !== undefined) {
       if (cacheEntry instanceof Dict && !cacheEntry.objId) {
         cacheEntry.objId = ref.toString();
@@ -58768,17 +58758,17 @@ class XRef {
     if (xrefEntry === null) {
       return xrefEntry;
     }
-    if (this._pendingRefs.has(ref)) {
-      this._pendingRefs.remove(ref);
+    if (this.#pendingRefs.has(ref)) {
+      this.#pendingRefs.remove(ref);
       warn(`Ignoring circular reference: ${ref}.`);
       return CIRCULAR_REF;
     }
-    this._pendingRefs.put(ref);
+    this.#pendingRefs.put(ref);
     try {
       xrefEntry = xrefEntry.uncompressed ? this.fetchUncompressed(ref, xrefEntry, suppressEncryption) : this.fetchCompressed(ref, xrefEntry, suppressEncryption);
-      this._pendingRefs.remove(ref);
+      this.#pendingRefs.remove(ref);
     } catch (ex) {
-      this._pendingRefs.remove(ref);
+      this.#pendingRefs.remove(ref);
       throw ex;
     }
     if (xrefEntry instanceof Dict) {
@@ -58822,7 +58812,7 @@ class XRef {
     }
     xrefEntry = this.encrypt && !suppressEncryption ? parser.getObj(this.encrypt.createCipherTransform(num, gen)) : parser.getObj();
     if (!(xrefEntry instanceof BaseStream)) {
-      this._cacheMap.set(num, xrefEntry);
+      this.#cacheMap.set(num, xrefEntry);
     }
     return xrefEntry;
   }
@@ -58878,9 +58868,9 @@ class XRef {
         continue;
       }
       const num = nums[i],
-        entry = this.entries[num];
+        entry = this.#entries[num];
       if (entry && entry.offset === tableOffset && entry.gen === i) {
-        this._cacheMap.set(num, obj);
+        this.#cacheMap.set(num, obj);
       }
     }
     xrefEntry = entries[xrefEntry.gen];
@@ -58890,10 +58880,7 @@ class XRef {
     return xrefEntry;
   }
   async fetchIfRefAsync(obj, suppressEncryption) {
-    if (obj instanceof Ref) {
-      return this.fetchAsync(obj, suppressEncryption);
-    }
-    return obj;
+    return obj instanceof Ref ? this.fetchAsync(obj, suppressEncryption) : obj;
   }
   async fetchAsync(ref, suppressEncryption) {
     try {
@@ -60435,7 +60422,7 @@ class PDFDocument {
       this.#collectSignatureFields(fields, collected, new RefSet());
       await Promise.all(collected.map(async signature => {
         const signedEnd = signature.byteRange[2] + signature.byteRange[3];
-        signature.modificationsAfterSignature = this.xref.countUpdatesAfter?.(signedEnd) ?? null;
+        signature.modificationsAfterSignature = this.xref.countUpdatesAfter(signedEnd);
         signature.coversWholeDocument = await this.#coversWholeDocument(signedEnd, signature.modificationsAfterSignature);
       }));
       collected.sort((a, b) => b.byteRange[2] + b.byteRange[3] - (a.byteRange[2] + a.byteRange[3]));
@@ -61565,6 +61552,9 @@ class XRefWrapper {
   }
   getNewTemporaryRef() {
     return this._getNewRef();
+  }
+  countUpdatesAfter(offset) {
+    return null;
   }
   fetchIfRef(obj) {
     return obj instanceof Ref ? this.fetch(obj) : obj;
