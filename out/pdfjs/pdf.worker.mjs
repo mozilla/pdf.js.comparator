@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.2.0
- * pdfjsBuild = f38ea2d
+ * pdfjsBuild = 2ea8820
  */
 
 ;// ./src/shared/util.js
@@ -2087,6 +2087,15 @@ class ColorSpace {
   getRgbBuffer(src, srcOffset, count, dest, destOffset, bits, alpha01) {
     unreachable("Should not call ColorSpace.getRgbBuffer");
   }
+  getRgbItems(src, count, dest, destOffset, alpha01) {
+    const {
+      numComps
+    } = this;
+    for (let i = 0, srcOffset = 0; i < count; i++, srcOffset += numComps) {
+      this.getRgbItem(src, srcOffset, dest, destOffset);
+      destOffset += 3 + alpha01;
+    }
+  }
   getOutputLength(inputLength, alpha01) {
     unreachable("Should not call ColorSpace.getOutputLength");
   }
@@ -2177,6 +2186,21 @@ class AlternateCS extends ColorSpace {
     this.tintFn(src, srcOffset, tmpBuf, 0);
     this.base.getRgbItem(tmpBuf, 0, dest, destOffset);
   }
+  getRgbItems(src, count, dest, destOffset, alpha01) {
+    const {
+      base,
+      numComps,
+      tintFn
+    } = this;
+    const baseNumComps = base.numComps;
+    const tinted = new Float32Array(count * baseNumComps);
+    for (let i = 0, srcOffset = 0, tintedOffset = 0; i < count; i++) {
+      tintFn(src, srcOffset, tinted, tintedOffset);
+      srcOffset += numComps;
+      tintedOffset += baseNumComps;
+    }
+    base.getRgbItems(tinted, count, dest, destOffset, alpha01);
+  }
   getRgbBuffer(src, srcOffset, count, dest, destOffset, bits, alpha01) {
     const tintFn = this.tintFn;
     const base = this.base;
@@ -2222,50 +2246,47 @@ class PatternCS extends ColorSpace {
   }
 }
 class IndexedCS extends ColorSpace {
+  #rgbLookup;
   constructor(base, highVal, lookup) {
     super("Indexed", 1);
-    this.base = base;
     this.highVal = highVal;
-    const length = base.numComps * (highVal + 1);
-    this.lookup = new Uint8Array(length);
+    const count = highVal + 1;
+    const length = base.numComps * count;
+    const palette = new Uint8Array(length);
     if (lookup instanceof BaseStream) {
-      const bytes = lookup.getBytes(length);
-      this.lookup.set(bytes);
+      palette.set(lookup.getBytes(length));
     } else if (typeof lookup === "string") {
       for (let i = 0; i < length; ++i) {
-        this.lookup[i] = lookup.charCodeAt(i) & 0xff;
+        palette[i] = lookup.charCodeAt(i);
       }
     } else {
       throw new FormatError(`IndexedCS - unrecognized lookup table: ${lookup}`);
     }
+    this.#rgbLookup = new Uint8ClampedArray(count * 3);
+    base.getRgbBuffer(palette, 0, count, this.#rgbLookup, 0, 8, 0);
   }
   getRgbItem(src, srcOffset, dest, destOffset) {
-    const {
-      base,
-      highVal,
-      lookup
-    } = this;
-    const start = MathClamp(Math.round(src[srcOffset]), 0, highVal) * base.numComps;
-    base.getRgbBuffer(lookup, start, 1, dest, destOffset, 8, 0);
+    const rgbLookup = this.#rgbLookup;
+    const pos = MathClamp(Math.round(src[srcOffset]), 0, this.highVal) * 3;
+    dest[destOffset] = rgbLookup[pos];
+    dest[destOffset + 1] = rgbLookup[pos + 1];
+    dest[destOffset + 2] = rgbLookup[pos + 2];
   }
   getRgbBuffer(src, srcOffset, count, dest, destOffset, bits, alpha01) {
     const {
-      base,
-      highVal,
-      lookup
+      highVal
     } = this;
-    const {
-      numComps
-    } = base;
-    const outputDelta = base.getOutputLength(numComps, alpha01);
+    const rgbLookup = this.#rgbLookup;
     for (let i = 0; i < count; ++i) {
-      const lookupPos = MathClamp(Math.round(src[srcOffset++]), 0, highVal) * numComps;
-      base.getRgbBuffer(lookup, lookupPos, 1, dest, destOffset, 8, alpha01);
-      destOffset += outputDelta;
+      const pos = MathClamp(Math.round(src[srcOffset++]), 0, highVal) * 3;
+      dest[destOffset++] = rgbLookup[pos];
+      dest[destOffset++] = rgbLookup[pos + 1];
+      dest[destOffset++] = rgbLookup[pos + 2];
+      destOffset += alpha01;
     }
   }
   getOutputLength(inputLength, alpha01) {
-    return this.base.getOutputLength(inputLength * this.base.numComps, alpha01);
+    return inputLength * (3 + alpha01);
   }
   isDefaultDecode(decode, bpc) {
     if (isDefaultDecodeHelper(decode, 2)) {
@@ -2727,6 +2748,21 @@ class IccColorSpace extends ColorSpace {
     QCMS._destOffset = destOffset;
     QCMS._destLength = 3;
     this.#convertPixel(src, srcOffset, false);
+    QCMS._destBuffer = null;
+  }
+  getRgbItems(src, count, dest, destOffset, alpha01) {
+    const {
+      numComps
+    } = this;
+    const length = count * numComps;
+    const scaled = new Uint8Array(length);
+    for (let i = 0; i < length; i++) {
+      scaled[i] = src[i] * 255;
+    }
+    QCMS._destBuffer = dest;
+    QCMS._destOffset = destOffset;
+    QCMS._destLength = count * (3 + alpha01);
+    qcms_convert_array(this.#transformer, scaled);
     QCMS._destBuffer = null;
   }
   getRgbBuffer(src, srcOffset, count, dest, destOffset, bits, alpha01) {
@@ -6058,6 +6094,10 @@ const ShadingType = {
   COONS_PATCH_MESH: 6,
   TENSOR_PATCH_MESH: 7
 };
+const MAX_SAMPLED_COLOR_COMPONENTS = 1 << 16;
+function getColorConversionBatchSize(count, numComps) {
+  return MathClamp(Math.floor(MAX_SAMPLED_COLOR_COMPONENTS / numComps), 1, count);
+}
 class Pattern {
   static #hasGPU = false;
   constructor() {
@@ -6147,20 +6187,30 @@ class RadialAxialShading extends BaseShading {
       info("Bad shading domain.");
       return;
     }
-    const color = new Float32Array(cs.numComps),
-      ratio = new Float32Array(1);
+    const {
+      numComps
+    } = cs;
+    const ratio = new Float32Array(1);
+    const batchSize = getColorConversionBatchSize(NUMBER_OF_SAMPLES, numComps);
+    const comps = new Float32Array(batchSize * numComps);
+    const rgb = new Uint8ClampedArray(NUMBER_OF_SAMPLES * 3);
+    for (let start = 0; start < NUMBER_OF_SAMPLES; start += batchSize) {
+      const count = Math.min(batchSize, NUMBER_OF_SAMPLES - start);
+      for (let i = 0, offset = 0; i < count; i++, offset += numComps) {
+        ratio[0] = t0 + (start + i) * step;
+        fn(ratio, 0, comps, offset);
+      }
+      cs.getRgbItems(comps, count, rgb, start * 3, 0);
+    }
     let iBase = 0;
-    ratio[0] = t0;
-    fn(ratio, 0, color, 0);
-    const rgbBuffer = new Uint8ClampedArray(3);
-    cs.getRgb(color, 0, rgbBuffer);
-    let [rBase, gBase, bBase] = rgbBuffer;
+    let rBase = rgb[0],
+      gBase = rgb[1],
+      bBase = rgb[2];
     colorStops.push([0, Util.makeHexColor(rBase, gBase, bBase)]);
     let iPrev = 1;
-    ratio[0] = t0 + step;
-    fn(ratio, 0, color, 0);
-    cs.getRgb(color, 0, rgbBuffer);
-    let [rPrev, gPrev, bPrev] = rgbBuffer;
+    let rPrev = rgb[3],
+      gPrev = rgb[4],
+      bPrev = rgb[5];
     let maxSlopeR = rPrev - rBase + 1;
     let maxSlopeG = gPrev - gBase + 1;
     let maxSlopeB = bPrev - bBase + 1;
@@ -6168,10 +6218,10 @@ class RadialAxialShading extends BaseShading {
     let minSlopeG = gPrev - gBase - 1;
     let minSlopeB = bPrev - bBase - 1;
     for (let i = 2; i < NUMBER_OF_SAMPLES; i++) {
-      ratio[0] = t0 + i * step;
-      fn(ratio, 0, color, 0);
-      cs.getRgb(color, 0, rgbBuffer);
-      const [r, g, b] = rgbBuffer;
+      const rgbOffset = i * 3;
+      const r = rgb[rgbOffset],
+        g = rgb[rgbOffset + 1],
+        b = rgb[rgbOffset + 2];
       const run = i - iBase;
       maxSlopeR = Math.min(maxSlopeR, (r - rBase + 1) / run);
       maxSlopeG = Math.min(maxSlopeG, (g - gBase + 1) / run);
@@ -6358,13 +6408,19 @@ class FunctionBasedShading extends BaseShading {
     const totalVertices = (stepsY + 1) * verticesPerRow;
     const coords = this.coords = new Float32Array(totalVertices * 2);
     const colors = this.colors = new Uint8ClampedArray(totalVertices * 4);
+    const {
+      numComps
+    } = cs;
     const xyBuf = new Float32Array(2);
-    const colorBuf = new Float32Array(cs.numComps);
+    const batchSize = getColorConversionBatchSize(totalVertices, numComps);
+    const comps = new Float32Array(batchSize * numComps);
     const rangeX = (x1 - x0) / stepsX;
     const rangeY = (y1 - y0) / stepsY;
     const halfStepX = rangeX / 2;
     const halfStepY = rangeY / 2;
     let coordOffset = 0;
+    let compOffset = 0;
+    let batchCount = 0;
     let colorOffset = 0;
     for (let row = 0; row <= stepsY; row++) {
       const yDomain = y0 + rangeY * row;
@@ -6372,14 +6428,22 @@ class FunctionBasedShading extends BaseShading {
       for (let col = 0; col <= stepsX; col++) {
         const xDomain = x0 + rangeX * col;
         xyBuf[0] = col === stepsX ? xDomain - halfStepX : xDomain;
-        fn(xyBuf, 0, colorBuf, 0);
+        fn(xyBuf, 0, comps, compOffset);
+        compOffset += numComps;
+        batchCount++;
         coords[coordOffset] = xDomain;
         coords[coordOffset + 1] = yDomain;
         Util.applyTransform(coords, matrix, coordOffset);
         coordOffset += 2;
-        cs.getRgbItem(colorBuf, 0, colors, colorOffset);
-        colorOffset += 4;
+        if (batchCount === batchSize) {
+          cs.getRgbItems(comps, batchCount, colors, colorOffset, 1);
+          colorOffset += batchCount * 4;
+          compOffset = batchCount = 0;
+        }
       }
+    }
+    if (batchCount > 0) {
+      cs.getRgbItems(comps, batchCount, colors, colorOffset, 1);
     }
     const ps = new Uint32Array(totalVertices);
     for (let i = 0; i < totalVertices; i++) {
