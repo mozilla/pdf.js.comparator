@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.2.0
- * pdfjsBuild = e2d6021
+ * pdfjsBuild = f38ea2d
  */
 
 ;// ./src/shared/util.js
@@ -59685,7 +59685,10 @@ class PDFDocument {
         }
         return this.#hasOnlyDocumentSignatures(field.get("Kids"), recursionDepth);
       }
-      const isSignature = isName(field.get("FT"), "Sig");
+      const isSignature = isName(getInheritableProperty({
+        dict: field,
+        key: "FT"
+      }), "Sig");
       const rectangle = field.get("Rect");
       const isInvisible = Array.isArray(rectangle) && rectangle.every(value => value === 0);
       return isSignature && isInvisible;
@@ -62315,7 +62318,10 @@ class PDFEditor {
       promises.push(xref.fetchIfRefAsync(annotationRef).then(async annotationDict => {
         if (!isName(annotationDict.get("Subtype"), "Link")) {
           if (isName(annotationDict.get("Subtype"), "Widget")) {
-            hasSignatureAnnotations ||= isName(annotationDict.get("FT"), "Sig");
+            hasSignatureAnnotations ||= isName(getInheritableProperty({
+              dict: annotationDict,
+              key: "FT"
+            }), "Sig");
             const parentRef = annotationDict.getRaw("Parent") || null;
             annotationDict.delete("Parent");
             fieldToParent.put(annotationRef, parentRef);
