@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.2.0
- * pdfjsBuild = a03ec7e
+ * pdfjsBuild = 1609bd8
  */
 
 ;// ./src/shared/util.js
@@ -962,7 +962,25 @@ class XfaText {
 ;// ./src/display/xfa_layer.js
 
 
+
+const disallowedRichTextStyleRegExp = /url\(|image-set\(/i;
+const disallowedEventHandlerAttrRegExp = /^on/i;
 class XfaLayer {
+  static get _allowedHtmlElements() {
+    return shadow(this, "_allowedHtmlElements", new Set(["a", "b", "br", "button", "div", "i", "img", "input", "label", "li", "ol", "option", "p", "select", "span", "sub", "sup", "textarea", "ul"]));
+  }
+  static get _allowedSvgElements() {
+    return shadow(this, "_allowedSvgElements", new Set(["ellipse", "line", "path", "rect", "svg"]));
+  }
+  static get _allowedRichTextElements() {
+    return shadow(this, "_allowedRichTextElements", new Set(["a", "b", "br", "div", "i", "li", "ol", "p", "span", "sub", "sup", "ul"]));
+  }
+  static get _allowedRichTextAttributes() {
+    return shadow(this, "_allowedRichTextAttributes", new Set(["class", "dir", "style"]));
+  }
+  static get _allowedRichTextStyles() {
+    return shadow(this, "_allowedRichTextStyles", new Set(["color", "font", "fontFamily", "fontSize", "fontStretch", "fontStyle", "fontWeight", "kerningMode", "letterSpacing", "lineHeight", "margin", "marginBottom", "marginLeft", "marginRight", "marginTop", "orphans", "paddingLeft", "paddingRight", "breakAfter", "breakBefore", "breakInside", "tabInterval", "tabStop", "textAlign", "textDecoration", "textIndent", "transform", "verticalAlign", "widows"]));
+  }
   static setupStorage(html, id, element, storage, intent) {
     const storedData = storage.getValue(id, {
       value: null
@@ -1049,6 +1067,12 @@ class XfaLayer {
       if (value === null || value === undefined) {
         continue;
       }
+      if (disallowedEventHandlerAttrRegExp.test(key)) {
+        continue;
+      }
+      if (intent === "richText" && !this._allowedRichTextAttributes.has(key)) {
+        continue;
+      }
       switch (key) {
         case "class":
           if (value.length) {
@@ -1061,7 +1085,16 @@ class XfaLayer {
           html.setAttribute("data-element-id", value);
           break;
         case "style":
-          Object.assign(html.style, value);
+          if (intent === "richText") {
+            const allowedStyles = this._allowedRichTextStyles;
+            for (const [styleName, styleValue] of Object.entries(value)) {
+              if (allowedStyles.has(styleName) && !disallowedRichTextStyleRegExp.test(styleValue)) {
+                html.style[styleName] = styleValue;
+              }
+            }
+          } else {
+            Object.assign(html.style, value);
+          }
           break;
         case "textContent":
           html.textContent = value;
@@ -1073,18 +1106,27 @@ class XfaLayer {
       }
     }
     if (isHTMLAnchorElement) {
-      linkService.addLinkAttributes(html, attributes.href, attributes.newWindow);
+      linkService?.addLinkAttributes(html, attributes.href, attributes.newWindow);
     }
     if (storage && attributes.dataId) {
       this.setupStorage(html, attributes.dataId, element, storage);
     }
+  }
+  static #createElement(name, xmlns, intent) {
+    if (intent === "richText") {
+      return !xmlns && this._allowedRichTextElements.has(name) ? document.createElement(name) : null;
+    }
+    if (xmlns) {
+      return xmlns === SVG_NS && this._allowedSvgElements.has(name) ? document.createElementNS(SVG_NS, name) : null;
+    }
+    return this._allowedHtmlElements.has(name) ? document.createElement(name) : null;
   }
   static render(parameters) {
     const storage = parameters.annotationStorage;
     const linkService = parameters.linkService;
     const root = parameters.xfaHtml;
     const intent = parameters.intent || "display";
-    const rootHtml = document.createElement(root.name);
+    const rootHtml = this.#createElement(root.name, root.attributes?.xmlns, intent) ?? document.createElement("div");
     if (root.attributes) {
       this.setAttributes({
         html: rootHtml,
@@ -1136,7 +1178,10 @@ class XfaLayer {
         html.append(node);
         continue;
       }
-      const childHtml = child?.attributes?.xmlns ? document.createElementNS(child.attributes.xmlns, name) : document.createElement(name);
+      const childHtml = this.#createElement(name, child.attributes?.xmlns, intent);
+      if (!childHtml) {
+        continue;
+      }
       html.append(childHtml);
       if (child.attributes) {
         this.setAttributes({
@@ -2037,7 +2082,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "2ca98a93-fb7d-4e8b-a364-fa8439a0e049";
+const INTERNAL_EVT = "75ee0c5e-36a8-417e-9dbe-0103079e18c2";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -16950,7 +16995,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.2.0";
-const build = "a03ec7e";
+const build = "1609bd8";
 
 ;// ./src/display/editor/color_picker.js
 
