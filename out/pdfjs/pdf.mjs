@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.2.0
- * pdfjsBuild = 1609bd8
+ * pdfjsBuild = 4d9007e
  */
 
 ;// ./src/shared/util.js
@@ -2082,7 +2082,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "75ee0c5e-36a8-417e-9dbe-0103079e18c2";
+const INTERNAL_EVT = "4095316b-2cf4-437c-8144-abf8595114ef";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -16995,7 +16995,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.2.0";
-const build = "1609bd8";
+const build = "4d9007e";
 
 ;// ./src/display/editor/color_picker.js
 
@@ -18044,31 +18044,29 @@ class AnnotationElement {
   _getElementsByName(name, skipId = null) {
     const fields = [];
     if (this._fieldObjects) {
-      const fieldObj = this._fieldObjects[name];
-      if (fieldObj) {
-        for (const {
-          page,
-          id,
-          exportValues
-        } of fieldObj) {
-          if (page === -1) {
-            continue;
-          }
-          if (id === skipId) {
-            continue;
-          }
-          const exportValue = typeof exportValues === "string" ? exportValues : null;
-          const domElement = document.querySelector(`[data-element-id="${id}"]`);
-          if (domElement && !GetElementsByNameSet.has(domElement)) {
-            warn(`_getElementsByName - element not allowed: ${id}`);
-            continue;
-          }
-          fields.push({
-            id,
-            exportValue,
-            domElement
-          });
+      const fieldObj = this._fieldObjects[name] || [];
+      for (const {
+        page,
+        id,
+        exportValues
+      } of fieldObj) {
+        if (page === -1) {
+          continue;
         }
+        if (id === skipId) {
+          continue;
+        }
+        const exportValue = typeof exportValues === "string" ? exportValues : null;
+        const domElement = document.querySelector(`[data-element-id="${id}"]`);
+        if (domElement && !GetElementsByNameSet.has(domElement)) {
+          warn(`_getElementsByName - element not allowed: ${id}`);
+          continue;
+        }
+        fields.push({
+          id,
+          exportValue,
+          domElement
+        });
       }
       return fields;
     }

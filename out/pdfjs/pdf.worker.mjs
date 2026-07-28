@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.2.0
- * pdfjsBuild = 1609bd8
+ * pdfjsBuild = 4d9007e
  */
 
 ;// ./src/shared/util.js
@@ -1706,15 +1706,14 @@ function getSizeInBytes(x) {
 }
 
 ;// ./external/qcms/qcms_utils.js
+const ALPHA_MASK = new Uint8Array(new Uint32Array([1]).buffer)[0] === 1 ? 0xff000000 : 0x000000ff;
+const RGB_MASK = ~ALPHA_MASK;
 class QCMS {
   static #memoryArray = null;
   static _memory = null;
-  static _mustAddAlpha = false;
   static _destBuffer = null;
   static _destOffset = 0;
-  static _destLength = 0;
-  static _cssColor = "";
-  static _makeHexColor = null;
+  static _keepAlpha = false;
   static get _memoryArray() {
     const array = this.#memoryArray;
     if (array?.byteLength) {
@@ -1725,46 +1724,30 @@ class QCMS {
 }
 function copy_result(ptr, len) {
   const {
-    _mustAddAlpha,
     _destBuffer,
     _destOffset,
-    _destLength,
+    _keepAlpha,
     _memoryArray
   } = QCMS;
-  if (len === _destLength) {
+  if (!_keepAlpha) {
     _destBuffer.set(_memoryArray.subarray(ptr, ptr + len), _destOffset);
     return;
   }
-  if (_mustAddAlpha) {
-    for (let i = ptr, ii = ptr + len, j = _destOffset; i < ii; i += 3, j += 4) {
-      _destBuffer[j] = _memoryArray[i];
-      _destBuffer[j + 1] = _memoryArray[i + 1];
-      _destBuffer[j + 2] = _memoryArray[i + 2];
-      _destBuffer[j + 3] = 255;
+  const count = len >> 2;
+  const destStart = _destBuffer.byteOffset + _destOffset;
+  if (((destStart | ptr) & 3) === 0) {
+    const dest32 = new Uint32Array(_destBuffer.buffer, destStart, count);
+    const src32 = new Uint32Array(QCMS._memory.buffer, ptr, count);
+    for (let i = 0; i < count; i++) {
+      dest32[i] = dest32[i] & ALPHA_MASK | src32[i] & RGB_MASK;
     }
-  } else {
-    for (let i = ptr, ii = ptr + len, j = _destOffset; i < ii; i += 3, j += 4) {
-      _destBuffer[j] = _memoryArray[i];
-      _destBuffer[j + 1] = _memoryArray[i + 1];
-      _destBuffer[j + 2] = _memoryArray[i + 2];
-    }
+    return;
   }
-}
-function copy_rgb(ptr) {
-  const {
-    _destBuffer,
-    _destOffset,
-    _memoryArray
-  } = QCMS;
-  _destBuffer[_destOffset] = _memoryArray[ptr];
-  _destBuffer[_destOffset + 1] = _memoryArray[ptr + 1];
-  _destBuffer[_destOffset + 2] = _memoryArray[ptr + 2];
-}
-function make_cssRGB(ptr) {
-  const {
-    _memoryArray
-  } = QCMS;
-  QCMS._cssColor = QCMS._makeHexColor(_memoryArray[ptr], _memoryArray[ptr + 1], _memoryArray[ptr + 2]);
+  for (let i = ptr, ii = ptr + len, j = _destOffset; i < ii; i += 4, j += 4) {
+    _destBuffer[j] = _memoryArray[i];
+    _destBuffer[j + 1] = _memoryArray[i + 1];
+    _destBuffer[j + 2] = _memoryArray[i + 2];
+  }
 }
 
 ;// ./external/qcms/qcms.js
@@ -1793,19 +1776,22 @@ const Intent = Object.freeze({
   AbsoluteColorimetric: 3,
   "3": "AbsoluteColorimetric"
 });
-function qcms_convert_array(transformer, src) {
+function qcms_convert_array(transformer, src, add_alpha) {
   const ptr0 = passArray8ToWasm0(src, wasm.__wbindgen_malloc);
   const len0 = WASM_VECTOR_LEN;
-  wasm.qcms_convert_array(transformer, ptr0, len0);
+  wasm.qcms_convert_array(transformer, ptr0, len0, add_alpha);
 }
-function qcms_convert_four(transformer, src1, src2, src3, src4, css) {
-  wasm.qcms_convert_four(transformer, src1, src2, src3, src4, css);
+function qcms_convert_four(transformer, src1, src2, src3, src4) {
+  const ret = wasm.qcms_convert_four(transformer, src1, src2, src3, src4);
+  return ret >>> 0;
 }
-function qcms_convert_one(transformer, src, css) {
-  wasm.qcms_convert_one(transformer, src, css);
+function qcms_convert_one(transformer, src) {
+  const ret = wasm.qcms_convert_one(transformer, src);
+  return ret >>> 0;
 }
-function qcms_convert_three(transformer, src1, src2, src3, css) {
-  wasm.qcms_convert_three(transformer, src1, src2, src3, css);
+function qcms_convert_three(transformer, src1, src2, src3) {
+  const ret = wasm.qcms_convert_three(transformer, src1, src2, src3);
+  return ret >>> 0;
 }
 function qcms_drop_transformer(transformer) {
   wasm.qcms_drop_transformer(transformer);
@@ -1819,17 +1805,11 @@ function qcms_transformer_from_memory(mem, in_type, intent) {
 function __wbg_get_imports() {
   const import0 = {
     __proto__: null,
-    __wbg___wbindgen_throw_6b64449b9b9ed33c: function (arg0, arg1) {
+    __wbg___wbindgen_throw_344f42d3211c4765: function (arg0, arg1) {
       throw new Error(getStringFromWasm0(arg0, arg1));
     },
     __wbg_copy_result_0d15f3bf9d9012ae: function (arg0, arg1) {
       copy_result(arg0 >>> 0, arg1 >>> 0);
-    },
-    __wbg_copy_rgb_0106d9d9464fce43: function (arg0) {
-      copy_rgb(arg0 >>> 0);
-    },
-    __wbg_make_cssRGB_8e24b34f71f5363e: function (arg0) {
-      make_cssRGB(arg0 >>> 0);
     },
     __wbindgen_init_externref_table: function () {
       const table = wasm.__wbindgen_externrefs;
@@ -1847,8 +1827,7 @@ function __wbg_get_imports() {
   };
 }
 function getStringFromWasm0(ptr, len) {
-  ptr = ptr >>> 0;
-  return decodeText(ptr, len);
+  return decodeText(ptr >>> 0, len);
 }
 let cachedUint8ArrayMemory0 = null;
 function getUint8ArrayMemory0() {
@@ -1883,8 +1862,9 @@ function decodeText(ptr, len) {
   return cachedTextDecoder.decode(getUint8ArrayMemory0().subarray(ptr, ptr + len));
 }
 let WASM_VECTOR_LEN = 0;
-let wasmModule, wasm;
+let wasmModule, wasmInstance, wasm;
 function __wbg_finalize_init(instance, module) {
+  wasmInstance = instance;
   wasm = instance.exports;
   wasmModule = module;
   cachedUint8ArrayMemory0 = null;
@@ -2717,15 +2697,15 @@ class IccColorSpace extends ColorSpace {
     switch (numComps) {
       case 1:
         inType = DataType.Gray8;
-        this.#convertPixel = (src, srcOffset, css) => qcms_convert_one(this.#transformer, src[srcOffset] * 255, css);
+        this.#convertPixel = (src, srcOffset) => qcms_convert_one(this.#transformer, src[srcOffset] * 255);
         break;
       case 3:
         inType = DataType.RGB8;
-        this.#convertPixel = (src, srcOffset, css) => qcms_convert_three(this.#transformer, src[srcOffset] * 255, src[srcOffset + 1] * 255, src[srcOffset + 2] * 255, css);
+        this.#convertPixel = (src, srcOffset) => qcms_convert_three(this.#transformer, src[srcOffset] * 255, src[srcOffset + 1] * 255, src[srcOffset + 2] * 255);
         break;
       case 4:
         inType = DataType.CMYK;
-        this.#convertPixel = (src, srcOffset, css) => qcms_convert_four(this.#transformer, src[srcOffset] * 255, src[srcOffset + 1] * 255, src[srcOffset + 2] * 255, src[srcOffset + 3] * 255, css);
+        this.#convertPixel = (src, srcOffset) => qcms_convert_four(this.#transformer, src[srcOffset] * 255, src[srcOffset + 1] * 255, src[srcOffset + 2] * 255, src[srcOffset + 3] * 255);
         break;
       default:
         throw new Error(`Unsupported number of components: ${numComps}`);
@@ -2740,15 +2720,14 @@ class IccColorSpace extends ColorSpace {
     IccColorSpace.#finalizer.register(this, this.#transformer);
   }
   getRgbHex(src, srcOffset) {
-    this.#convertPixel(src, srcOffset, true);
-    return QCMS._cssColor;
+    const color = this.#convertPixel(src, srcOffset);
+    return Util.makeHexColor(color >> 16, color >> 8 & 0xff, color & 0xff);
   }
   getRgbItem(src, srcOffset, dest, destOffset) {
-    QCMS._destBuffer = dest;
-    QCMS._destOffset = destOffset;
-    QCMS._destLength = 3;
-    this.#convertPixel(src, srcOffset, false);
-    QCMS._destBuffer = null;
+    const color = this.#convertPixel(src, srcOffset);
+    dest[destOffset] = color >> 16;
+    dest[destOffset + 1] = color >> 8 & 0xff;
+    dest[destOffset + 2] = color & 0xff;
   }
   getRgbItems(src, count, dest, destOffset, alpha01) {
     const {
@@ -2761,8 +2740,8 @@ class IccColorSpace extends ColorSpace {
     }
     QCMS._destBuffer = dest;
     QCMS._destOffset = destOffset;
-    QCMS._destLength = count * (3 + alpha01);
-    qcms_convert_array(this.#transformer, scaled);
+    QCMS._keepAlpha = alpha01 === 1;
+    qcms_convert_array(this.#transformer, scaled, alpha01 === 1);
     QCMS._destBuffer = null;
   }
   getRgbBuffer(src, srcOffset, count, dest, destOffset, bits, alpha01) {
@@ -2773,12 +2752,10 @@ class IccColorSpace extends ColorSpace {
         src[i] *= scale;
       }
     }
-    QCMS._mustAddAlpha = alpha01 && dest.buffer === src.buffer;
     QCMS._destBuffer = dest;
     QCMS._destOffset = destOffset;
-    QCMS._destLength = count * (3 + alpha01);
-    qcms_convert_array(this.#transformer, src);
-    QCMS._mustAddAlpha = false;
+    QCMS._keepAlpha = alpha01 === 1 && dest.buffer !== src.buffer;
+    qcms_convert_array(this.#transformer, src, alpha01 === 1);
     QCMS._destBuffer = null;
   }
   getOutputLength(inputLength, alpha01) {
@@ -2806,7 +2783,6 @@ class IccColorSpace extends ColorSpace {
           });
           isUsable = !!this._module;
           QCMS._memory = this._module.memory;
-          QCMS._makeHexColor = Util.makeHexColor.bind(Util);
         } catch (e) {
           warn(`ICCBased color space: "${e}".`);
         }
@@ -41185,10 +41161,7 @@ class Catalog {
     const obj = this.#catDict.get("Names");
     let javaScript = null;
     function appendIfJavaScriptDict(name, jsDict) {
-      if (!(jsDict instanceof Dict)) {
-        return;
-      }
-      if (!isName(jsDict.get("S"), "JavaScript")) {
+      if (!(jsDict instanceof Dict) || !isName(jsDict.get("S"), "JavaScript")) {
         return;
       }
       let js = jsDict.get("JS");
@@ -41199,7 +41172,7 @@ class Catalog {
       }
       js = stringToPDFString(js, true).replaceAll("\x00", "");
       if (js) {
-        (javaScript ||= new Map()).set(name, js);
+        (javaScript ??= new Map()).set(name, js);
       }
     }
     if (obj instanceof Dict && obj.has("JavaScript")) {
@@ -41218,13 +41191,9 @@ class Catalog {
     const javaScript = this.#collectJavaScript();
     let actions = collectActions(this.xref, this.#catDict, DocumentActionEventType);
     if (javaScript) {
-      actions ||= Object.create(null);
+      actions ??= Object.create(null);
       for (const [key, val] of javaScript) {
-        if (key in actions) {
-          actions[key].push(val);
-        } else {
-          actions[key] = [val];
-        }
+        (actions[key] ??= []).push(val);
       }
     }
     return shadow(this, "jsActions", actions);
@@ -41460,6 +41429,8 @@ class Catalog {
     const xref = this.xref;
     let total = 0,
       ref = pageRef;
+    const visited = new RefSet();
+    visited.put(pageRef);
     while (true) {
       const node = await xref.fetchAsync(ref);
       if (isRefsEqual(ref, pageRef) && !isDict(node, "Page") && !(node instanceof Dict && !node.has("Type") && node.has("Contents"))) {
@@ -41472,6 +41443,12 @@ class Catalog {
         throw new FormatError("Node must be a dictionary.");
       }
       const parentRef = node.getRaw("Parent");
+      if (parentRef instanceof Ref) {
+        if (visited.has(parentRef)) {
+          throw new FormatError("Pages tree contains circular reference.");
+        }
+        visited.put(parentRef);
+      }
       const parent = await node.getAsync("Parent");
       if (!parent) {
         break;
@@ -41547,9 +41524,18 @@ class Catalog {
     }
     if (!pageRef) {
       const queue = [seDict];
+      const visited = new RefSet();
+      visited.put(seRef);
       while (queue.length > 0 && !pageRef) {
         const node = queue.shift();
-        const kids = node.get("K");
+        let kids = node.getRaw("K");
+        if (kids instanceof Ref) {
+          if (visited.has(kids)) {
+            continue;
+          }
+          visited.put(kids);
+          kids = xref.fetch(kids);
+        }
         let kidsArr;
         if (Array.isArray(kids)) {
           kidsArr = kids;
@@ -41559,6 +41545,12 @@ class Catalog {
           continue;
         }
         for (const kid of kidsArr) {
+          if (kid instanceof Ref) {
+            if (visited.has(kid)) {
+              continue;
+            }
+            visited.put(kid);
+          }
           const kidObj = xref.fetchIfRef(kid);
           if (!(kidObj instanceof Dict)) {
             continue;
@@ -60289,12 +60281,14 @@ class PDFDocument {
       name = name === "" ? partName : `${name}.${partName}`;
     } else {
       let obj = field;
+      const walkedRefs = new RefSet();
       while (true) {
         obj = obj.getRaw("Parent") || parentRef;
         if (obj instanceof Ref) {
-          if (visitedRefs.has(obj)) {
+          if (visitedRefs.has(obj) || walkedRefs.has(obj)) {
             break;
           }
+          walkedRefs.put(obj);
           obj = await xref.fetchAsync(obj);
         }
         if (!(obj instanceof Dict)) {
@@ -60360,7 +60354,7 @@ class PDFDocument {
     });
     return shadow(this, "fieldObjects", promise);
   }
-  #collectSignatureFields(fields, out, visitedRefs) {
+  async #collectSignatureFields(fields, out, visitedRefs) {
     if (!Array.isArray(fields)) {
       return;
     }
@@ -60371,21 +60365,21 @@ class PDFDocument {
         }
         visitedRefs.put(fieldRef);
       }
-      const field = this.xref.fetchIfRef(fieldRef);
+      const field = await this.xref.fetchIfRefAsync(fieldRef);
       if (!(field instanceof Dict)) {
         continue;
       }
-      if (isName(field.get("FT"), "Sig")) {
-        const sigDict = this.xref.fetchIfRef(field.get("V"));
+      if (isName(await field.getAsync("FT"), "Sig")) {
+        const sigDict = await field.getAsync("V");
         if (sigDict instanceof Dict) {
-          const parsed = this.#parseSignatureDict(field, sigDict, fieldRef);
+          const parsed = await this.#parseSignatureDict(field, sigDict, fieldRef);
           if (parsed) {
             out.push(parsed);
           }
         }
       }
       if (field.has("Kids")) {
-        this.#collectSignatureFields(field.get("Kids"), out, visitedRefs);
+        await this.#collectSignatureFields(await field.getAsync("Kids"), out, visitedRefs);
       }
     }
   }
@@ -60416,44 +60410,33 @@ class PDFDocument {
     }
     return true;
   }
-  #parseSignatureDict(field, sigDict, fieldRef) {
-    const byteRange = sigDict.get("ByteRange");
+  async #parseSignatureDict(field, sigDict, fieldRef) {
+    const byteRange = await sigDict.getAsync("ByteRange");
     if (!Array.isArray(byteRange) || byteRange.length !== 4 || byteRange.some(n => !Number.isInteger(n) || n < 0)) {
       return null;
     }
-    const contents = sigDict.get("Contents");
+    const [a, b, c, d] = byteRange;
+    const fileLength = this.stream.end || 0;
+    if (a !== 0 || b <= 0 || a + b > c || c + d > fileLength || fileLength === 0) {
+      return null;
+    }
+    const contents = await sigDict.getAsync("Contents");
     if (typeof contents !== "string" || contents.length === 0) {
       return null;
     }
-    const filterName = sigDict.get("Filter");
-    const filter = filterName instanceof Name ? filterName.name : null;
-    const subFilterName = sigDict.get("SubFilter");
-    const subFilter = subFilterName instanceof Name ? subFilterName.name : null;
+    const [filterName, subFilterName, t, name, reason, location, contactInfo, m] = await Promise.all([sigDict.getAsync("Filter"), sigDict.getAsync("SubFilter"), field.getAsync("T"), sigDict.getAsync("Name"), sigDict.getAsync("Reason"), sigDict.getAsync("Location"), sigDict.getAsync("ContactInfo"), sigDict.getAsync("M")]);
+    const filter = filterName instanceof Name ? filterName.name : null,
+      subFilter = subFilterName instanceof Name ? subFilterName.name : null;
     let signatureType = null;
     if (subFilter === "adbe.pkcs7.detached") {
       signatureType = 0;
     } else if (subFilter === "adbe.pkcs7.sha1") {
       signatureType = 1;
     }
-    const [a, b, c, d] = byteRange;
-    const stream = this.stream;
-    const fileLength = stream.end || 0;
-    if (a !== 0 || b <= 0 || a + b > c || c + d > fileLength || fileLength === 0) {
-      return null;
-    }
-    const pkcs7 = stringToBytes(contents);
-    const t = field.get("T");
-    const fieldName = typeof t === "string" ? stringToPDFString(t) : "";
-    const name = sigDict.get("Name");
-    const reason = sigDict.get("Reason");
-    const location = sigDict.get("Location");
-    const contactInfo = sigDict.get("ContactInfo");
-    const m = sigDict.get("M");
     const refKey = fieldRef instanceof Ref ? fieldRef.toString() : "inline";
-    const id = `${refKey}:${a}-${b}-${c}-${d}`;
     return {
-      id,
-      fieldName,
+      id: `${refKey}:${a}-${b}-${c}-${d}`,
+      fieldName: typeof t === "string" ? stringToPDFString(t) : "",
       signerName: typeof name === "string" ? stringToPDFString(name) : null,
       reason: typeof reason === "string" ? stringToPDFString(reason) : null,
       location: typeof location === "string" ? stringToPDFString(location) : null,
@@ -60463,7 +60446,7 @@ class PDFDocument {
       subFilter,
       signatureType,
       byteRange,
-      pkcs7,
+      pkcs7: stringToBytes(contents),
       revisionIndex: 0,
       parentId: null
     };
@@ -60479,7 +60462,7 @@ class PDFDocument {
       }
       const fields = annotationGlobals.acroForm.get("Fields");
       const collected = [];
-      this.#collectSignatureFields(fields, collected, new RefSet());
+      await this.#collectSignatureFields(fields, collected, new RefSet());
       await Promise.all(collected.map(async signature => {
         const signedEnd = signature.byteRange[2] + signature.byteRange[3];
         signature.modificationsAfterSignature = this.xref.countUpdatesAfter(signedEnd);
