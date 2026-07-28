@@ -118,7 +118,9 @@ const runMain = (mod, args) => {
       const detail = [...stderrLines, err?.message || String(err)]
         .filter(Boolean)
         .join("\n");
-      throw new Error(detail || `process exited with ${status}`);
+      throw new Error(detail || `process exited with ${status}`, {
+        cause: err,
+      });
     }
   }
   return {
