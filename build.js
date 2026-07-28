@@ -74,7 +74,7 @@ function checkPort(port) {
 }
 
 async function ensureOutputDir(path) {
-  let stat = null;
+  let stat;
   try {
     stat = await fs.stat(path);
   } catch (err) {
