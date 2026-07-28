@@ -236,6 +236,13 @@ if [ ! -f "${WASM_PREFIX}/lib/libpdfium.a" ] || \
     # undefined ref never reaches the link. COUPLED with that patch: keep both or
     # neither, else the renderer link fails with
     # `undefined symbol: CFX_BidiResolver::Create`.
+    #
+    # The progressive decoder is XFA-only: BUILD.gn gates the whole
+    # progressive_decoder* family (+ jpeg/jpeg_progressive_decoder.cpp) on
+    # `if (pdf_enable_xfa)`, and progressive_decoder_context.h enforces it with
+    # `#error "XFA Only"`. Glob the family rather than naming each file —
+    # upstream keeps splitting it. Link-safe: the only other references live in
+    # the core/fxcodec/{bmp,gif,png,tiff}/ dirs already excluded by path.
     mapfile -t SRCS < <(find core constants fpdfsdk \
         third_party/agg23 third_party/bigint third_party/pdfium_base \
         \( -name "*.cc" -o -name "*.cpp" -o -name "*.c" \) \
@@ -253,7 +260,7 @@ if [ ! -f "${WASM_PREFIX}/lib/libpdfium.a" ] || \
         ! -path "core/fxcodec/bmp/*" ! -path "core/fxcodec/gif/*" \
         ! -path "core/fxcodec/png/*" ! -path "core/fxcodec/tiff/*" \
         ! -path "core/fxcodec/brotli/*" \
-        ! -name "progressive_decoder.cpp" \
+        ! -name "progressive_decoder*.cpp" \
         ! -name "*_progressive_decoder.cpp" \
         ! -name "code_point_view.cpp" \
         ! -name "fx_memory_pa.cpp" \
