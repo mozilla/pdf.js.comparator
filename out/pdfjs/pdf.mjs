@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.2.0
- * pdfjsBuild = 4d9007e
+ * pdfjsBuild = 61acf93
  */
 
 ;// ./src/shared/util.js
@@ -2082,7 +2082,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "4095316b-2cf4-437c-8144-abf8595114ef";
+const INTERNAL_EVT = "406ef9e2-276d-479a-a5dd-ead220d408c4";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -5903,16 +5903,7 @@ class AnnotationEditor {
     const [tx, ty] = this.getInitialTranslation();
     this.translate(tx, ty);
     bindEvents(this, div, ["keydown", "pointerdown", "dblclick"]);
-    if (this.isResizable && this._uiManager._supportsPinchToZoom) {
-      this.#touchManager ||= new TouchManager({
-        container: div,
-        isPinchingDisabled: () => !this.isSelected,
-        onPinchStart: this.#touchPinchStartCallback.bind(this),
-        onPinching: this.#touchPinchCallback.bind(this),
-        onPinchEnd: this.#touchPinchEndCallback.bind(this),
-        signal: this._uiManager._signal
-      });
-    }
+    this.#addTouchManager();
     this.addStandaloneCommentButton();
     this._uiManager._editorUndoBar?.hide();
     return div;
@@ -6216,8 +6207,22 @@ class AnnotationEditor {
       signal
     });
   }
+  #addTouchManager() {
+    if (this.#touchManager || !this.div || !this.isResizable || !this._uiManager._supportsPinchToZoom) {
+      return;
+    }
+    this.#touchManager = new TouchManager({
+      container: this.div,
+      isPinchingDisabled: () => !this.isSelected,
+      onPinchStart: this.#touchPinchStartCallback.bind(this),
+      onPinching: this.#touchPinchCallback.bind(this),
+      onPinchEnd: this.#touchPinchEndCallback.bind(this),
+      signal: this._uiManager._signal
+    });
+  }
   rebuild() {
     this.#addFocusListeners();
+    this.#addTouchManager();
   }
   rotate(_angle) {}
   resize() {}
@@ -16995,7 +17000,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.2.0";
-const build = "4d9007e";
+const build = "61acf93";
 
 ;// ./src/display/editor/color_picker.js
 
