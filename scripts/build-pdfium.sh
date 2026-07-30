@@ -188,25 +188,13 @@ if [ ! -f "${WASM_PREFIX}/lib/libpdfium.a" ] || \
         -I${WASM_PREFIX}/include/freetype2 \
         -I${WASM_PREFIX}/include/openjpeg-2.5"
 
-    # pdfium main grew a font subsetter (core/fpdfapi/edit/cpdf_fontsubsetter.cpp)
-    # that #includes <hb-subset.h>. We don't ship libharfbuzz in the wasm
-    # sysroot — and we don't need to: it sits behind the PDF-edit/save APIs
-    # the renderer never calls, so the linker would GC the symbols anyway.
-    # Discover every .cc/.cpp/.c file that pulls in an `<hb…>` header and
-    # drop them from the compile list. List is allowed to be empty (older
-    # pdfium revisions had no such files).
-    HB_SKIP="${PDFIUM_SRC}/.hb-skip"
-    { grep -lrE '^[[:space:]]*#include[[:space:]]+<hb' \
-        core constants fpdfsdk 2>/dev/null \
-        | grep -E '\.(cc|cpp|c)$' \
-        | sort -u; } > "${HB_SKIP}" || true
-    HB_SKIP_COUNT=$(wc -l < "${HB_SKIP}" | tr -d ' ')
-    [ "${HB_SKIP_COUNT}" -gt 0 ] && \
-        echo "pdfium: skipping ${HB_SKIP_COUNT} harfbuzz-dependent source(s):" && \
-        sed 's/^/  /' "${HB_SKIP}"
-
+    # The source list globs the render path (pdfium ships no build metadata we
+    # can read) minus what this configuration cannot build: the fixed exclusions
+    # below, then two families discovered after the glob because upstream keeps
+    # extending them.
+    #
     # core/fxcodec/brotli/* is excluded for the same reason as the harfbuzz
-    # sources above: pdfium main grew a BrotliDecode stream filter whose only
+    # sources below: pdfium main grew a BrotliDecode stream filter whose only
     # source, brotli_decoder.cpp, #includes the gn-vendored
     # third_party/brotli/include/brotli/decode.h — a tree our gclient-less
     # clone never fetches. We don't ship libbrotli in the wasm sysroot and
@@ -236,13 +224,6 @@ if [ ! -f "${WASM_PREFIX}/lib/libpdfium.a" ] || \
     # undefined ref never reaches the link. COUPLED with that patch: keep both or
     # neither, else the renderer link fails with
     # `undefined symbol: CFX_BidiResolver::Create`.
-    #
-    # The progressive decoder is XFA-only: BUILD.gn gates the whole
-    # progressive_decoder* family (+ jpeg/jpeg_progressive_decoder.cpp) on
-    # `if (pdf_enable_xfa)`, and progressive_decoder_context.h enforces it with
-    # `#error "XFA Only"`. Glob the family rather than naming each file —
-    # upstream keeps splitting it. Link-safe: the only other references live in
-    # the core/fxcodec/{bmp,gif,png,tiff}/ dirs already excluded by path.
     mapfile -t SRCS < <(find core constants fpdfsdk \
         third_party/agg23 third_party/bigint third_party/pdfium_base \
         \( -name "*.cc" -o -name "*.cpp" -o -name "*.c" \) \
@@ -260,13 +241,69 @@ if [ ! -f "${WASM_PREFIX}/lib/libpdfium.a" ] || \
         ! -path "core/fxcodec/bmp/*" ! -path "core/fxcodec/gif/*" \
         ! -path "core/fxcodec/png/*" ! -path "core/fxcodec/tiff/*" \
         ! -path "core/fxcodec/brotli/*" \
-        ! -name "progressive_decoder*.cpp" \
-        ! -name "*_progressive_decoder.cpp" \
         ! -name "code_point_view.cpp" \
         ! -name "fx_memory_pa.cpp" \
         ! -name "codec_memory_sk_stream.cpp" \
         ! -name "cfx_bidi_resolver.cpp" \
-        2>/dev/null | sort | grep -vFxf "${HB_SKIP}")
+        2>/dev/null | sort)
+
+    # drop_sources <label> <list-file>: remove every path in <list-file> from
+    # SRCS, reporting the ones that were really in it. An empty list is a no-op.
+    drop_sources() {
+        local dropped count
+        dropped="$(printf '%s\n' "${SRCS[@]}" | grep -Fxf "$2" || true)"
+        [ -n "${dropped}" ] || return 0
+        count="$(wc -l <<<"${dropped}" | tr -d ' ')"
+        echo "pdfium: skipping ${count} $1 source(s):"
+        sed 's/^/  /' <<<"${dropped}"
+        mapfile -t SRCS < <(printf '%s\n' "${SRCS[@]}" | grep -vFxf "$2")
+    }
+
+    # pdfium main grew a font subsetter (core/fpdfapi/edit/cpdf_fontsubsetter.cpp)
+    # that #includes <hb-subset.h>. We don't ship libharfbuzz in the wasm
+    # sysroot — and we don't need to: it sits behind the PDF-edit/save APIs
+    # the renderer never calls, so the linker would GC the symbols anyway.
+    # Discover every .cc/.cpp/.c file that pulls in an `<hb…>` header and
+    # drop them from the compile list. List is allowed to be empty (older
+    # pdfium revisions had no such files).
+    HB_SKIP="${PDFIUM_SRC}/.hb-skip"
+    { grep -lrE '^[[:space:]]*#include[[:space:]]+<hb' \
+        core constants fpdfsdk 2>/dev/null \
+        | grep -E '\.(cc|cpp|c)$' \
+        | sort -u; } > "${HB_SKIP}" || true
+    drop_sources "harfbuzz-dependent" "${HB_SKIP}"
+
+    # XFA-only sources: BUILD.gn gates a family of core/fxcodec files (the
+    # progressive decoder and its per-format contexts) on `if (pdf_enable_xfa)`,
+    # and their headers enforce it with `#error "XFA Only"`. Discover them from
+    # that sentinel instead of naming them — upstream keeps splitting new
+    # translation units out of the family and each split broke this build. Seed
+    # with the sentinel headers, close over the headers including them, drop the
+    # sources that reach one. Safe: pdfium guards no #include on PDF_ENABLE_XFA,
+    # so such a source can't compile here, and gn doesn't build it either.
+    XFA_HDRS="${PDFIUM_SRC}/.xfa-headers"
+    XFA_INCLUDES="${PDFIUM_SRC}/.xfa-includes"
+    XFA_SKIP="${PDFIUM_SRC}/.xfa-skip"
+    { grep -lrF '#error "XFA Only"' --include="*.h" \
+        core constants fpdfsdk 2>/dev/null | sort -u; } > "${XFA_HDRS}" || true
+    if [ ! -s "${XFA_HDRS}" ]; then
+        echo "pdfium: ERROR: no '#error \"XFA Only\"' header left in pdfium —" \
+             "the XFA-only source discovery is now blind, re-derive it from" \
+             "core/fxcodec/BUILD.gn's if (pdf_enable_xfa) block" >&2
+        exit 1
+    fi
+    while :; do
+        XFA_HDRS_COUNT="$(wc -l < "${XFA_HDRS}")"
+        sed 's|.*|#include "&"|' "${XFA_HDRS}" > "${XFA_INCLUDES}"
+        { grep -lrFf "${XFA_INCLUDES}" --include="*.h" \
+            core constants fpdfsdk 2>/dev/null || true; } \
+            | cat - "${XFA_HDRS}" | sort -u > "${XFA_HDRS}.next"
+        mv "${XFA_HDRS}.next" "${XFA_HDRS}"
+        [ "$(wc -l < "${XFA_HDRS}")" != "${XFA_HDRS_COUNT}" ] || break
+    done
+    { grep -lFf "${XFA_INCLUDES}" "${SRCS[@]}" 2>/dev/null | sort -u; } \
+        > "${XFA_SKIP}" || true
+    drop_sources "XFA-only" "${XFA_SKIP}"
 
     # Abseil ships a handful of out-of-line runtime-support functions that its
     # otherwise header-only facilities fall back on. pdfium's render subset
