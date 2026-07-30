@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.2.0
- * pdfjsBuild = 73707b6
+ * pdfjsBuild = a80897d
  */
 
 ;// ./src/shared/util.js
@@ -2082,7 +2082,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "39b88eef-5513-4e27-a626-d3fd9957ce71";
+const INTERNAL_EVT = "be7b7c5a-7c28-4c8d-ae71-2d60e327134c";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -17000,7 +17000,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.2.0";
-const build = "73707b6";
+const build = "a80897d";
 
 ;// ./src/display/editor/color_picker.js
 
@@ -27600,7 +27600,7 @@ class DrawLayer {
         textLayerData.path = path;
         textLayerData.selectionDiv = div;
       }
-      if (!div.parentNode && drawLayer.#parent) {
+      if (drawLayer.#parent && div.parentNode !== drawLayer.#parent) {
         drawLayer.#parent.append(div);
         this.#selections.add(div);
       }

@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.2.0
- * pdfjsBuild = 73707b6
+ * pdfjsBuild = a80897d
  */
 
 ;// ./src/shared/util.js
@@ -61680,6 +61680,7 @@ class PDFEditor {
     if (obj instanceof Ref) {
       const {
         currentDocument: {
+          fieldToParent,
           oldRefMapping
         }
       } = this;
@@ -61689,6 +61690,10 @@ class PDFEditor {
       }
       const oldRef = obj;
       obj = await xref.fetchAsync(oldRef);
+      const mappedRef = oldRefMapping.get(oldRef);
+      if (mappedRef) {
+        return mappedRef;
+      }
       if (typeof obj === "number") {
         return obj;
       }
@@ -61697,7 +61702,13 @@ class PDFEditor {
       }
       const newRef = this.newRef;
       oldRefMapping.put(oldRef, newRef);
-      this.xref[newRef.num] = await this.#collectDependencies(obj, true, xref, resourceStreamPath);
+      let cloneSource = true;
+      if (fieldToParent.has(oldRef) && obj instanceof Dict) {
+        obj = this.cloneDict(obj);
+        obj.delete("Parent");
+        cloneSource = false;
+      }
+      this.xref[newRef.num] = await this.#collectDependencies(obj, cloneSource, xref, resourceStreamPath);
       return newRef;
     }
     const promises = [];
@@ -62361,7 +62372,6 @@ class PDFEditor {
               key: "FT"
             }), "Sig");
             const parentRef = annotationDict.getRaw("Parent") || null;
-            annotationDict.delete("Parent");
             fieldToParent.put(annotationRef, parentRef);
           }
           newAnnotations[newAnnotationIndex] = annotationRef;
