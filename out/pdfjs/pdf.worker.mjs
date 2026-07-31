@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.2.0
- * pdfjsBuild = a80897d
+ * pdfjsBuild = ce4ff55
  */
 
 ;// ./src/shared/util.js
@@ -1518,7 +1518,7 @@ function _collectJS(entry, xref, list, parents) {
   }
 }
 function collectActions(xref, dict, eventType) {
-  const actions = Object.create(null);
+  const actions = new Map();
   const additionalActionsDicts = getInheritableProperty({
     dict,
     key: "AA",
@@ -1539,7 +1539,7 @@ function collectActions(xref, dict, eventType) {
         const list = [];
         _collectJS(rawActionDict, xref, list, parents);
         if (list.length > 0) {
-          actions[action] = list;
+          actions.set(action, list);
         }
       }
     }
@@ -1550,10 +1550,10 @@ function collectActions(xref, dict, eventType) {
     const list = [];
     _collectJS(actionDict, xref, list, parents);
     if (list.length > 0) {
-      actions.Action = list;
+      actions.set("Action", list);
     }
   }
-  return Object.keys(actions).length ? actions : null;
+  return actions.size ? actions : null;
 }
 const XMLEntities = {
   0x3c: "&lt;",
@@ -41191,9 +41191,9 @@ class Catalog {
     const javaScript = this.#collectJavaScript();
     let actions = collectActions(this.xref, this.#catDict, DocumentActionEventType);
     if (javaScript) {
-      actions ??= Object.create(null);
+      actions ??= new Map();
       for (const [key, val] of javaScript) {
-        (actions[key] ??= []).push(val);
+        actions.getOrInsertComputed(key, makeArr).push(val);
       }
     }
     return shadow(this, "jsActions", actions);
@@ -54482,28 +54482,28 @@ class TextWidgetAnnotation extends WidgetAnnotation {
     this.data.comb = this.hasFieldFlag(AnnotationFieldFlag.COMB) && !this.data.multiLine && !this.data.password && !this.hasFieldFlag(AnnotationFieldFlag.FILESELECT) && this.data.maxLen !== 0;
     this.data.doNotScroll = this.hasFieldFlag(AnnotationFieldFlag.DONOTSCROLL);
     const {
-      data: {
-        actions
-      }
-    } = this;
+      actions
+    } = this.data;
     if (!actions) {
       return;
     }
     const AFDateTime = /^AF(Date|Time)_(?:Keystroke|Format)(?:Ex)?\(['"]?([^'"]+)['"]?\);$/;
     let canUseHTMLDateTime = false;
-    if (actions.Format?.length === 1 && actions.Keystroke?.length === 1 && AFDateTime.test(actions.Format[0]) && AFDateTime.test(actions.Keystroke[0]) || actions.Format?.length === 0 && actions.Keystroke?.length === 1 && AFDateTime.test(actions.Keystroke[0]) || actions.Keystroke?.length === 0 && actions.Format?.length === 1 && AFDateTime.test(actions.Format[0])) {
+    const aFormat = actions.get("Format"),
+      aKeystroke = actions.get("Keystroke");
+    if (aFormat?.length === 1 && aKeystroke?.length === 1 && AFDateTime.test(aFormat[0]) && AFDateTime.test(aKeystroke[0]) || aFormat?.length === 0 && aKeystroke?.length === 1 && AFDateTime.test(aKeystroke[0]) || aKeystroke?.length === 0 && aFormat?.length === 1 && AFDateTime.test(aFormat[0])) {
       canUseHTMLDateTime = true;
     }
     const actionsToVisit = [];
-    if (actions.Format) {
-      actionsToVisit.push(...actions.Format);
+    if (aFormat) {
+      actionsToVisit.push(...aFormat);
     }
-    if (actions.Keystroke) {
-      actionsToVisit.push(...actions.Keystroke);
+    if (aKeystroke) {
+      actionsToVisit.push(...aKeystroke);
     }
     if (canUseHTMLDateTime) {
-      delete actions.Keystroke;
-      actions.Format = actionsToVisit;
+      actions.delete("Keystroke");
+      actions.set("Format", actionsToVisit);
     }
     for (const formatAction of actionsToVisit) {
       const m = formatAction.match(AFDateTime);
