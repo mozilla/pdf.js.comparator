@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.2.0
- * pdfjsBuild = af38789
+ * pdfjsBuild = 7fc7072
  */
 
 ;// ./src/shared/util.js
@@ -2082,7 +2082,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "a78467dc-de6f-4748-a331-41f3b207c7f5";
+const INTERNAL_EVT = "aec0ca3c-20ec-4e0a-9c3a-c8081e465b7a";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -4348,16 +4348,10 @@ class AltText {
     this.#altTextWasFromKeyBoard = false;
   }
   isEmpty() {
-    if (this.#useNewAltTextFlow) {
-      return this.#altText === null;
-    }
-    return !this.#altText && !this.#altTextDecorative;
+    return this.#useNewAltTextFlow ? this.#altText === null : !this.#altText && !this.#altTextDecorative;
   }
   hasData() {
-    if (this.#useNewAltTextFlow) {
-      return this.#altText !== null || !!this.#guessedText;
-    }
-    return this.isEmpty();
+    return this.#useNewAltTextFlow ? this.#altText !== null || !!this.#guessedText : this.isEmpty();
   }
   get guessedText() {
     return this.#guessedText;
@@ -4794,6 +4788,9 @@ class Comment {
 
 ;// ./src/display/touch_manager.js
 
+function preventDefault(evt) {
+  evt.preventDefault();
+}
 class TouchManager {
   #container;
   #isPinching = false;
@@ -4880,8 +4877,8 @@ class TouchManager {
       opt.capture = true;
       container.addEventListener("pointerdown", stopEvent, opt);
       container.addEventListener("pointermove", stopEvent, opt);
-      container.addEventListener("pointercancel", stopEvent, opt);
-      container.addEventListener("pointerup", stopEvent, opt);
+      container.addEventListener("pointercancel", preventDefault, opt);
+      container.addEventListener("pointerup", preventDefault, opt);
       this.#onPinchStart?.();
     }
     stopEvent(evt);
@@ -7128,10 +7125,7 @@ class CanvasBBoxTracker {
     return this;
   }
   getOpenMarker() {
-    if (this._savesStack.length === 0) {
-      return null;
-    }
-    return this._savesStack.at(-1);
+    return this._savesStack.length === 0 ? null : this._savesStack.at(-1);
   }
   recordCloseMarker(opIdx, onSavePopped) {
     const lastSave = this._savesStack.pop();
@@ -17000,7 +16994,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.2.0";
-const build = "af38789";
+const build = "7fc7072";
 
 ;// ./src/display/editor/color_picker.js
 
@@ -19976,10 +19970,7 @@ class PopupElement {
     this.#container.hidden = false;
   }
   get isVisible() {
-    if (this.#commentManager) {
-      return false;
-    }
-    return this.#container.hidden === false;
+    return !this.#commentManager && this.#container.hidden === false;
   }
 }
 class FreeTextAnnotationElement extends AnnotationElement {
@@ -24308,10 +24299,7 @@ class InkDrawOutline extends Outline {
     return this.#bbox;
   }
   updateProperty(name, value) {
-    if (name === "stroke-width") {
-      return this.#updateThickness(value);
-    }
-    return null;
+    return name === "stroke-width" ? this.#updateThickness(value) : null;
   }
   #updateThickness(thickness) {
     const [oldMarginX, oldMarginY] = this.#getMarginComponents();
@@ -25620,10 +25608,7 @@ class SignatureEditor extends DrawingEditor {
     };
   }
   get toolbarButtons() {
-    if (this._uiManager.signatureManager) {
-      return [["editSignature", this._uiManager.signatureManager]];
-    }
-    return super.toolbarButtons;
+    return this._uiManager.signatureManager ? [["editSignature", this._uiManager.signatureManager]] : super.toolbarButtons;
   }
   addSignature(data, heightInPage, description, uuid) {
     const {

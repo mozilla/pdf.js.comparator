@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.2.0
- * pdfjsBuild = af38789
+ * pdfjsBuild = 7fc7072
  */
 
 ;// ./src/shared/util.js
@@ -1183,10 +1183,7 @@ function isAscii(str) {
   return typeof str === "string" && (!str || /^[\x00-\x7F]*$/.test(str));
 }
 function stringToAsciiOrUTF16BE(str) {
-  if (str === null || str === undefined) {
-    return str;
-  }
-  return isAscii(str) ? str : stringToUTF16String(str, true);
+  return str === null || str === undefined || isAscii(str) ? str : stringToUTF16String(str, true);
 }
 function stringToUTF16HexString(str) {
   const buf = [];
@@ -2836,10 +2833,7 @@ class Stream extends BaseStream {
     return this.length === 0;
   }
   getByte() {
-    if (this.pos >= this.end) {
-      return -1;
-    }
-    return this.bytes[this.pos++];
+    return this.pos >= this.end ? -1 : this.bytes[this.pos++];
   }
   getBytes(length) {
     const pos = this.pos;
@@ -3039,10 +3033,7 @@ class ChunkedStream extends Stream {
     };
     Object.defineProperty(ChunkedStreamSubstream.prototype, "isDataLoaded", {
       get() {
-        if (this.numChunksLoaded === this.numChunks) {
-          return true;
-        }
-        return this.getMissingChunks().length === 0;
+        return this.numChunksLoaded === this.numChunks || this.getMissingChunks().length === 0;
       },
       configurable: true
     });
@@ -3832,10 +3823,7 @@ class DecodeStream extends BaseStream {
   }
   async getImageData(length, decoderOptions) {
     if (!this.canAsyncDecodeImageFromBuffer) {
-      if (this.isAsyncDecoder) {
-        return this.decodeImage(null, length, decoderOptions);
-      }
-      return this.getBytes(length, decoderOptions);
+      return this.isAsyncDecoder ? this.decodeImage(null, length, decoderOptions) : this.getBytes(length, decoderOptions);
     }
     const data = await this.stream.asyncGetBytes();
     return this.decodeImage(data, length, decoderOptions);
@@ -11332,10 +11320,7 @@ class Parser {
       return buf1;
     }
     if (typeof buf1 === "string") {
-      if (cipherTransform) {
-        return cipherTransform.decryptString(buf1);
-      }
-      return buf1;
+      return cipherTransform ? cipherTransform.decryptString(buf1) : buf1;
     }
     return buf1;
   }
@@ -18816,10 +18801,7 @@ class CFFFDSelect {
     this.fdSelect = fdSelect;
   }
   getFDIndex(glyphIndex) {
-    if (glyphIndex < 0 || glyphIndex >= this.fdSelect.length) {
-      return -1;
-    }
-    return this.fdSelect[glyphIndex];
+    return glyphIndex < 0 || glyphIndex >= this.fdSelect.length ? -1 : this.fdSelect[glyphIndex];
   }
 }
 class CFFOffsetTracker {
@@ -20856,10 +20838,7 @@ class IdentityToUnicodeMap {
     return this.firstChar <= i && i <= this.lastChar;
   }
   get(i) {
-    if (this.firstChar <= i && i <= this.lastChar) {
-      return String.fromCharCode(i);
-    }
-    return undefined;
+    return this.firstChar <= i && i <= this.lastChar ? String.fromCharCode(i) : undefined;
   }
   charCodeOf(v) {
     return Number.isInteger(v) && v >= this.firstChar && v <= this.lastChar ? v : -1;
@@ -39055,10 +39034,7 @@ class SimpleDOMNode {
     return childNodes[index + 1];
   }
   get textContent() {
-    if (!this.childNodes) {
-      return this.nodeValue || "";
-    }
-    return this.childNodes.map(child => child.textContent).join("");
+    return !this.childNodes ? this.nodeValue || "" : this.childNodes.map(child => child.textContent).join("");
   }
   get children() {
     return this.childNodes || [];
@@ -42554,10 +42530,7 @@ class FontFinder {
 }
 function selectFont(xfaFont, typeface) {
   if (xfaFont.posture === "italic") {
-    if (xfaFont.weight === "bold") {
-      return typeface.bolditalic;
-    }
-    return typeface.italic;
+    return xfaFont.weight === "bold" ? typeface.bolditalic : typeface.italic;
   } else if (xfaFont.weight === "bold") {
     return typeface.bold;
   }
@@ -43186,10 +43159,7 @@ class XFAObject {
     return "";
   }
   [$text]() {
-    if (this[_children].length === 0) {
-      return this[$content];
-    }
-    return this[_children].map(c => c[$text]()).join("");
+    return this[_children].length === 0 ? this[$content] : this[_children].map(c => c[$text]()).join("");
   }
   get [_attributeNames]() {
     const proto = Object.getPrototypeOf(this);
@@ -43221,10 +43191,7 @@ class XFAObject {
     return this[$getParent]();
   }
   [$getChildren](name = null) {
-    if (!name) {
-      return this[_children];
-    }
-    return this[name];
+    return !name ? this[_children] : this[name];
   }
   [$dump]() {
     const dumped = Object.create(null);
@@ -43484,10 +43451,7 @@ class XFAObject {
     return clone;
   }
   [$getChildren](name = null) {
-    if (!name) {
-      return this[_children];
-    }
-    return this[_children].filter(c => c[$nodeName] === name);
+    return !name ? this[_children] : this[_children].filter(c => c[$nodeName] === name);
   }
   [$getChildrenByClass](name) {
     return this[name];
@@ -43675,10 +43639,7 @@ class XmlObject extends XFAObject {
     return HTMLResult.EMPTY;
   }
   [$getChildren](name = null) {
-    if (!name) {
-      return this[_children];
-    }
-    return this[_children].filter(c => c[$nodeName] === name);
+    return !name ? this[_children] : this[_children].filter(c => c[$nodeName] === name);
   }
   [$getAttributes]() {
     return this[_attributes];
@@ -49052,10 +49013,7 @@ class Value extends XFAObject {
   }
   [$text]() {
     if (this.exData) {
-      if (typeof this.exData[$content] === "string") {
-        return this.exData[$content].trim();
-      }
-      return this.exData[$content][$text]().trim();
+      return typeof this.exData[$content] === "string" ? this.exData[$content].trim() : this.exData[$content][$text]().trim();
     }
     for (const name of Object.getOwnPropertyNames(this)) {
       if (name === "image") {
