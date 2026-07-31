@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.2.0
- * pdfjsBuild = ce4ff55
+ * pdfjsBuild = af38789
  */
 
 ;// ./src/shared/util.js
@@ -2082,7 +2082,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "b4c29aa2-d27a-40da-84f3-da8a0d0efb3a";
+const INTERNAL_EVT = "a78467dc-de6f-4748-a331-41f3b207c7f5";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -4930,7 +4930,7 @@ class TouchManager {
     const currGapY = screen1Y - screen0Y;
     const distance = Math.hypot(currGapX, currGapY) || 1;
     const pDistance = Math.hypot(prevGapX, prevGapY) || 1;
-    if (!this.#isPinching && Math.abs(pDistance - distance) <= TouchManager.MIN_TOUCH_DISTANCE_TO_PINCH) {
+    if (!this.#isPinching && Math.abs(pDistance - distance) <= this.MIN_TOUCH_DISTANCE_TO_PINCH) {
       return;
     }
     touchInfo.touch0X = screen0X;
@@ -4941,7 +4941,7 @@ class TouchManager {
       this.#isPinching = true;
       return;
     }
-    const origin = [(screen0X + screen1X) / 2, (screen0Y + screen1Y) / 2];
+    const origin = [(touch0.clientX + touch1.clientX) / 2, (touch0.clientY + touch1.clientY) / 2];
     this.#onPinching?.(origin, pDistance, distance);
   }
   #onTouchEnd(evt) {
@@ -17000,7 +17000,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.2.0";
-const build = "ce4ff55";
+const build = "af38789";
 
 ;// ./src/display/editor/color_picker.js
 
