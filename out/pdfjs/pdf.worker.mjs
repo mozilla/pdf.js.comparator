@@ -21,8 +21,8 @@
  */
 
 /**
- * pdfjsVersion = 6.2.0
- * pdfjsBuild = d0779c4
+ * pdfjsVersion = 6.3.0
+ * pdfjsBuild = ae976b9
  */
 
 ;// ./src/shared/util.js
@@ -38806,7 +38806,7 @@ function isWhitespaceString(s) {
 }
 class XMLParserBase {
   static get _entityRegex() {
-    return shadow(this, "_entityRegex", /&(?:#x([^;]+)|#([^;]+)|([^;]+));/g);
+    return shadow(this, "_entityRegex", /&(?:#x([^;&]+)|#([^;&]+)|([^;&]+));/g);
   }
   _resolveEntities(s) {
     return s.replaceAll(XMLParserBase._entityRegex, (all, hex, dec, entity) => {
@@ -60287,7 +60287,7 @@ class PDFDocument {
         acroForm
       } = annotationGlobals;
       const visitedRefs = new RefSet();
-      const allFields = Object.create(null);
+      const allFields = new Map();
       const fieldPromises = new Map();
       const orphanFields = new RefSetCache();
       for (const fieldRef of acroForm.get("Fields")) {
@@ -60298,13 +60298,13 @@ class PDFDocument {
         allPromises.push(Promise.all(promises).then(fields => {
           fields = fields.filter(field => !!field);
           if (fields.length > 0) {
-            allFields[name] = fields;
+            allFields.set(name, fields);
           }
         }));
       }
       await Promise.all(allPromises);
       return {
-        allFields: Object.keys(allFields).length ? allFields : null,
+        allFields: allFields.size ? allFields : null,
         orphanFields
       };
     });
@@ -60480,7 +60480,7 @@ class PDFDocument {
       return true;
     }
     if (fieldObjects?.allFields) {
-      return Object.values(fieldObjects.allFields).some(fieldObject => fieldObject.some(object => object.actions !== null));
+      return fieldObjects.allFields.values().some(fieldObj => fieldObj.some(obj => obj.actions !== null));
     }
     return false;
   }
@@ -64124,7 +64124,7 @@ class WorkerMessageHandler {
       docId,
       apiVersion
     } = docParams;
-    const workerVersion = "6.2.0";
+    const workerVersion = "6.3.0";
     if (apiVersion !== workerVersion) {
       throw new Error(`The API version "${apiVersion}" does not match ` + `the Worker version "${workerVersion}".`);
     }
