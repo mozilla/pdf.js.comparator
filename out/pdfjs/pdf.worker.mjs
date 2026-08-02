@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.2.0
- * pdfjsBuild = 7fc7072
+ * pdfjsBuild = d0779c4
  */
 
 ;// ./src/shared/util.js
@@ -1622,6 +1622,9 @@ function validateFontName(fontFamily, mustWarn = false) {
     }
   }
   return true;
+}
+function normalizeCSSFontFamily(fontFamily) {
+  return fontFamily.replaceAll(/( +)(\d)?/g, (_, spaces, digit) => digit ?? " ");
 }
 function validateCSSFont(cssFontInfo) {
   const DEFAULT_CSS_FONT_OBLIQUE = "14";
@@ -38806,12 +38809,10 @@ class XMLParserBase {
     return shadow(this, "_entityRegex", /&(?:#x([^;]+)|#([^;]+)|([^;]+));/g);
   }
   _resolveEntities(s) {
-    return s.replaceAll(XMLParserBase._entityRegex, (_, hex, dec, entity) => {
-      if (hex) {
-        return String.fromCodePoint(parseInt(hex, 16));
-      }
-      if (dec) {
-        return String.fromCodePoint(parseInt(dec, 10));
+    return s.replaceAll(XMLParserBase._entityRegex, (all, hex, dec, entity) => {
+      if (hex || dec) {
+        const code = hex ? parseInt(hex, 16) : parseInt(dec, 10);
+        return code >= 0 && code <= 0x10ffff ? String.fromCodePoint(code) : all;
       }
       switch (entity) {
         case "lt":
@@ -59852,8 +59853,7 @@ class PDFDocument {
       if (!(descriptor instanceof Dict)) {
         continue;
       }
-      let fontFamily = descriptor.get("FontFamily");
-      fontFamily = fontFamily.replaceAll(/ +(\d)/g, "$1");
+      const fontFamily = normalizeCSSFontFamily(descriptor.get("FontFamily"));
       const fontWeight = descriptor.get("FontWeight");
       const italicAngle = -descriptor.get("ItalicAngle");
       const cssFontInfo = {

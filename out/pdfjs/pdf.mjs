@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.2.0
- * pdfjsBuild = 7fc7072
+ * pdfjsBuild = d0779c4
  */
 
 ;// ./src/shared/util.js
@@ -1358,10 +1358,23 @@ function getPdfFilenameFromUrl(url, defaultFilename = "document.pdf") {
     }
   }
   if (newURL.hash) {
-    const reFilename = /[^/?#=]+\.pdf\b(?!.*\.pdf\b)/i;
-    const hashFilename = reFilename.exec(newURL.hash);
-    if (hashFilename) {
-      return decode(hashFilename[0]);
+    const {
+      hash
+    } = newURL;
+    let extensionStart = -1;
+    for (const {
+      index
+    } of hash.matchAll(/\.pdf\b/gi)) {
+      extensionStart = index;
+    }
+    if (extensionStart > 0) {
+      let filenameStart = extensionStart;
+      while (filenameStart > 0 && !"/?#=".includes(hash[filenameStart - 1])) {
+        filenameStart--;
+      }
+      if (filenameStart < extensionStart) {
+        return decode(hash.slice(filenameStart, extensionStart + 4));
+      }
     }
   }
   return defaultFilename;
@@ -2082,7 +2095,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "aec0ca3c-20ec-4e0a-9c3a-c8081e465b7a";
+const INTERNAL_EVT = "6720f468-a9e5-4805-acbf-906305a8d223";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -13342,6 +13355,13 @@ function createHeaders(isHttp, httpHeaders) {
   }
   return headers;
 }
+function trimHeadersEnd(str) {
+  let end = str.length;
+  while (end > 0 && str[end - 1] !== " " && /\s/.test(str[end - 1])) {
+    end--;
+  }
+  return str.slice(0, end);
+}
 function getResponseOrigin(url) {
   return URL.parse(url)?.origin ?? null;
 }
@@ -13890,7 +13910,7 @@ class PDFNetworkStreamReader extends BasePDFStreamReader {
     const fullRequestXhr = this._fullRequestXhr;
     stream._responseOrigin = getResponseOrigin(fullRequestXhr.responseURL);
     const rawResponseHeaders = fullRequestXhr.getAllResponseHeaders();
-    const responseHeaders = new Headers(rawResponseHeaders ? rawResponseHeaders.trimStart().replace(/[^\S ]+$/, "").split(/[\r\n]+/).map(x => {
+    const responseHeaders = new Headers(rawResponseHeaders ? trimHeadersEnd(rawResponseHeaders.trimStart()).split(/[\r\n]+/).map(x => {
       const [key, ...val] = x.split(": ");
       return [key, val.join(": ")];
     }) : []);
@@ -16994,7 +17014,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.2.0";
-const build = "7fc7072";
+const build = "d0779c4";
 
 ;// ./src/display/editor/color_picker.js
 
@@ -18870,9 +18890,12 @@ class TextWidgetAnnotationElement extends WidgetAnnotationElement {
             switch (event.inputType) {
               case "deleteWordBackward":
                 {
-                  const match = value.substring(0, selectionStart).match(/\w*\W*$/);
-                  if (match) {
-                    selStart -= match[0].length;
+                  const wordCharPattern = /\w/;
+                  while (selStart > 0 && !wordCharPattern.test(value[selStart - 1])) {
+                    selStart--;
+                  }
+                  while (selStart > 0 && wordCharPattern.test(value[selStart - 1])) {
+                    selStart--;
                   }
                   break;
                 }
