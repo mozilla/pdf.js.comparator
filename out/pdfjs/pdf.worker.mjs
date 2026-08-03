@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 4c4e8fe
+ * pdfjsBuild = b4ba666
  */
 
 ;// ./src/shared/util.js
@@ -1177,6 +1177,35 @@ class BaseStream {
   }
 }
 
+;// ./src/shared/css_utils.js
+const CONTROL_CHAR_REGEXP = /\p{Cc}/u;
+function isCSSString(str) {
+  const quote = str[0];
+  if (str.length < 2 || quote !== `"` && quote !== `'` || str.at(-1) !== quote) {
+    return false;
+  }
+  const end = str.length - 1;
+  for (let i = 1; i < end; i++) {
+    const char = str[i];
+    if (char === quote || CONTROL_CHAR_REGEXP.test(char)) {
+      return false;
+    }
+    if (char === "\\") {
+      if (++i >= end || CONTROL_CHAR_REGEXP.test(str[i])) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+function serializeFontFamily(fontFamily) {
+  if (isCSSString(fontFamily)) {
+    return fontFamily;
+  }
+  const escaped = fontFamily.replaceAll(/["\\\p{Cc}]/gu, char => char === `"` || char === "\\" ? `\\${char}` : `\\${char.codePointAt(0).toString(16)} `);
+  return `"${escaped}"`;
+}
+
 ;// ./src/core/string_utils.js
 
 function isAscii(str) {
@@ -1251,6 +1280,7 @@ function stringToPDFString(str, keepEscapeSequence = false) {
 }
 
 ;// ./src/core/core_utils.js
+
 
 
 
@@ -1608,6 +1638,12 @@ function validateFontName(fontFamily, mustWarn = false) {
     if (re.test(fontFamily.slice(1, -1))) {
       if (mustWarn) {
         warn(`FontFamily contains unescaped ${m[1]}: ${fontFamily}.`);
+      }
+      return false;
+    }
+    if (CONTROL_CHAR_REGEXP.test(fontFamily)) {
+      if (mustWarn) {
+        warn(`FontFamily contains control characters: ${fontFamily}.`);
       }
       return false;
     }
@@ -43796,6 +43832,7 @@ class Option10 extends IntegerObject {
 
 
 
+
 function measureToString(m) {
   if (typeof m === "string") {
     return "0px";
@@ -44263,14 +44300,14 @@ function setFontFamily(xfaFont, node, fontFinder, style) {
     return;
   }
   const name = stripQuotes(xfaFont.typeface);
-  style.fontFamily = `"${name}"`;
+  style.fontFamily = serializeFontFamily(name);
   const typeface = fontFinder.find(name);
   if (typeface) {
     const {
       fontFamily
     } = typeface.regular.cssFontInfo;
     if (fontFamily !== name) {
-      style.fontFamily = `"${fontFamily}"`;
+      style.fontFamily = serializeFontFamily(fontFamily);
     }
     const para = getCurrentPara(node);
     if (para && para.lineHeight !== "") {

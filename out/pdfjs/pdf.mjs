@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 4c4e8fe
+ * pdfjsBuild = b4ba666
  */
 
 ;// ./src/shared/util.js
@@ -2095,7 +2095,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "c287bf8c-e2c8-47c5-98b0-94047b3ff94c";
+const INTERNAL_EVT = "c9e13802-c0e1-4f83-91a9-c1acc47bd88b";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -7764,7 +7764,37 @@ class CanvasImagesTracker {
   }
 }
 
+;// ./src/shared/css_utils.js
+const CONTROL_CHAR_REGEXP = /\p{Cc}/u;
+function isCSSString(str) {
+  const quote = str[0];
+  if (str.length < 2 || quote !== `"` && quote !== `'` || str.at(-1) !== quote) {
+    return false;
+  }
+  const end = str.length - 1;
+  for (let i = 1; i < end; i++) {
+    const char = str[i];
+    if (char === quote || CONTROL_CHAR_REGEXP.test(char)) {
+      return false;
+    }
+    if (char === "\\") {
+      if (++i >= end || CONTROL_CHAR_REGEXP.test(str[i])) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+function serializeFontFamily(fontFamily) {
+  if (isCSSString(fontFamily)) {
+    return fontFamily;
+  }
+  const escaped = fontFamily.replaceAll(/["\\\p{Cc}]/gu, char => char === `"` || char === "\\" ? `\\${char}` : `\\${char.codePointAt(0).toString(16)} `);
+  return `"${escaped}"`;
+}
+
 ;// ./src/display/font_loader.js
+
 
 
 class FontLoader {
@@ -8023,7 +8053,7 @@ class FontFaceObject {
       if (this.cssFontInfo.italicAngle) {
         css.style = `oblique ${this.cssFontInfo.italicAngle}deg`;
       }
-      nativeFontFace = new FontFace(this.cssFontInfo.fontFamily, this.data, css);
+      nativeFontFace = new FontFace(serializeFontFamily(this.cssFontInfo.fontFamily), this.data, css);
     }
     this._inspectFont?.(this);
     return nativeFontFace;
@@ -8041,7 +8071,8 @@ class FontFaceObject {
       if (this.cssFontInfo.italicAngle) {
         css += `font-style: oblique ${this.cssFontInfo.italicAngle}deg;`;
       }
-      rule = `@font-face {font-family:"${this.cssFontInfo.fontFamily}";${css}src:${url}}`;
+      const fontFamily = serializeFontFamily(this.cssFontInfo.fontFamily);
+      rule = `@font-face {font-family:${fontFamily};${css}src:${url}}`;
     }
     this._inspectFont?.(this, url);
     return rule;
@@ -17014,7 +17045,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.3.0";
-const build = "4c4e8fe";
+const build = "b4ba666";
 
 ;// ./src/display/editor/color_picker.js
 
