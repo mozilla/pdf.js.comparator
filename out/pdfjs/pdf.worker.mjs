@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = ae976b9
+ * pdfjsBuild = 4c4e8fe
  */
 
 ;// ./src/shared/util.js
@@ -1431,7 +1431,7 @@ function lookupNormalRect(arr, fallback) {
   return isNumberArray(arr, 4) ? Util.normalizeRect(arr) : fallback;
 }
 function parseXFAPath(path) {
-  const positionPattern = /(.+)\[(\d+)\]$/;
+  const positionPattern = /^(.+)\[(\d+)\]$/;
   return path.split(".").map(component => {
     const m = component.match(positionPattern);
     if (m) {
@@ -61163,6 +61163,20 @@ async function writeArray(array, buffer, transform) {
   }
   buffer.push("]");
 }
+function numberToPDFString(value) {
+  if (Number.isInteger(value) && Math.abs(value) >= 1e21) {
+    return BigInt(value).toString();
+  }
+  const str = value.toFixed(10);
+  let end = str.length;
+  while (str[end - 1] === "0") {
+    end--;
+  }
+  if (str[end - 1] === ".") {
+    end--;
+  }
+  return str.slice(0, end);
+}
 async function writeValue(value, buffer, transform) {
   if (value instanceof Name) {
     buffer.push(`/${escapePDFName(value.name)}`);
@@ -61176,7 +61190,7 @@ async function writeValue(value, buffer, transform) {
     }
     buffer.push(`(${escapeString(value)})`);
   } else if (typeof value === "number") {
-    buffer.push(value.toFixed(10).replace(/\.?0+$/, ""));
+    buffer.push(numberToPDFString(value));
   } else if (typeof value === "boolean") {
     buffer.push(value.toString());
   } else if (value instanceof Dict) {
