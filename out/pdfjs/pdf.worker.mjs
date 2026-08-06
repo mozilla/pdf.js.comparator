@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 5f181fd
+ * pdfjsBuild = 1b4055e
  */
 
 ;// ./src/shared/util.js
@@ -52749,6 +52749,7 @@ class XFAFactory {
 
 
 
+
 class AnnotationFactory {
   static createGlobals(pdfManager) {
     return Promise.all([pdfManager.ensureCatalog("acroForm"), pdfManager.ensureDoc("xfaDatasets"), pdfManager.ensureCatalog("structTreeRoot"), pdfManager.ensureCatalog("baseUrl"), pdfManager.ensureCatalog("attachments"), pdfManager.ensureCatalog("globalColorSpaceCache")]).then(([acroForm, xfaDatasets, structTreeRoot, baseUrl, attachments, globalColorSpaceCache]) => ({
@@ -55308,10 +55309,7 @@ class ChoiceWidgetAnnotation extends WidgetAnnotation {
     if (valueIndices.length > 0) {
       const minIndex = Math.min(...valueIndices);
       const maxIndex = Math.max(...valueIndices);
-      firstIndex = Math.max(0, maxIndex - numberOfVisibleLines + 1);
-      if (firstIndex > minIndex) {
-        firstIndex = minIndex;
-      }
+      firstIndex = MathClamp(maxIndex - numberOfVisibleLines + 1, 0, minIndex);
     }
     const end = Math.min(firstIndex + numberOfVisibleLines + 1, lineCount);
     const buf = ["/Tx BMC q", `1 1 ${totalWidth} ${totalHeight} re W n`];
