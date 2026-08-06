@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 71a3c6a
+ * pdfjsBuild = 7a0e2e7
  */
 
 ;// ./src/shared/util.js
@@ -37430,70 +37430,69 @@ class TranslatedFont {
     this.font.disableFontFace = true;
     PartialEvaluator.buildFontPaths(this.font, this.font.glyphCacheValues, handler, evaluatorOptions);
   }
-  loadType3Data(evaluator, resources, task, seenRefs = null) {
+  async loadType3Data(evaluator, resources, task, seenRefs = null) {
     if (this.#type3Loaded) {
       return this.#type3Loaded;
     }
     const {
+      dict,
       font,
       type3Dependencies
     } = this;
     assert(font.isType3Font, "Must be a Type3 font.");
+    const {
+      promise,
+      resolve
+    } = Promise.withResolvers();
+    this.#type3Loaded = promise;
     const type3Evaluator = evaluator.clone({
       ignoreErrors: false
     });
     const type3FontRefs = new RefSet(evaluator.type3FontRefs);
-    if (this.dict.objId && !type3FontRefs.has(this.dict.objId)) {
-      type3FontRefs.put(this.dict.objId);
+    if (dict.objId && !type3FontRefs.has(dict.objId)) {
+      type3FontRefs.put(dict.objId);
     }
     type3Evaluator.type3FontRefs = type3FontRefs;
-    let loadCharProcsPromise = Promise.resolve();
-    const charProcs = this.dict.get("CharProcs");
-    const fontResources = this.dict.get("Resources") || resources;
+    const charProcs = dict.get("CharProcs");
+    const fontResources = dict.get("Resources") || resources;
     const charProcOperatorList = Object.create(null);
-    const [x0, y0, x1, y1] = font.bbox,
-      width = x1 - x0,
-      height = y1 - y0;
-    const fontBBoxSize = Math.hypot(width, height);
+    const [x0, y0, x1, y1] = font.bbox;
+    const fontBBoxSize = Math.hypot(x1 - x0, y1 - y0);
     for (const key of charProcs.getKeys()) {
-      loadCharProcsPromise = loadCharProcsPromise.then(() => {
-        const glyphStream = charProcs.get(key);
+      try {
         const operatorList = new OperatorList();
-        return type3Evaluator.getOperatorList({
-          stream: glyphStream,
+        await type3Evaluator.getOperatorList({
+          stream: charProcs.get(key),
           task,
           resources: fontResources,
           operatorList,
           prevRefs: seenRefs
-        }).then(() => {
-          switch (operatorList.fnArray[0]) {
-            case OPS.setCharWidthAndBounds:
-              this.#removeType3ColorOperators(operatorList, fontBBoxSize);
-              break;
-            case OPS.setCharWidth:
-              if (!fontBBoxSize) {
-                this.#guessType3FontBBox(operatorList);
-              }
-              break;
-          }
-          charProcOperatorList[key] = operatorList.getIR();
-          for (const dependency of operatorList.dependencies) {
-            type3Dependencies.add(dependency);
-          }
-        }).catch(function (reason) {
-          warn(`Type3 font resource "${key}" is not available.`);
-          const dummyOperatorList = new OperatorList();
-          charProcOperatorList[key] = dummyOperatorList.getIR();
         });
-      });
-    }
-    this.#type3Loaded = loadCharProcsPromise.then(() => {
-      font.charProcOperatorList = charProcOperatorList;
-      if (this._bbox) {
-        font.isCharBBox = true;
-        font.bbox = this._bbox;
+        switch (operatorList.fnArray[0]) {
+          case OPS.setCharWidthAndBounds:
+            this.#removeType3ColorOperators(operatorList, fontBBoxSize);
+            break;
+          case OPS.setCharWidth:
+            if (!fontBBoxSize) {
+              this.#guessType3FontBBox(operatorList);
+            }
+            break;
+        }
+        charProcOperatorList[key] = operatorList.getIR();
+        for (const dependency of operatorList.dependencies) {
+          type3Dependencies.add(dependency);
+        }
+      } catch {
+        warn(`Type3 font resource "${key}" is not available.`);
+        charProcOperatorList[key] = new OperatorList().getIR();
       }
-    });
+    }
+    font.charProcOperatorList = charProcOperatorList;
+    if (this._bbox) {
+      font.isCharBBox = true;
+      font.bbox = this._bbox;
+    }
+    resolve();
     return this.#type3Loaded;
   }
   #removeType3ColorOperators(operatorList, fontBBoxSize = NaN) {
@@ -62200,8 +62199,6 @@ class PDFEditor {
       }
       this.oldPages[newPageIndex] = null;
     };
-    const docPageInfos = pageInfos.filter(info => !!info.document);
-    this.isSingleFile = docPageInfos.length === 1 || docPageInfos.length > 0 && docPageInfos.every(info => info.document === docPageInfos[0].document);
     const allDocumentData = [];
     if (annotationStorage) {
       this.#newAnnotationsParams = {
@@ -62279,7 +62276,11 @@ class PDFEditor {
       }
     }
     await Promise.all(promises);
+    if (this.oldPages.length === 0) {
+      throw new Error("extractPages: nothing to extract.");
+    }
     const copyCounts = new Map();
+    const documents = new Set();
     for (let i = 0, ii = this.oldPages.length; i < ii; i++) {
       const pageData = this.oldPages[i];
       if (pageData === undefined) {
@@ -62292,8 +62293,10 @@ class PDFEditor {
         const copyLevel = copyCounts.get(page) ?? 0;
         copyCounts.set(page, copyLevel + 1);
         pageData.copyLevel = copyLevel;
+        documents.add(pageData.documentData.document);
       }
     }
+    this.isSingleFile = documents.size === 1;
     promises.length = 0;
     this.#collectValidDestinations(allDocumentData);
     this.#collectOutlineDestinations(allDocumentData);
