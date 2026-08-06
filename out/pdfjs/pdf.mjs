@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 1b4055e
+ * pdfjsBuild = 71a3c6a
  */
 
 ;// ./src/shared/util.js
@@ -2095,7 +2095,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "7c9cb9f6-54ed-4e2e-a14e-885e88b993ce";
+const INTERNAL_EVT = "82632972-0c41-44e2-8dbc-c10cda505d01";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -10514,7 +10514,6 @@ const MAX_FONT_SIZE = 100;
 const EXECUTION_TIME = 15;
 const EXECUTION_STEPS = 10;
 const FULL_CHUNK_HEIGHT = 16;
-const SCALE_MATRIX = new DOMMatrix();
 const XY = new Float32Array(2);
 function mirrorContextOperations(ctx, destCtx) {
   if (ctx._removeMirroring) {
@@ -10777,6 +10776,7 @@ const LINE_JOIN_STYLES = ["miter", "round", "bevel"];
 const NORMAL_CLIP = {};
 const EO_CLIP = {};
 class CanvasGraphics {
+  static #SCALE_MATRIX = null;
   #knockoutGroupLevel = 0;
   #knockoutElementDepth = 0;
   #knockoutTempCanvasEntry = null;
@@ -13129,6 +13129,7 @@ class CanvasGraphics {
       ctx.stroke(path);
       return;
     }
+    const SCALE_MATRIX = CanvasGraphics.#SCALE_MATRIX ??= new DOMMatrix();
     const dashes = ctx.getLineDash();
     if (saveRestore) {
       ctx.save();
@@ -17090,7 +17091,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.3.0";
-const build = "1b4055e";
+const build = "71a3c6a";
 
 ;// ./src/display/editor/color_picker.js
 
