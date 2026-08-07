@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = ff784c7
+ * pdfjsBuild = 0ccb35c
  */
 
 ;// ./src/shared/util.js
@@ -11261,6 +11261,8 @@ function getInlineImageCacheKey(bytes) {
   return ii + "_" + String.fromCharCode.apply(null, strBuf);
 }
 class Parser {
+  #imageCache = null;
+  #imageId = 0;
   constructor({
     lexer,
     xref,
@@ -11271,8 +11273,6 @@ class Parser {
     this.xref = xref;
     this.allowStreams = allowStreams;
     this.recoveryMode = recoveryMode;
-    this.imageCache = Object.create(null);
-    this._imageId = 0;
     this.refill();
   }
   refill() {
@@ -11601,7 +11601,7 @@ class Parser {
   makeInlineImage(cipherTransform) {
     const lexer = this.lexer;
     const stream = lexer.stream;
-    const dictMap = Object.create(null);
+    const dict = new Dict(this.xref);
     let dictLength;
     while (!isCmd(this.buf1, "ID") && this.buf1 !== EOF) {
       if (!(this.buf1 instanceof Name)) {
@@ -11612,12 +11612,12 @@ class Parser {
       if (this.buf1 === EOF) {
         break;
       }
-      dictMap[key] = this.getObj(cipherTransform);
+      dict.set(key, this.getObj(cipherTransform));
     }
     if (lexer.beginInlineImagePos !== -1) {
       dictLength = stream.pos - lexer.beginInlineImagePos;
     }
-    const filter = this.#fetchIfRef(dictMap.F || dictMap.Filter);
+    const filter = dict.get("F", "Filter");
     let filterName;
     if (filter instanceof Name) {
       filterName = filter.name;
@@ -11651,17 +11651,13 @@ class Parser {
       stream.pos = lexer.beginInlineImagePos;
       cacheKey = getInlineImageCacheKey(stream.getBytes(dictLength + length));
       stream.pos = initialStreamPos;
-      const cacheEntry = this.imageCache[cacheKey];
-      if (cacheEntry !== undefined) {
+      const cacheEntry = this.#imageCache?.get(cacheKey);
+      if (cacheEntry) {
         this.buf2 = Cmd.get("EI");
         this.shift();
         cacheEntry.reset();
         return cacheEntry;
       }
-    }
-    const dict = new Dict(this.xref);
-    for (const key in dictMap) {
-      dict.set(key, dictMap[key]);
     }
     let imageStream = stream.makeSubStream(startPos, length, dict);
     if (cipherTransform && !this.#hasCryptFilter(filter)) {
@@ -11669,9 +11665,9 @@ class Parser {
     }
     imageStream = this.filter(imageStream, dict, length, cipherTransform);
     imageStream.dict = dict;
-    if (cacheKey !== undefined) {
-      imageStream.cacheKey = `inline_img_${++this._imageId}`;
-      this.imageCache[cacheKey] = imageStream;
+    if (cacheKey) {
+      imageStream.cacheKey = `inline_img_${++this.#imageId}`;
+      (this.#imageCache ??= new Map()).set(cacheKey, imageStream);
     }
     this.buf2 = Cmd.get("EI");
     this.shift();
