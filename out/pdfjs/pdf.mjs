@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 7a0e2e7
+ * pdfjsBuild = ff784c7
  */
 
 ;// ./src/shared/util.js
@@ -2095,7 +2095,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "8e196a93-032c-484a-8406-c5752197a170";
+const INTERNAL_EVT = "207c8558-7e4c-460e-b96f-4a1f5a2301ea";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -4828,6 +4828,7 @@ class TouchManager {
   #onPinchEnd;
   #pointerDownAC = null;
   #signal;
+  #touchIds = new Set();
   #touchInfo = null;
   #touchManagerAC;
   #touchMoveAC = null;
@@ -4860,7 +4861,14 @@ class TouchManager {
     if (this.#isPinchingDisabled?.()) {
       return;
     }
-    if (evt.touches.length === 1) {
+    this.#pruneTouchIds(evt);
+    const touchIds = this.#touchIds;
+    for (const {
+      identifier
+    } of evt.changedTouches) {
+      touchIds.add(identifier);
+    }
+    if (touchIds.size === 1) {
       if (this.#pointerDownAC) {
         return;
       }
@@ -4909,14 +4917,40 @@ class TouchManager {
       this.#onPinchStart?.();
     }
     stopEvent(evt);
-    if (evt.touches.length !== 2 || this.#isPinchingStopped?.()) {
-      this.#touchInfo = null;
+    this.#setTouchInfo(evt);
+  }
+  #pruneTouchIds(evt) {
+    const previous = this.#touchIds;
+    if (previous.size === 0) {
       return;
     }
-    let [touch0, touch1] = evt.touches;
-    if (touch0.identifier > touch1.identifier) {
-      [touch0, touch1] = [touch1, touch0];
+    const touchIds = this.#touchIds = new Set();
+    for (const {
+      identifier
+    } of evt.touches) {
+      if (previous.has(identifier)) {
+        touchIds.add(identifier);
+      }
     }
+  }
+  #getTrackedTouches(evt) {
+    const touchIds = this.#touchIds;
+    const touches = [];
+    for (const touch of evt.touches) {
+      if (touchIds.has(touch.identifier)) {
+        touches.push(touch);
+      }
+    }
+    return touches;
+  }
+  #setTouchInfo(evt) {
+    const touches = this.#getTrackedTouches(evt);
+    if (touches.length !== 2 || this.#isPinchingStopped?.()) {
+      this.#touchInfo = null;
+      this.#isPinching = false;
+      return;
+    }
+    const [touch0, touch1] = touches;
     this.#touchInfo = {
       touch0X: touch0.screenX,
       touch0Y: touch0.screenY,
@@ -4925,14 +4959,15 @@ class TouchManager {
     };
   }
   #onTouchMove(evt) {
-    if (!this.#touchInfo || evt.touches.length !== 2) {
+    if (!this.#touchInfo) {
+      return;
+    }
+    const touches = this.#getTrackedTouches(evt);
+    if (touches.length !== 2) {
       return;
     }
     stopEvent(evt);
-    let [touch0, touch1] = evt.touches;
-    if (touch0.identifier > touch1.identifier) {
-      [touch0, touch1] = [touch1, touch0];
-    }
+    const [touch0, touch1] = touches;
     const {
       screenX: screen0X,
       screenY: screen0Y
@@ -4969,7 +5004,9 @@ class TouchManager {
     this.#onPinching?.(origin, pDistance, distance);
   }
   #onTouchEnd(evt) {
-    if (evt.touches.length >= 2) {
+    this.#pruneTouchIds(evt);
+    if (this.#touchIds.size >= 2) {
+      this.#setTouchInfo(evt);
       return;
     }
     if (this.#touchMoveAC) {
@@ -17091,7 +17128,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.3.0";
-const build = "7a0e2e7";
+const build = "ff784c7";
 
 ;// ./src/display/editor/color_picker.js
 

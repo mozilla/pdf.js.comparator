@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 7a0e2e7
+ * pdfjsBuild = ff784c7
  */
 
 ;// ./src/shared/util.js
@@ -39423,6 +39423,7 @@ function soundStreamToWav(stream, samples) {
 
 
 const MAX_DEPTH = 40;
+const TABLE_SPAN_ATTRIBUTES = [["RowSpan", "rowSpan"], ["ColSpan", "colSpan"]];
 const StructElementType = {
   PAGE_CONTENT: 1,
   STREAM_CONTENT: 2,
@@ -39924,15 +39925,119 @@ class StructElementNode {
       }
       return stringToUTF8String(fileStream.getString());
     }
-    const A = this.dict.get("A");
-    if (A instanceof Dict) {
-      const O = A.get("O");
-      if (isName(O, "MSFT_Office")) {
-        const mathml = A.get("MSFT_MathML");
+    for (const attributes of this.attributes) {
+      if (isName(attributes.get("O"), "MSFT_Office")) {
+        const mathml = attributes.get("MSFT_MathML");
         return mathml ? stringToPDFString(mathml) : null;
       }
     }
     return null;
+  }
+  #collectAttributes(value, attributes) {
+    const pending = [value];
+    const visited = new RefSet();
+    while (pending.length > 0) {
+      value = pending.pop();
+      if (value instanceof Ref) {
+        if (visited.has(value)) {
+          continue;
+        }
+        visited.put(value);
+        value = this.xref.fetch(value);
+      }
+      if (value instanceof BaseStream) {
+        value = value.dict;
+      }
+      if (value instanceof Dict) {
+        attributes.push(value);
+        continue;
+      }
+      if (!Array.isArray(value)) {
+        continue;
+      }
+      for (let i = value.length - 1; i >= 0; i--) {
+        if (!Number.isInteger(value[i])) {
+          pending.push(value[i]);
+        }
+      }
+    }
+  }
+  get attributes() {
+    const attributes = [];
+    const classes = this.dict.getArray("C");
+    if (classes !== undefined) {
+      const classMap = this.tree.rootDict?.get("ClassMap");
+      if (classMap instanceof Dict) {
+        for (const className of Array.isArray(classes) ? classes : [classes]) {
+          if (className instanceof Name) {
+            this.#collectAttributes(classMap.getRaw(className.name), attributes);
+          }
+        }
+      }
+    }
+    this.#collectAttributes(this.dict.getRaw("A"), attributes);
+    return shadow(this, "attributes", attributes);
+  }
+  get tableAttributes() {
+    const {
+      role
+    } = this;
+    if (role !== "Table" && role !== "TH" && role !== "TD") {
+      return null;
+    }
+    const result = Object.create(null);
+    for (const attributes of this.attributes) {
+      if (!isName(attributes.get("O"), "Table")) {
+        continue;
+      }
+      if (role === "Table") {
+        if (attributes.has("Summary")) {
+          const summary = attributes.get("Summary");
+          if (typeof summary === "string" && summary) {
+            result.summary = stringToPDFString(summary);
+          } else {
+            delete result.summary;
+          }
+        }
+        continue;
+      }
+      for (const [key, name] of TABLE_SPAN_ATTRIBUTES) {
+        if (!attributes.has(key)) {
+          continue;
+        }
+        const value = attributes.get(key);
+        if (Number.isInteger(value) && value > 1) {
+          result[name] = value;
+        } else {
+          delete result[name];
+        }
+      }
+      if (attributes.has("Headers")) {
+        delete result.headers;
+        const headers = attributes.getArray("Headers");
+        if (Array.isArray(headers)) {
+          const ids = headers.filter(header => typeof header === "string").map(header => stringToPDFString(header));
+          if (ids.length > 0) {
+            result.headers = ids;
+          }
+        }
+      }
+      if (role === "TH" && attributes.has("Scope")) {
+        delete result.scope;
+        const scope = attributes.get("Scope");
+        if (scope instanceof Name && ["Row", "Column", "Both"].includes(scope.name)) {
+          result.scope = scope.name;
+        }
+      }
+      if (role === "TH" && attributes.has("Short")) {
+        delete result.short;
+        const short = attributes.get("Short");
+        if (typeof short === "string" && short) {
+          result.short = stringToPDFString(short);
+        }
+      }
+    }
+    return Object.keys(result).length > 0 ? result : null;
   }
   parseKids() {
     let pageObjId = null;
@@ -40168,6 +40273,14 @@ class StructTreePage {
       if (typeof alt === "string") {
         obj.alt = stringToPDFString(alt);
       }
+      const structId = node.dict.get("ID");
+      if (obj.role === "TH" && typeof structId === "string" && structId) {
+        obj.structId = stringToPDFString(structId);
+      }
+      const tableAttributes = node.tableAttributes;
+      if (tableAttributes) {
+        Object.assign(obj, tableAttributes);
+      }
       if (obj.role === "Formula") {
         try {
           const {
@@ -40183,18 +40296,18 @@ class StructTreePage {
           warn(`Ignoring mathML: "${ex}".`);
         }
       }
-      const a = node.dict.get("A");
-      if (a instanceof Dict) {
-        const bbox = lookupNormalRect(a.getArray("BBox"), null);
-        if (bbox) {
-          obj.bbox = bbox;
-        } else {
-          const width = a.get("Width");
-          const height = a.get("Height");
-          if (typeof width === "number" && width > 0 && typeof height === "number" && height > 0) {
-            obj.bbox = [0, 0, width, height];
-          }
+      let bbox = null,
+        size = null;
+      for (const a of node.attributes) {
+        bbox = lookupNormalRect(a.getArray("BBox"), bbox);
+        const width = a.get("Width");
+        const height = a.get("Height");
+        if (typeof width === "number" && width > 0 && typeof height === "number" && height > 0) {
+          size = [0, 0, width, height];
         }
+      }
+      if (bbox || size) {
+        obj.bbox = bbox ?? size;
       }
       const lang = node.dict.get("Lang");
       if (typeof lang === "string") {
@@ -63768,7 +63881,11 @@ class PDFEditor {
       const parentTree = this.xref[parentTreeRef.num];
       parentTree.setIfName("Type", "ParentTree");
       structTree.set("ParentTree", parentTreeRef);
-      structTree.set("ParentTreeNextKey", this.parentTree.size);
+      let nextKey = 0;
+      for (const key of this.parentTree.keys()) {
+        nextKey = Math.max(nextKey, key + 1);
+      }
+      structTree.set("ParentTreeNextKey", nextKey);
     }
     if (this.idTree.size > 0) {
       const idTreeRef = this.#makeNameNumTree(Array.from(this.idTree.entries()), true);
