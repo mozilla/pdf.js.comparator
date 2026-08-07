@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 0ccb35c
+ * pdfjsBuild = 022e958
  */
 
 ;// ./src/shared/util.js
@@ -2095,7 +2095,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "8bcb8596-a89c-425c-9fe2-3f5228f27c34";
+const INTERNAL_EVT = "e3e982a5-79d0-40be-9ea7-ee784c7fde86";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -12313,7 +12313,7 @@ class CanvasGraphics {
         continue;
       }
       const spacing = (glyph.isSpace ? wordSpacing : 0) + charSpacing;
-      const operatorList = font.charProcOperatorList[glyph.operatorListId];
+      const operatorList = font.charProcOperatorList.get(glyph.operatorListId);
       if (!operatorList) {
         warn(`Type3 character "${glyph.operatorListId}" is not available.`);
       } else if (this.contentVisible) {
@@ -17128,7 +17128,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.3.0";
-const build = "0ccb35c";
+const build = "022e958";
 
 ;// ./src/display/editor/color_picker.js
 
