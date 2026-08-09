@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 022e958
+ * pdfjsBuild = 7364bca
  */
 
 ;// ./src/shared/util.js
@@ -1005,44 +1005,49 @@ class Ref {
   }
 }
 class RefSet {
+  #set = new Set();
   constructor(parent = null) {
-    this._set = new Set(parent?._set);
+    if (parent) {
+      for (const refStr of parent) {
+        this.#set.add(refStr);
+      }
+    }
   }
   has(ref) {
-    return this._set.has(ref.toString());
+    return this.#set.has(ref.toString());
   }
   put(ref) {
-    this._set.add(ref.toString());
+    this.#set.add(ref.toString());
   }
   remove(ref) {
-    this._set.delete(ref.toString());
+    this.#set.delete(ref.toString());
   }
   [Symbol.iterator]() {
-    return this._set.values();
+    return this.#set.keys();
   }
   clear() {
-    this._set.clear();
+    this.#set.clear();
   }
 }
-class RefSetCache {
-  _map = new Map();
+class RefMap {
+  #map = new Map();
   get size() {
-    return this._map.size;
+    return this.#map.size;
   }
   get(ref) {
-    return this._map.get(ref.toString());
+    return this.#map.get(ref.toString());
   }
   has(ref) {
-    return this._map.has(ref.toString());
+    return this.#map.has(ref.toString());
   }
   put(ref, obj) {
-    this._map.set(ref.toString(), obj);
+    this.#map.set(ref.toString(), obj);
   }
   putAlias(ref, aliasRef) {
-    this._map.set(ref.toString(), this.get(aliasRef));
+    this.#map.set(ref.toString(), this.get(aliasRef));
   }
   getOrPutComputed(ref, callback) {
-    const map = this._map,
+    const map = this.#map,
       refStr = ref.toString();
     if (!map.has(refStr)) {
       map.set(refStr, callback(ref));
@@ -1050,21 +1055,21 @@ class RefSetCache {
     return map.get(refStr);
   }
   [Symbol.iterator]() {
-    return this._map.values();
+    return this.#map.values();
   }
   clear() {
-    this._map.clear();
+    this.#map.clear();
   }
   *values() {
-    yield* this._map.values();
+    yield* this.#map.values();
   }
   *items() {
-    for (const [ref, value] of this._map) {
+    for (const [ref, value] of this.#map) {
       yield [Ref.fromString(ref), value];
     }
   }
   *keys() {
-    for (const ref of this._map.keys()) {
+    for (const ref of this.#map.keys()) {
       yield Ref.fromString(ref);
     }
   }
@@ -17328,6 +17333,9 @@ const getSpecialPUASymbols = getLookupTableFactory(function (t) {
   t[63194] = 0x00ae;
   t[63722] = 0x2122;
   t[63195] = 0x2122;
+  t[63718] = 0x23d0;
+  t[63719] = 0x23af;
+  t[63733] = 0x23ae;
   t[63729] = 0x23a7;
   t[63730] = 0x23a8;
   t[63731] = 0x23a9;
@@ -19258,6 +19266,7 @@ class CFFCompiler {
 ;// ./src/core/standard_fonts.js
 
 
+
 const getStdFontMap = getLookupTableFactory(function (t) {
   t["Times-Roman"] = "Times-Roman";
   t.Helvetica = "Helvetica";
@@ -19547,6 +19556,16 @@ const getSymbolsFonts = getLookupTableFactory(function (t) {
   t.Wingdings = true;
   t["Wingdings-Bold"] = true;
   t["Wingdings-Regular"] = true;
+});
+const getGlyphMapForMacOrderedFonts = getLookupTableFactory(function (t) {
+  const glyphsUnicode = getGlyphsUnicode();
+  t[2] = 10;
+  for (let gid = 3; gid < MacStandardGlyphOrdering.length; gid++) {
+    const unicode = glyphsUnicode[MacStandardGlyphOrdering[gid]];
+    if (unicode !== undefined) {
+      t[gid] = unicode;
+    }
+  }
 });
 const getGlyphMapForStandardFonts = getLookupTableFactory(function (t) {
   t[2] = 10;
@@ -20045,6 +20064,83 @@ const getGlyphMapForStandardFonts = getLookupTableFactory(function (t) {
   t[3379] = 42785;
   t[3393] = 1159;
   t[3416] = 8377;
+});
+const getSupplementalGlyphMapForTrebuchetMS = getLookupTableFactory(function (t) {
+  t[151] = 956;
+  t[159] = 937;
+  t[168] = 916;
+  t[189] = 8364;
+  t[195] = 8729;
+  t[218] = 713;
+  t[236] = 222;
+  t[237] = 254;
+  t[238] = 8722;
+  t[239] = 185;
+  t[240] = 178;
+  t[241] = 179;
+  t[242] = 189;
+  t[243] = 188;
+  t[244] = 190;
+  t[245] = 181;
+  t[246] = 8486;
+  t[247] = 8710;
+  t[248] = 253;
+  t[249] = 215;
+  t[250] = 173;
+  t[253] = 8355;
+  t[254] = 286;
+  t[255] = 287;
+  t[256] = 304;
+  t[257] = 350;
+  t[258] = 351;
+  t[259] = 262;
+  t[260] = 263;
+  t[261] = 268;
+  t[262] = 269;
+  t[263] = 273;
+  t[264] = 175;
+  t[266] = 183;
+  t[267] = 258;
+  t[268] = 259;
+  t[269] = 260;
+  t[270] = 261;
+  t[271] = 270;
+  t[272] = 271;
+  t[273] = 272;
+  t[274] = 280;
+  t[275] = 281;
+  t[276] = 282;
+  t[277] = 283;
+  t[278] = 313;
+  t[279] = 314;
+  t[280] = 317;
+  t[281] = 318;
+  t[282] = 319;
+  t[283] = 320;
+  t[284] = 323;
+  t[285] = 324;
+  t[286] = 327;
+  t[287] = 328;
+  t[288] = 336;
+  t[289] = 337;
+  t[290] = 340;
+  t[291] = 341;
+  t[292] = 344;
+  t[293] = 345;
+  t[294] = 346;
+  t[295] = 347;
+  t[296] = 538;
+  t[297] = 539;
+  t[298] = 356;
+  t[299] = 357;
+  t[300] = 366;
+  t[301] = 367;
+  t[302] = 368;
+  t[303] = 369;
+  t[304] = 377;
+  t[305] = 378;
+  t[306] = 379;
+  t[307] = 380;
 });
 const getSupplementalGlyphMapForArialBlack = getLookupTableFactory(function (t) {
   t[227] = 322;
@@ -26483,6 +26579,16 @@ function applyStandardFontGlyphMap(map, glyphMap) {
     map[+charCode] = glyphMap[charCode];
   }
 }
+function buildSymbolGlyphIdEncoding() {
+  const encoding = [];
+  let glyphId = 3;
+  for (const [firstCharCode, lastCharCode] of [[0x20, 0x7e], [0xa1, 0xfe]]) {
+    for (let charCode = firstCharCode; charCode <= lastCharCode; charCode++) {
+      encoding[glyphId++] = SymbolSetEncoding[charCode];
+    }
+  }
+  return encoding;
+}
 function buildToFontChar(encoding, glyphsUnicodeMap, differences) {
   const toFontChar = [];
   let unicode;
@@ -27154,11 +27260,16 @@ class Font {
     if ((isStandardFont || isMappedToStandardFont) && type === "CIDFontType2" && this.cidEncoding.startsWith("Identity-")) {
       const cidToGidMap = properties.cidToGidMap;
       const map = [];
-      applyStandardFontGlyphMap(map, getGlyphMapForStandardFonts());
-      if (/Arial-?Black/i.test(name)) {
-        applyStandardFontGlyphMap(map, getSupplementalGlyphMapForArialBlack());
-      } else if (/Calibri/i.test(name)) {
-        applyStandardFontGlyphMap(map, getSupplementalGlyphMapForCalibri());
+      if (/Trebuchet/i.test(name)) {
+        applyStandardFontGlyphMap(map, getGlyphMapForMacOrderedFonts());
+        applyStandardFontGlyphMap(map, getSupplementalGlyphMapForTrebuchetMS());
+      } else {
+        applyStandardFontGlyphMap(map, getGlyphMapForStandardFonts());
+        if (/Arial-?Black/i.test(name)) {
+          applyStandardFontGlyphMap(map, getSupplementalGlyphMapForArialBlack());
+        } else if (/Calibri/i.test(name)) {
+          applyStandardFontGlyphMap(map, getSupplementalGlyphMapForCalibri());
+        }
       }
       if (cidToGidMap) {
         for (const charCode in map) {
@@ -27184,7 +27295,8 @@ class Font {
       this.toFontChar = map;
       this.toUnicode = new ToUnicodeMap(map);
     } else if (/Symbol/i.test(fontName)) {
-      this.toFontChar = buildToFontChar(SymbolSetEncoding, getGlyphsUnicode(), this.differences);
+      const isCidKeyed = this.composite && this.cidEncoding.startsWith("Identity-");
+      this.toFontChar = buildToFontChar(isCidKeyed ? buildSymbolGlyphIdEncoding() : SymbolSetEncoding, getGlyphsUnicode(), this.differences);
     } else if (/Dingbats/i.test(fontName)) {
       this.toFontChar = buildToFontChar(ZapfDingbatsEncoding, getDingbatsGlyphsUnicode(), this.differences);
     } else if (isStandardFont || isMappedToStandardFont) {
@@ -31823,7 +31935,7 @@ class BaseLocalCache {
       this._nameRefMap = new Map();
       this._imageMap = new Map();
     }
-    this._imageCache = new RefSetCache();
+    this._imageCache = new RefMap();
   }
   getByName(name) {
     if (this._onlyRefs) {
@@ -31974,8 +32086,8 @@ class GlobalImageCache {
   static MAX_BYTE_SIZE = 5e7;
   #decodeFailedSet = new RefSet();
   constructor() {
-    this._refCache = new RefSetCache();
-    this._imageCache = new RefSetCache();
+    this._refCache = new RefMap();
+    this._imageCache = new RefMap();
   }
   get #byteSize() {
     let byteSize = 0;
@@ -39474,8 +39586,7 @@ class StructTreeRoot {
     if (!(pageRef instanceof Ref) || id < 0) {
       return;
     }
-    this.structParentIds ||= new RefSetCache();
-    this.structParentIds.getOrPutComputed(pageRef, makeArr).push([id, type]);
+    (this.structParentIds ??= new RefMap()).getOrPutComputed(pageRef, makeArr).push([id, type]);
   }
   addAnnotationIdToPage(pageRef, id) {
     this.#addIdToPage(pageRef, id, StructElementType.ANNOTATION);
@@ -39525,7 +39636,7 @@ class StructTreeRoot {
     changes
   }) {
     const root = await pdfManager.ensureCatalog("cloneDict");
-    const cache = new RefSetCache();
+    const cache = new RefMap();
     cache.put(catalogRef, root);
     const structTreeRootRef = xref.getNewTemporaryRef();
     root.set("StructTreeRoot", structTreeRootRef);
@@ -39636,7 +39747,7 @@ class StructTreeRoot {
       xref
     } = this;
     const structTreeRoot = this.dict.clone();
-    const cache = new RefSetCache();
+    const cache = new RefMap();
     cache.put(structTreeRootRef, structTreeRoot);
     let parentTreeRef = structTreeRoot.getRaw("ParentTree");
     let parentTree;
@@ -40383,18 +40494,18 @@ function fetchRemoteDest(action) {
 }
 class Catalog {
   #actualNumPages = null;
-  #annotationAttachmentIdByRef = new RefSetCache();
+  #annotationAttachmentIdByRef = new RefMap();
   #annotationAttachmentRefById = new Map();
   #soundAttachmentIds = new Set();
   #catDict = null;
   builtInCMapCache = new Map();
-  fontCache = new RefSetCache();
+  fontCache = new RefMap();
   globalColorSpaceCache = new GlobalColorSpaceCache();
   globalImageCache = new GlobalImageCache();
   nonBlendModesSet = new RefSet();
-  pageDictCache = new RefSetCache();
-  pageIndexCache = new RefSetCache();
-  pageKidsCountCache = new RefSetCache();
+  pageDictCache = new RefMap();
+  pageIndexCache = new RefMap();
+  pageKidsCountCache = new RefMap();
   standardFontDataCache = new Map();
   systemFontCache = new Map();
   constructor(pdfManager, xref) {
@@ -40692,11 +40803,10 @@ class Catalog {
       return null;
     }
     flags += 2 ** 32;
-    const permissions = [];
-    for (const key in PermissionFlag) {
-      const value = PermissionFlag[key];
+    const permissions = new Set();
+    for (const value of Object.values(PermissionFlag)) {
       if (flags & value) {
-        permissions.push(value);
+        permissions.add(value);
       }
     }
     return permissions;
@@ -40716,7 +40826,7 @@ class Catalog {
       if (!Array.isArray(groupsData)) {
         return shadow(this, "optionalContentConfig", null);
       }
-      const groupRefCache = new RefSetCache();
+      const groupRefCache = new RefMap();
       for (const groupRef of groupsData) {
         if (!(groupRef instanceof Ref) || groupRefCache.has(groupRef)) {
           continue;
@@ -59295,7 +59405,7 @@ class Page {
       throw new Error("XFA: Cannot save new annotations.");
     }
     const partialEvaluator = this.#createPartialEvaluator(handler);
-    const deletedAnnotations = new RefSetCache();
+    const deletedAnnotations = new RefMap();
     const existingAnnotations = new RefSet();
     await this.#replaceIdByRef(annotations, deletedAnnotations, existingAnnotations);
     const pageDict = this.pageDict;
@@ -60432,7 +60542,7 @@ class PDFDocument {
       const visitedRefs = new RefSet();
       const allFields = new Map();
       const fieldPromises = new Map();
-      const orphanFields = new RefSetCache();
+      const orphanFields = new RefMap();
       for (const fieldRef of acroForm.get("Fields")) {
         await this.#collectFieldObjects("", null, fieldRef, fieldPromises, annotationGlobals, visitedRefs, orphanFields);
       }
@@ -61676,11 +61786,11 @@ class DocumentData {
     this.document = document;
     this.destinations = null;
     this.pageLabels = null;
-    this.pagesMap = new RefSetCache();
-    this.oldRefMapping = new RefSetCache();
+    this.pagesMap = new RefMap();
+    this.oldRefMapping = new RefMap();
     this.dedupNamedDestinations = new Map();
     this.usedNamedDestinations = new Set();
-    this.postponedRefCopies = new RefSetCache();
+    this.postponedRefCopies = new RefMap();
     this.resourceStreamPromises = new Map();
     this.usedStructParents = new Set();
     this.oldStructParentMapping = new Map();
@@ -61697,7 +61807,7 @@ class DocumentData {
     this.acroFormDefaultResources = null;
     this.acroFormQ = 0;
     this.hasSignatureAnnotations = false;
-    this.fieldToParent = new RefSetCache();
+    this.fieldToParent = new RefMap();
     this.outline = null;
     this.embeddedFiles = null;
   }
@@ -63535,7 +63645,7 @@ class PDFEditor {
         task,
         imagesPromises
       } = this.#newAnnotationsParams;
-      const changes = new RefSetCache();
+      const changes = new RefMap();
       const newData = await AnnotationFactory.saveNewAnnotations(page.createAnnotationEvaluator(handler), this.xrefWrapper, task, newAnnotations, imagesPromises, changes);
       for (const [ref, {
         data
@@ -64016,7 +64126,7 @@ class PDFEditor {
     return result;
   }
   async #createChanges() {
-    const changes = new RefSetCache();
+    const changes = new RefMap();
     changes.put(Ref.get(0, 0xffff), {
       data: null
     });
@@ -64760,7 +64870,7 @@ class WorkerMessageHandler {
       filename
     }) {
       const globalPromises = [pdfManager.requestLoadedStream(), pdfManager.ensureCatalog("acroForm"), pdfManager.ensureCatalog("acroFormRef"), pdfManager.ensureDoc("startXRef"), pdfManager.ensureDoc("xref"), pdfManager.ensureCatalog("structTreeRoot")];
-      const changes = new RefSetCache();
+      const changes = new RefMap();
       const promises = [];
       const newAnnotationsByPage = !isPureXfa ? getNewAnnotationsMap(annotationStorage) : null;
       const [stream, acroForm, acroFormRef, startXRef, xref, _structTreeRoot] = await Promise.all(globalPromises);

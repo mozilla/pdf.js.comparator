@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 022e958
+ * pdfjsBuild = 7364bca
  */
 
 ;// ./src/shared/util.js
@@ -2095,7 +2095,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "e3e982a5-79d0-40be-9ea7-ee784c7fde86";
+const INTERNAL_EVT = "1895e435-7ede-4e0c-89e0-51d483e8047a";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -4869,31 +4869,7 @@ class TouchManager {
       touchIds.add(identifier);
     }
     if (touchIds.size === 1) {
-      if (this.#pointerDownAC) {
-        return;
-      }
-      const pointerDownAC = this.#pointerDownAC = new AbortController();
-      const signal = AbortSignal.any([this.#signal, pointerDownAC.signal]);
-      const container = this.#container;
-      const opts = {
-        capture: true,
-        signal,
-        passive: false
-      };
-      const cancelPointerDown = e => {
-        if (e.pointerType === "touch") {
-          this.#pointerDownAC?.abort();
-          this.#pointerDownAC = null;
-        }
-      };
-      container.addEventListener("pointerdown", e => {
-        if (e.pointerType === "touch") {
-          stopEvent(e);
-          cancelPointerDown(e);
-        }
-      }, opts);
-      container.addEventListener("pointerup", cancelPointerDown, opts);
-      container.addEventListener("pointercancel", cancelPointerDown, opts);
+      this.#armPointerDown();
       return;
     }
     if (!this.#touchMoveAC) {
@@ -4918,6 +4894,33 @@ class TouchManager {
     }
     stopEvent(evt);
     this.#setTouchInfo(evt);
+  }
+  #armPointerDown() {
+    if (this.#pointerDownAC) {
+      return;
+    }
+    const pointerDownAC = this.#pointerDownAC = new AbortController();
+    const signal = AbortSignal.any([this.#signal, pointerDownAC.signal]);
+    const container = this.#container;
+    const opts = {
+      capture: true,
+      signal,
+      passive: false
+    };
+    const cancelPointerDown = e => {
+      if (e.pointerType === "touch") {
+        this.#pointerDownAC?.abort();
+        this.#pointerDownAC = null;
+      }
+    };
+    container.addEventListener("pointerdown", e => {
+      if (e.pointerType === "touch") {
+        stopEvent(e);
+        cancelPointerDown(e);
+      }
+    }, opts);
+    container.addEventListener("pointerup", cancelPointerDown, opts);
+    container.addEventListener("pointercancel", cancelPointerDown, opts);
   }
   #pruneTouchIds(evt) {
     const previous = this.#touchIds;
@@ -4947,7 +4950,6 @@ class TouchManager {
     const touches = this.#getTrackedTouches(evt);
     if (touches.length !== 2 || this.#isPinchingStopped?.()) {
       this.#touchInfo = null;
-      this.#isPinching = false;
       return;
     }
     const [touch0, touch1] = touches;
@@ -5014,12 +5016,15 @@ class TouchManager {
       this.#touchMoveAC = null;
       this.#onPinchEnd?.();
     }
-    if (!this.#touchInfo) {
-      return;
-    }
-    stopEvent(evt);
+    const wasTracking = !!this.#touchInfo;
     this.#touchInfo = null;
     this.#isPinching = false;
+    if (this.#touchIds.size === 1) {
+      this.#armPointerDown();
+    }
+    if (wasTracking) {
+      stopEvent(evt);
+    }
   }
   destroy() {
     this.#touchManagerAC?.abort();
@@ -5367,9 +5372,6 @@ class AnnotationEditor {
     style.left = `${(100 * x).toFixed(2)}%`;
     style.top = `${(100 * y).toFixed(2)}%`;
     this._onTranslating(x, y);
-    div.scrollIntoView({
-      block: "nearest"
-    });
   }
   _onTranslating(x, y) {}
   _onTranslated(x, y) {}
@@ -6091,6 +6093,9 @@ class AnnotationEditor {
         this.#prevDragX = x;
         this.#prevDragY = y;
         this._uiManager.dragSelectedEditors(tx, ty);
+        this.div.scrollIntoView({
+          block: "nearest"
+        });
       }, opts);
       window.addEventListener("touchmove", stopEvent, opts);
       window.addEventListener("pointerdown", e => {
@@ -17128,7 +17133,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.3.0";
-const build = "022e958";
+const build = "7364bca";
 
 ;// ./src/display/editor/color_picker.js
 
@@ -23871,6 +23876,8 @@ class DrawingEditor extends AnnotationEditor {
     const {
       offsetX,
       offsetY,
+      clientX,
+      clientY,
       pointerId
     } = event;
     if (!CurrentPointers.isSamePointerId(pointerId)) {
@@ -23880,7 +23887,37 @@ class DrawingEditor extends AnnotationEditor {
       this._endDraw(event);
       return;
     }
-    this._currentParent.drawLayer.updateProperties(this._currentDrawId, DrawingEditor.#currentDraw.add(offsetX, offsetY));
+    let properties;
+    const coalesced = event.getCoalescedEvents?.();
+    if (coalesced?.length) {
+      const {
+        rotation
+      } = this._currentParent.viewport;
+      const points = [];
+      for (const {
+        clientX: x,
+        clientY: y
+      } of coalesced) {
+        let deltaX = x - clientX;
+        let deltaY = y - clientY;
+        switch (rotation) {
+          case 90:
+            [deltaX, deltaY] = [deltaY, -deltaX];
+            break;
+          case 180:
+            [deltaX, deltaY] = [-deltaX, -deltaY];
+            break;
+          case 270:
+            [deltaX, deltaY] = [-deltaY, deltaX];
+            break;
+        }
+        points.push(offsetX + deltaX, offsetY + deltaY);
+      }
+      properties = DrawingEditor.#currentDraw.addPoints(points);
+    } else {
+      properties = DrawingEditor.#currentDraw.add(offsetX, offsetY);
+    }
+    this._currentParent.drawLayer.updateProperties(this._currentDrawId, properties);
     CurrentPointers.setTimeStamp(event.timeStamp);
     stopEvent(event);
   }
@@ -23905,9 +23942,7 @@ class DrawingEditor extends AnnotationEditor {
     }
     parent.toggleDrawing(true);
     this._cleanup(false);
-    if (event?.target === parent.div) {
-      parent.drawLayer.updateProperties(this._currentDrawId, DrawingEditor.#currentDraw.end(event.offsetX, event.offsetY));
-    }
+    parent.drawLayer.updateProperties(this._currentDrawId, event?.target === parent.div ? DrawingEditor.#currentDraw.end(event.offsetX, event.offsetY) : DrawingEditor.#currentDraw.end());
     if (this.supportMultipleDrawings) {
       const draw = DrawingEditor.#currentDraw;
       const drawId = this._currentDrawId;
@@ -24000,6 +24035,7 @@ class DrawingEditor extends AnnotationEditor {
 
 class InkDrawOutliner {
   #last = new Float64Array(6);
+  #tip = new Float64Array(2);
   #line;
   #lines;
   #rotation;
@@ -24023,6 +24059,7 @@ class InkDrawOutliner {
       points: this.#points
     }];
     this.#last.set(line, 0);
+    this.#tip.set([x, y], 0);
   }
   updateProperty(name, value) {
     if (name === "stroke-width") {
@@ -24039,39 +24076,66 @@ class InkDrawOutliner {
     return this.#points.length <= 10;
   }
   add(x, y) {
+    if (this.#add(x, y)) {
+      this.toSVGPath();
+    }
+    return {
+      path: {
+        d: this.#toSVGPathWithTip()
+      }
+    };
+  }
+  addPoints(points) {
+    let needsPathUpdate = false;
+    for (let i = 0, ii = points.length; i < ii; i += 2) {
+      if (!this.#add(points[i], points[i + 1])) {
+        continue;
+      }
+      needsPathUpdate = true;
+      if (this.#points.length <= 6) {
+        this.toSVGPath();
+        needsPathUpdate = false;
+      }
+    }
+    if (needsPathUpdate) {
+      this.toSVGPath();
+    }
+    return {
+      path: {
+        d: this.#toSVGPathWithTip()
+      }
+    };
+  }
+  #add(x, y) {
     [x, y] = this.#normalizePoint(x, y);
+    this.#tip.set([x, y], 0);
     const [x1, y1, x2, y2] = this.#last.subarray(2, 6);
     const diffX = x - x2;
     const diffY = y - y2;
     const d = Math.hypot(this.#parentWidth * diffX, this.#parentHeight * diffY);
     if (d <= 2) {
-      return null;
+      return false;
     }
     this.#points.push(x, y);
     if (isNaN(x1)) {
       this.#last.set([x2, y2, x, y], 2);
       this.#line.push(NaN, NaN, NaN, NaN, x, y);
-      return {
-        path: {
-          d: this.toSVGPath()
-        }
-      };
+      return true;
     }
     if (isNaN(this.#last[0])) {
       this.#line.splice(6, 6);
     }
     this.#last.set([x1, y1, x2, y2, x, y], 0);
     this.#line.push(...Outline.createBezierPoints(x1, y1, x2, y2, x, y));
-    return {
-      path: {
-        d: this.toSVGPath()
-      }
-    };
+    return true;
   }
   end(x, y) {
-    const change = this.add(x, y);
-    if (change) {
-      return change;
+    if (x !== undefined && this.#add(x, y)) {
+      return {
+        path: {
+          d: this.toSVGPath()
+        }
+      };
     }
     if (this.#points.length === 2) {
       return {
@@ -24080,7 +24144,11 @@ class InkDrawOutliner {
         }
       };
     }
-    return null;
+    return {
+      path: {
+        d: this.#lastSVGPath
+      }
+    };
   }
   startNew(x, y, parentWidth, parentHeight, rotation) {
     this.#parentWidth = parentWidth;
@@ -24089,6 +24157,7 @@ class InkDrawOutliner {
     [x, y] = this.#normalizePoint(x, y);
     const line = this.#line = [NaN, NaN, NaN, NaN, x, y];
     this.#points = [x, y];
+    this.#tip.set([x, y], 0);
     const last = this.#lines.at(-1);
     if (last) {
       last.line = new Float32Array(last.line);
@@ -24141,6 +24210,16 @@ class InkDrawOutliner {
         d: this.#lastSVGPath
       }
     };
+  }
+  #toSVGPathWithTip() {
+    const tipX = Outline.svgRound(this.#tip[0]);
+    const tipY = Outline.svgRound(this.#tip[1]);
+    if (this.#points.length === 2) {
+      const firstX = Outline.svgRound(this.#line[4]);
+      const firstY = Outline.svgRound(this.#line[5]);
+      return `${this.#lastSVGPath} M ${firstX} ${firstY} L ${tipX} ${tipY}`;
+    }
+    return `${this.#lastSVGPath} L ${tipX} ${tipY}`;
   }
   toSVGPath() {
     const firstX = Outline.svgRound(this.#line[4]);
