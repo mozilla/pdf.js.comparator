@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 7364bca
+ * pdfjsBuild = 416335a
  */
 
 ;// ./src/shared/util.js
@@ -2095,7 +2095,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "1895e435-7ede-4e0c-89e0-51d483e8047a";
+const INTERNAL_EVT = "044a541f-eae5-46a0-98a9-ba686cead5c0";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -4818,6 +4818,7 @@ class Comment {
 function preventDefault(evt) {
   evt.preventDefault();
 }
+const MIN_TOUCH_SPAN = 1e-4;
 class TouchManager {
   #container;
   #isPinching = false;
@@ -4989,9 +4990,9 @@ class TouchManager {
     const prevGapY = pTouch1Y - pTouch0Y;
     const currGapX = screen1X - screen0X;
     const currGapY = screen1Y - screen0Y;
-    const distance = Math.hypot(currGapX, currGapY) || 1;
-    const pDistance = Math.hypot(prevGapX, prevGapY) || 1;
-    if (!this.#isPinching && Math.abs(pDistance - distance) <= this.MIN_TOUCH_DISTANCE_TO_PINCH) {
+    const distance = Math.hypot(currGapX, currGapY);
+    const pDistance = Math.hypot(prevGapX, prevGapY);
+    if (distance < MIN_TOUCH_SPAN || pDistance < MIN_TOUCH_SPAN || !this.#isPinching && Math.abs(pDistance - distance) <= this.MIN_TOUCH_DISTANCE_TO_PINCH) {
       return;
     }
     touchInfo.touch0X = screen0X;
@@ -5011,14 +5012,8 @@ class TouchManager {
       this.#setTouchInfo(evt);
       return;
     }
-    if (this.#touchMoveAC) {
-      this.#touchMoveAC.abort();
-      this.#touchMoveAC = null;
-      this.#onPinchEnd?.();
-    }
     const wasTracking = !!this.#touchInfo;
-    this.#touchInfo = null;
-    this.#isPinching = false;
+    this.#endGesture();
     if (this.#touchIds.size === 1) {
       this.#armPointerDown();
     }
@@ -5026,7 +5021,18 @@ class TouchManager {
       stopEvent(evt);
     }
   }
+  #endGesture() {
+    this.#touchInfo = null;
+    this.#isPinching = false;
+    if (this.#touchMoveAC) {
+      this.#touchMoveAC.abort();
+      this.#touchMoveAC = null;
+      this.#onPinchEnd?.();
+    }
+  }
   destroy() {
+    this.#endGesture();
+    this.#touchIds.clear();
     this.#touchManagerAC?.abort();
     this.#touchManagerAC = null;
     this.#pointerDownAC?.abort();
@@ -6339,6 +6345,8 @@ class AnnotationEditor {
     if (!this.isEmpty()) {
       this.commit();
     }
+    this.#touchManager?.destroy();
+    this.#touchManager = null;
     if (this.parent) {
       this.parent.remove(this);
     } else {
@@ -6358,8 +6366,6 @@ class AnnotationEditor {
       this.#telemetryTimeouts = null;
     }
     this.parent = null;
-    this.#touchManager?.destroy();
-    this.#touchManager = null;
     this.#fakeAnnotation?.remove();
     this.#fakeAnnotation = null;
   }
@@ -12749,10 +12755,6 @@ class CanvasGraphics {
         transform = transform.slice();
         transform[4] -= rect[0];
         transform[5] -= rect[1];
-        rect = rect.slice();
-        rect[0] = rect[1] = 0;
-        rect[2] = width;
-        rect[3] = height;
         Util.singularValueDecompose2dScale(getCurrentTransform(this.ctx), XY);
         const {
           viewportScale
@@ -17133,7 +17135,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.3.0";
-const build = "7364bca";
+const build = "416335a";
 
 ;// ./src/display/editor/color_picker.js
 

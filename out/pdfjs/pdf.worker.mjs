@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 7364bca
+ * pdfjsBuild = 416335a
  */
 
 ;// ./src/shared/util.js
@@ -1295,11 +1295,11 @@ const MAX_INT_32 = 2 ** 31 - 1;
 const IDENTITY_MATRIX = [1, 0, 0, 1, 0, 0];
 const RESOURCES_KEYS_OPERATOR_LIST = ["ColorSpace", "ExtGState", "Font", "Pattern", "Properties", "Shading", "XObject"];
 const RESOURCES_KEYS_TEXT_CONTENT = ["ExtGState", "Font", "Properties", "XObject"];
-function getLookupTableFactory(initializer) {
+function getLookupTableFactory(initializer, useArray = false) {
   let lookup;
   return function () {
     if (initializer) {
-      lookup = Object.create(null);
+      lookup = useArray ? [] : Object.create(null);
       initializer(lookup);
       initializer = null;
     }
@@ -26368,6 +26368,7 @@ class Type1Font {
 
 
 
+
 const PRIVATE_USE_AREAS = [[0xe000, 0xf8ff], [0x100000, 0x10fffd]];
 const PDF_GLYPH_SPACE_UNITS = 1000;
 const EXPORT_DATA_PROPERTIES = ["ascent", "bbox", "black", "bold", "cssFontInfo", "data", "defaultVMetrics", "defaultWidth", "descent", "disableFontFace", "fallbackName", "fontExtraProperties", "fontMatrix", "isInvalidPDFjsFont", "isType3Font", "italic", "loadedName", "mimetype", "missingFile", "name", "remeasure", "systemFontInfo", "vertical"];
@@ -26579,16 +26580,14 @@ function applyStandardFontGlyphMap(map, glyphMap) {
     map[+charCode] = glyphMap[charCode];
   }
 }
-function buildSymbolGlyphIdEncoding() {
-  const encoding = [];
+const getSymbolGlyphIdEncoding = getLookupTableFactory(t => {
   let glyphId = 3;
   for (const [firstCharCode, lastCharCode] of [[0x20, 0x7e], [0xa1, 0xfe]]) {
     for (let charCode = firstCharCode; charCode <= lastCharCode; charCode++) {
-      encoding[glyphId++] = SymbolSetEncoding[charCode];
+      t[glyphId++] = SymbolSetEncoding[charCode];
     }
   }
-  return encoding;
-}
+}, true);
 function buildToFontChar(encoding, glyphsUnicodeMap, differences) {
   const toFontChar = [];
   let unicode;
@@ -27296,7 +27295,7 @@ class Font {
       this.toUnicode = new ToUnicodeMap(map);
     } else if (/Symbol/i.test(fontName)) {
       const isCidKeyed = this.composite && this.cidEncoding.startsWith("Identity-");
-      this.toFontChar = buildToFontChar(isCidKeyed ? buildSymbolGlyphIdEncoding() : SymbolSetEncoding, getGlyphsUnicode(), this.differences);
+      this.toFontChar = buildToFontChar(isCidKeyed ? getSymbolGlyphIdEncoding() : SymbolSetEncoding, getGlyphsUnicode(), this.differences);
     } else if (/Dingbats/i.test(fontName)) {
       this.toFontChar = buildToFontChar(ZapfDingbatsEncoding, getDingbatsGlyphsUnicode(), this.differences);
     } else if (isStandardFont || isMappedToStandardFont) {
@@ -31139,6 +31138,7 @@ function buildPostScriptJsFunction(source, domain, range, forceInterpreter = fal
 ;// ./src/core/postscript/wasm_compiler.js
 
 
+
 const wasm_compiler_OP = {
   if: 0x04,
   else: 0x05,
@@ -31204,7 +31204,7 @@ function unsignedLEB128(n) {
   return out;
 }
 function encodeASCIIString(s) {
-  return [...unsignedLEB128(s.length), ...Array.from(s, c => c.charCodeAt(0))];
+  return [...unsignedLEB128(s.length), ...stringToBytes(s)];
 }
 function section(id, data) {
   return [id, ...unsignedLEB128(data.length), ...data];
@@ -43445,9 +43445,6 @@ class XFAObject {
   [$getSubformParent]() {
     return this[$getParent]();
   }
-  [$getChildren](name = null) {
-    return !name ? this[_children] : this[name];
-  }
   [$dump]() {
     const dumped = Object.create(null);
     if (this[$content]) {
@@ -43892,9 +43889,6 @@ class XmlObject extends XFAObject {
       });
     }
     return HTMLResult.EMPTY;
-  }
-  [$getChildren](name = null) {
-    return !name ? this[_children] : this[_children].filter(c => c[$nodeName] === name);
   }
   [$getAttributes]() {
     return this[_attributes];
