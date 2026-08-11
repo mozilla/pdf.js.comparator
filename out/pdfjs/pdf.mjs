@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = a6ca0fd
+ * pdfjsBuild = c8fbf33
  */
 
 ;// ./src/shared/util.js
@@ -2095,7 +2095,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "6c9d4794-7559-4574-912c-072a58a5f28d";
+const INTERNAL_EVT = "792b8216-acf8-4d46-a849-ff369d4e0cf8";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -4819,6 +4819,14 @@ function preventDefault(evt) {
   evt.preventDefault();
 }
 const MIN_TOUCH_SPAN = 1e-4;
+function stopTouchEvent(evt) {
+  if (evt.cancelable) {
+    stopEvent(evt);
+    return true;
+  }
+  evt.stopPropagation();
+  return false;
+}
 class TouchManager {
   #container;
   #isPinching = false;
@@ -4827,6 +4835,8 @@ class TouchManager {
   #onPinchStart;
   #onPinching;
   #onPinchEnd;
+  #onPanning;
+  #ownsGesture = false;
   #pointerDownAC = null;
   #signal;
   #touchIds = new Set();
@@ -4840,6 +4850,7 @@ class TouchManager {
     onPinchStart = null,
     onPinching = null,
     onPinchEnd = null,
+    onPanning = null,
     signal
   }) {
     this.#container = container;
@@ -4848,6 +4859,7 @@ class TouchManager {
     this.#onPinchStart = onPinchStart;
     this.#onPinching = onPinching;
     this.#onPinchEnd = onPinchEnd;
+    this.#onPanning = onPanning;
     this.#touchManagerAC = new AbortController();
     this.#signal = AbortSignal.any([signal, this.#touchManagerAC.signal]);
     container.addEventListener("touchstart", this.#onTouchStart.bind(this), {
@@ -4893,7 +4905,7 @@ class TouchManager {
       container.addEventListener("pointerup", preventDefault, opt);
       this.#onPinchStart?.();
     }
-    stopEvent(evt);
+    this.#ownsGesture = stopTouchEvent(evt);
     this.#setTouchInfo(evt);
   }
   #armPointerDown() {
@@ -4958,7 +4970,9 @@ class TouchManager {
       touch0X: touch0.screenX,
       touch0Y: touch0.screenY,
       touch1X: touch1.screenX,
-      touch1Y: touch1.screenY
+      touch1Y: touch1.screenY,
+      panX: (touch0.clientX + touch1.clientX) / 2,
+      panY: (touch0.clientY + touch1.clientY) / 2
     };
   }
   #onTouchMove(evt) {
@@ -4969,7 +4983,15 @@ class TouchManager {
     if (touches.length !== 2) {
       return;
     }
-    stopEvent(evt);
+    const wasOwned = this.#ownsGesture;
+    this.#ownsGesture = stopTouchEvent(evt);
+    if (!this.#ownsGesture) {
+      return;
+    }
+    if (!wasOwned) {
+      this.#setTouchInfo(evt);
+      return;
+    }
     const [touch0, touch1] = touches;
     const {
       screenX: screen0X,
@@ -4984,15 +5006,26 @@ class TouchManager {
       touch0X: pTouch0X,
       touch0Y: pTouch0Y,
       touch1X: pTouch1X,
-      touch1Y: pTouch1Y
+      touch1Y: pTouch1Y,
+      panX: pPanX,
+      panY: pPanY
     } = touchInfo;
     const prevGapX = pTouch1X - pTouch0X;
     const prevGapY = pTouch1Y - pTouch0Y;
     const currGapX = screen1X - screen0X;
     const currGapY = screen1Y - screen0Y;
+    const panX = (touch0.clientX + touch1.clientX) / 2;
+    const panY = (touch0.clientY + touch1.clientY) / 2;
+    touchInfo.panX = panX;
+    touchInfo.panY = panY;
+    const dx = panX - pPanX;
+    const dy = panY - pPanY;
     const distance = Math.hypot(currGapX, currGapY);
     const pDistance = Math.hypot(prevGapX, prevGapY);
     if (distance < MIN_TOUCH_SPAN || pDistance < MIN_TOUCH_SPAN || !this.#isPinching && Math.abs(pDistance - distance) <= this.MIN_TOUCH_DISTANCE_TO_PINCH) {
+      if (dx || dy) {
+        this.#onPanning?.(dx, dy);
+      }
       return;
     }
     touchInfo.touch0X = screen0X;
@@ -5001,10 +5034,12 @@ class TouchManager {
     touchInfo.touch1Y = screen1Y;
     if (!this.#isPinching) {
       this.#isPinching = true;
+      if (dx || dy) {
+        this.#onPanning?.(dx, dy);
+      }
       return;
     }
-    const origin = [(touch0.clientX + touch1.clientX) / 2, (touch0.clientY + touch1.clientY) / 2];
-    this.#onPinching?.(origin, pDistance, distance);
+    this.#onPinching?.([pPanX, pPanY], pDistance, distance, dx, dy);
   }
   #onTouchEnd(evt) {
     this.#pruneTouchIds(evt);
@@ -5018,12 +5053,13 @@ class TouchManager {
       this.#armPointerDown();
     }
     if (wasTracking) {
-      stopEvent(evt);
+      stopTouchEvent(evt);
     }
   }
   #endGesture() {
     this.#touchInfo = null;
     this.#isPinching = false;
+    this.#ownsGesture = false;
     if (this.#touchMoveAC) {
       this.#touchMoveAC.abort();
       this.#touchMoveAC = null;
@@ -17135,7 +17171,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.3.0";
-const build = "a6ca0fd";
+const build = "c8fbf33";
 
 ;// ./src/display/editor/color_picker.js
 
