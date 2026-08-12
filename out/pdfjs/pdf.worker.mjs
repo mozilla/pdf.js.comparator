@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 37da08f
+ * pdfjsBuild = 5903d58
  */
 
 ;// ./src/shared/util.js
@@ -58561,7 +58561,9 @@ class XRef {
         tableState.parserBuf2 = parser.buf2;
         const entry = {
           offset: parser.getObj(),
-          gen: parser.getObj()
+          gen: parser.getObj(),
+          free: false,
+          uncompressed: false
         };
         const type = parser.getObj();
         if (type instanceof Cmd) {
@@ -58658,7 +58660,9 @@ class XRef {
         }
         const entry = {
           offset,
-          gen: generation
+          gen: generation,
+          free: false,
+          uncompressed: false
         };
         switch (type) {
           case 0:
@@ -58780,6 +58784,7 @@ class XRef {
           this.#entries[num] = {
             offset: position - stream.start,
             gen,
+            free: false,
             uncompressed: true
           };
         }
