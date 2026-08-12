@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = c8fbf33
+ * pdfjsBuild = 37da08f
  */
 
 ;// ./src/shared/util.js
@@ -34907,11 +34907,11 @@ class PartialEvaluator {
           }
           break;
         case "TR":
+          if (gState.has("TR2")) {
+            break;
+          }
         case "TR2":
           {
-            if (key === "TR" && gState.has("TR2")) {
-              break;
-            }
             const transferMaps = this.handleTransferFunction(value);
             gStateObj.push(["TR", transferMaps]);
             break;
