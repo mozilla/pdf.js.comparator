@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 5903d58
+ * pdfjsBuild = cfaa6f3
  */
 
 ;// ./src/shared/util.js
@@ -2095,7 +2095,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "20955359-5527-4acb-97e7-d2ddca3d6a11";
+const INTERNAL_EVT = "696ad089-8893-4279-8dcf-d0a2ffd853bc";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -15696,9 +15696,6 @@ class PDFDocumentProxy {
   getDownloadInfo() {
     return this._transport.downloadInfoCapability.promise;
   }
-  getRawData(data) {
-    return this._transport.getRawData(data);
-  }
   cleanup(keepLoadedFonts = false) {
     return this._transport.startCleanup(keepLoadedFonts || this.isPureXfa);
   }
@@ -16949,9 +16946,6 @@ class WorkerTransport {
   getMarkInfo() {
     return this.messageHandler.sendWithPromise("GetMarkInfo", null);
   }
-  getRawData(data) {
-    return this.messageHandler.sendWithPromise("GetRawData", data);
-  }
   async startCleanup(keepLoadedFonts = false) {
     if (this.destroyed) {
       return;
@@ -17171,7 +17165,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.3.0";
-const build = "5903d58";
+const build = "cfaa6f3";
 
 ;// ./src/display/editor/color_picker.js
 
