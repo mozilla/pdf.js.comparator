@@ -209,8 +209,11 @@ if [ ! -f "${WASM_PREFIX}/lib/libpdfium.a" ] || \
     # whose header unconditionally #includes third_party/skia/…/SkStream.h — a
     # tree we never fetch. We build with PDF_USE_SKIA off (the skia backend dir
     # is already excluded via `! -path "*/skia/*"` below); this file just
-    # happens to live in core/fxcodec/, so it needs its own exclusion. Nothing
-    # we compile includes its header, so dropping the .cpp is safe.
+    # happens to live in core/fxcodec/, so it needs its own exclusion. Same for
+    # the skia_*.cpp family, pdfium's skia-backed alternatives to its
+    # libjpeg/libpng/libbmp codecs (jpeg/skia_scanline_decoder.cpp is compiled
+    # only under gn's pdf_enable_rust_jpeg). Every include of their headers is
+    # behind `#if defined(PDF_USE_SKIA)`, so dropping the .cpp files is safe.
     #
     # core/fxcrt/cfx_bidi_resolver.cpp is dropped for a DIFFERENT reason than the
     # files above — read this before touching it. It #includes ICU's
@@ -244,6 +247,7 @@ if [ ! -f "${WASM_PREFIX}/lib/libpdfium.a" ] || \
         ! -name "code_point_view.cpp" \
         ! -name "fx_memory_pa.cpp" \
         ! -name "codec_memory_sk_stream.cpp" \
+        ! -name "skia_*.cpp" \
         ! -name "cfx_bidi_resolver.cpp" \
         2>/dev/null | sort)
 
