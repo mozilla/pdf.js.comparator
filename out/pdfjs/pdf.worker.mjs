@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = cfaa6f3
+ * pdfjsBuild = aef18a9
  */
 
 ;// ./src/shared/util.js
@@ -529,7 +529,9 @@ class FeatureTest {
 }
 class Util {
   static get hexNums() {
-    return shadow(this, "hexNums", Array.from(Array(256).keys(), n => n.toString(16).padStart(2, "0")));
+    return shadow(this, "hexNums", Array.from({
+      length: 256
+    }, (_, n) => n.toString(16).padStart(2, "0")));
   }
   static makeHexColor(r, g, b) {
     return `#${this.hexNums[r]}${this.hexNums[g]}${this.hexNums[b]}`;
@@ -31119,7 +31121,7 @@ class PSStackBasedInterpreter {
       const base = this.#sp - nOut;
       for (let i = 0; i < nOut; i++) {
         const v = base + i >= 0 ? this.#stack[base + i] : 0;
-        dest[destOffset + i] = MathClamp(range[i * 2 + 1], range[i * 2], v);
+        dest[destOffset + i] = MathClamp(v, range[i * 2], range[i * 2 + 1]);
       }
     };
   }
@@ -40092,7 +40094,7 @@ class StructElementNode {
     if (role !== "Table" && role !== "TH" && role !== "TD") {
       return null;
     }
-    const result = Object.create(null);
+    const map = new Map();
     for (const attributes of this.attributes) {
       if (!isName(attributes.get("O"), "Table")) {
         continue;
@@ -40101,9 +40103,9 @@ class StructElementNode {
         if (attributes.has("Summary")) {
           const summary = attributes.get("Summary");
           if (typeof summary === "string" && summary) {
-            result.summary = stringToPDFString(summary);
+            map.set("summary", stringToPDFString(summary));
           } else {
-            delete result.summary;
+            map.delete("summary");
           }
         }
         continue;
@@ -40114,37 +40116,37 @@ class StructElementNode {
         }
         const value = attributes.get(key);
         if (Number.isInteger(value) && value > 1) {
-          result[name] = value;
+          map.set(name, value);
         } else {
-          delete result[name];
+          map.delete(name);
         }
       }
       if (attributes.has("Headers")) {
-        delete result.headers;
+        map.delete("headers");
         const headers = attributes.getArray("Headers");
         if (Array.isArray(headers)) {
           const ids = headers.filter(header => typeof header === "string").map(header => stringToPDFString(header));
           if (ids.length > 0) {
-            result.headers = ids;
+            map.set("headers", ids);
           }
         }
       }
       if (role === "TH" && attributes.has("Scope")) {
-        delete result.scope;
+        map.delete("scope");
         const scope = attributes.get("Scope");
         if (scope instanceof Name && ["Row", "Column", "Both"].includes(scope.name)) {
-          result.scope = scope.name;
+          map.set("scope", scope.name);
         }
       }
       if (role === "TH" && attributes.has("Short")) {
-        delete result.short;
+        map.delete("short");
         const short = attributes.get("Short");
         if (typeof short === "string" && short) {
-          result.short = stringToPDFString(short);
+          map.set("short", stringToPDFString(short));
         }
       }
     }
-    return Object.keys(result).length > 0 ? result : null;
+    return map.size ? map : null;
   }
   parseKids() {
     let pageObjId = null;
@@ -40384,10 +40386,9 @@ class StructTreePage {
       if (obj.role === "TH" && typeof structId === "string" && structId) {
         obj.structId = stringToPDFString(structId);
       }
-      const tableAttributes = node.tableAttributes;
-      if (tableAttributes) {
-        Object.assign(obj, tableAttributes);
-      }
+      node.tableAttributes?.forEach((val, key) => {
+        obj[key] = val;
+      });
       if (obj.role === "Formula") {
         try {
           const {

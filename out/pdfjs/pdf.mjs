@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = cfaa6f3
+ * pdfjsBuild = aef18a9
  */
 
 ;// ./src/shared/util.js
@@ -538,7 +538,9 @@ class FeatureTest {
 }
 class Util {
   static get hexNums() {
-    return shadow(this, "hexNums", Array.from(Array(256).keys(), n => n.toString(16).padStart(2, "0")));
+    return shadow(this, "hexNums", Array.from({
+      length: 256
+    }, (_, n) => n.toString(16).padStart(2, "0")));
   }
   static makeHexColor(r, g, b) {
     return `#${this.hexNums[r]}${this.hexNums[g]}${this.hexNums[b]}`;
@@ -2095,7 +2097,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "696ad089-8893-4279-8dcf-d0a2ffd853bc";
+const INTERNAL_EVT = "2434022e-a5be-4e97-9b80-3dc415133d6c";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -17165,7 +17167,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.3.0";
-const build = "cfaa6f3";
+const build = "aef18a9";
 
 ;// ./src/display/editor/color_picker.js
 
