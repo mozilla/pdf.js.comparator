@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = ca17005
+ * pdfjsBuild = 4192cb3
  */
 
 ;// ./src/shared/util.js
@@ -27022,7 +27022,7 @@ function createPostscriptName(name) {
 function createNameTable(name, proto) {
   proto ||= [[], []];
   const strings = [proto[0][0] || "Original licence", proto[0][1] || name, proto[0][2] || "Unknown", proto[0][3] || "uniqueID", proto[0][4] || name, proto[0][5] || "Version 0.11", proto[0][6] || createPostscriptName(name), proto[0][7] || "Unknown", proto[0][8] || "Unknown", proto[0][9] || "Unknown"];
-  const stringsBytes = strings.map(s => stringToBytes(s));
+  const stringsBytes = strings.map(stringToBytes);
   const stringsUnicodeBytes = new Array(strings.length);
   let i, ii, j, jj, str;
   for (i = 0, ii = strings.length; i < ii; i++) {
@@ -40125,7 +40125,7 @@ class StructElementNode {
         map.delete("headers");
         const headers = attributes.getArray("Headers");
         if (Array.isArray(headers)) {
-          const ids = headers.filter(header => typeof header === "string").map(header => stringToPDFString(header));
+          const ids = headers.filter(header => typeof header === "string").map(stringToPDFString);
           if (ids.length > 0) {
             map.set("headers", ids);
           }
@@ -48979,7 +48979,7 @@ class Text extends ContentObject {
   }
   [$getExtra]() {
     if (typeof this[$content] === "string") {
-      return this[$content].split(/[\u2029\u2028\n]/).filter(line => !!line).join("\n");
+      return this[$content].split(/[\u2029\u2028\n]/).filter(Boolean).join("\n");
     }
     return this[$content][$text]();
   }
@@ -50434,7 +50434,7 @@ class EquateRange extends XFAObject {
     const ranges = [];
     const unicodeRegex = /U\+([0-9a-fA-F]+)/;
     const unicodeRange = this._unicodeRange;
-    for (let range of unicodeRange.split(",").map(x => x.trim()).filter(x => !!x)) {
+    for (let range of unicodeRange.split(",").map(x => x.trim()).filter(Boolean)) {
       range = range.split("-", 2).map(x => {
         const found = x.match(unicodeRegex);
         if (!found) {
@@ -52208,7 +52208,7 @@ class XhtmlObject extends XmlObject {
           xfaFont.letterSpacing = getMeasurement(value);
           break;
         case "margin":
-          const values = value.split(/ \t/).map(x => getMeasurement(x));
+          const values = value.split(/ \t/).map(getMeasurement);
           switch (values.length) {
             case 1:
               margin.top = margin.bottom = margin.left = margin.right = values[0];
@@ -60549,7 +60549,7 @@ class PDFDocument {
       const allPromises = [];
       for (const [name, promises] of fieldPromises) {
         allPromises.push(Promise.all(promises).then(fields => {
-          fields = fields.filter(field => !!field);
+          fields = fields.filter(Boolean);
           if (fields.length > 0) {
             allFields.set(name, fields);
           }
@@ -62635,7 +62635,7 @@ class PDFEditor {
       }));
     }
     await Promise.all(promises);
-    newAnnotations = newAnnotations.filter(annot => !!annot);
+    newAnnotations = newAnnotations.filter(Boolean);
     pageData.annotations = newAnnotations.length > 0 ? newAnnotations : null;
     pageData.documentData.hasSignatureAnnotations ||= hasSignatureAnnotations;
   }
@@ -63538,7 +63538,7 @@ class PDFEditor {
     }
     const numPages = document.numPages;
     const labelsByPageIndex = new Map();
-    const oldPageIndices = new Set(this.oldPages.filter(p => !!p).map(({
+    const oldPageIndices = new Set(this.oldPages.filter(Boolean).map(({
       page: {
         pageIndex
       }
@@ -64720,7 +64720,7 @@ class WorkerMessageHandler {
         }
         await Promise.all(pagePromises);
         const annotations = await Promise.all(annotationPromises);
-        return annotations.filter(a => !!a);
+        return annotations.filter(Boolean);
       } finally {
         if (task) {
           finishWorkerTask(task);
