@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 4192cb3
+ * pdfjsBuild = 6694c0e
  */
 
 ;// ./src/shared/util.js
@@ -39584,14 +39584,14 @@ class StructTreeRoot {
     }
     return this.kidRefToPosition ? this.kidRefToPosition.get(kidRef) ?? NaN : -1;
   }
-  #addIdToPage(pageRef, id, type) {
+  #addIdToPage(pageRef, id, type, objId) {
     if (!(pageRef instanceof Ref) || id < 0) {
       return;
     }
-    (this.structParentIds ??= new RefMap()).getOrPutComputed(pageRef, makeArr).push([id, type]);
+    (this.structParentIds ??= new RefMap()).getOrPutComputed(pageRef, makeArr).push([id, type, objId]);
   }
-  addAnnotationIdToPage(pageRef, id) {
-    this.#addIdToPage(pageRef, id, StructElementType.ANNOTATION);
+  addAnnotationIdToPage(pageRef, id, ref) {
+    this.#addIdToPage(pageRef, id, StructElementType.ANNOTATION, ref instanceof Ref ? ref.toString() : null);
   }
   static async canCreateStructureTree({
     catalogRef,
@@ -40292,12 +40292,18 @@ class StructTreePage {
     if (!ids) {
       return;
     }
-    for (const [elemId, type] of ids) {
+    for (const [elemId, type, objId] of ids) {
       const obj = parentTree.get(elemId);
-      if (obj) {
-        const elem = this.addNode(this.xref.fetchIfRef(obj), map);
-        if (elem?.kids?.length === 1 && elem.kids[0].type === StructElementType.OBJECT) {
-          elem.kids[0].type = type;
+      if (!obj) {
+        continue;
+      }
+      const elem = this.addNode(this.xref.fetchIfRef(obj), map);
+      if (!elem || !objId) {
+        continue;
+      }
+      for (const kid of elem.kids) {
+        if (kid.type === StructElementType.OBJECT && kid.refObjId === objId) {
+          kid.type = type;
         }
       }
     }
@@ -53391,7 +53397,7 @@ class Annotation {
     if (annotationGlobals.structTreeRoot) {
       let structParent = dict.get("StructParent");
       this.data.structParent = structParent = Number.isInteger(structParent) && structParent >= 0 ? structParent : -1;
-      annotationGlobals.structTreeRoot.addAnnotationIdToPage(params.pageRef, structParent);
+      annotationGlobals.structTreeRoot.addAnnotationIdToPage(params.pageRef, structParent, this.ref);
     }
     if (params.collectFields) {
       const kids = dict.get("Kids");

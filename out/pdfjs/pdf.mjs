@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 4192cb3
+ * pdfjsBuild = 6694c0e
  */
 
 ;// ./src/shared/util.js
@@ -2097,7 +2097,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "da5f6876-4603-4b85-ad92-35e2e62dea45";
+const INTERNAL_EVT = "fb9e0dee-f4e6-42e5-a262-939500052ca2";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -17167,7 +17167,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.3.0";
-const build = "4192cb3";
+const build = "6694c0e";
 
 ;// ./src/display/editor/color_picker.js
 
@@ -20998,8 +20998,14 @@ class AnnotationLayer {
     this.div.append(fragment);
     await Promise.all(promises);
     if (this.#accessibilityManager) {
-      for (const element of this.#elements) {
-        this.#accessibilityManager.addPointerInTextLayer(element.contentElement, false);
+      const annotationIds = await this.#structTreeLayer?.getAnnotationIds();
+      for (const {
+        contentElement
+      } of this.#elements) {
+        if (annotationIds?.has(contentElement.id)) {
+          continue;
+        }
+        this.#accessibilityManager.addPointerInTextLayer(contentElement, false);
       }
     }
   }
