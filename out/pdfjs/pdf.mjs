@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 909acb9
+ * pdfjsBuild = 5b42e12
  */
 
 ;// ./src/shared/util.js
@@ -2019,6 +2019,7 @@ class FloatingToolbar {
     const editToolbar = this.#toolbar = document.createElement("div");
     editToolbar.className = "editToolbar";
     editToolbar.setAttribute("role", "toolbar");
+    editToolbar.dir = this.#uiManager.direction;
     const signal = this.#uiManager._signal;
     if (signal instanceof AbortSignal && !signal.aborted) {
       editToolbar.addEventListener("contextmenu", noContextMenu, {
@@ -2097,7 +2098,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "abcf7732-6248-48d8-be3d-5d93682f3376";
+const INTERNAL_EVT = "58817a3e-855b-4ae7-a9d2-894b3dd32fee";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -17167,7 +17168,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.3.0";
-const build = "909acb9";
+const build = "5b42e12";
 
 ;// ./src/display/editor/color_picker.js
 
