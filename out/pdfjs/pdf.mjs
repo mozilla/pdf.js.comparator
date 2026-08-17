@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 5b42e12
+ * pdfjsBuild = 79da643
  */
 
 ;// ./src/shared/util.js
@@ -2098,7 +2098,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "58817a3e-855b-4ae7-a9d2-894b3dd32fee";
+const INTERNAL_EVT = "a42e129a-3946-42af-a701-269a79335303";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -17168,7 +17168,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.3.0";
-const build = "5b42e12";
+const build = "79da643";
 
 ;// ./src/display/editor/color_picker.js
 
@@ -20943,11 +20943,16 @@ class AnnotationLayer {
       for (const {
         contentElement,
         data: {
-          id
+          hidden,
+          id,
+          oc
         }
       } of this.#elements) {
         const annotationId = contentElement.id = `${AnnotationPrefix}${id}`;
-        promises.push(this.#structTreeLayer?.getAriaAttributes(annotationId).then(ariaAttributes => {
+        const enableLinkOwnership = contentElement.localName === "a" && !hidden && !oc;
+        promises.push(this.#structTreeLayer?.getAriaAttributes(annotationId, {
+          enableLinkOwnership
+        }).then(ariaAttributes => {
           if (ariaAttributes) {
             for (const [key, value] of ariaAttributes) {
               contentElement.setAttribute(key, value);
