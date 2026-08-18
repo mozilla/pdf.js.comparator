@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 79da643
+ * pdfjsBuild = 6528081
  */
 
 ;// ./src/shared/util.js
@@ -1125,7 +1125,7 @@ class BaseStream {
   get canAsyncDecodeImageFromBuffer() {
     return false;
   }
-  async getTransferableImage() {
+  async getTransferableImage(width, height) {
     return null;
   }
   peekByte() {
@@ -3462,12 +3462,14 @@ class ImageResizer {
     const maxArea = this.MAX_AREA = this.#goodSquareLength ** 2;
     return area > maxArea;
   }
-  static getReducePowerForJPX(width, height, componentsCount) {
+  static getReducePower(width, height, maxArea = Infinity) {
+    if (!Number.isInteger(width) || width <= 0 || !Number.isInteger(height) || height <= 0) {
+      return 0;
+    }
     const area = width * height;
-    const maxJPXArea = 2 ** 30 / (componentsCount * 4);
     if (!this.needsToBeResized(width, height)) {
-      if (area > maxJPXArea) {
-        return Math.ceil(Math.log2(area / maxJPXArea));
+      if (area > maxArea) {
+        return Math.ceil(Math.log2(area / maxArea));
       }
       return 0;
     }
@@ -3475,8 +3477,11 @@ class ImageResizer {
       MAX_DIM,
       MAX_AREA
     } = this;
-    const minFactor = Math.max(width / MAX_DIM, height / MAX_DIM, Math.sqrt(area / Math.min(maxJPXArea, MAX_AREA)));
-    return Math.ceil(Math.log2(minFactor));
+    const minFactor = Math.max(width / MAX_DIM, height / MAX_DIM, Math.sqrt(area / Math.min(maxArea, MAX_AREA)));
+    return Math.max(0, Math.ceil(Math.log2(minFactor)));
+  }
+  static getReducePowerForJPX(width, height, componentsCount) {
+    return this.getReducePower(width, height, 2 ** 30 / (componentsCount * 4));
   }
   static get MAX_DIM() {
     return shadow(this, "MAX_DIM", this._guessMax(MIN_IMAGE_DIM, MAX_IMAGE_DIM, 0, 1));
@@ -4859,6 +4864,8 @@ class JpegImage {
     let exifOffsets = null;
     let offset = 0;
     let numComponents = null;
+    let scanLines = 0,
+      samplesPerLine = 0;
     let fileMarker = view.getUint16(offset);
     offset += 2;
     if (fileMarker !== 0xffd8) {
@@ -4890,6 +4897,8 @@ class JpegImage {
         case 0xffc0:
         case 0xffc1:
         case 0xffc2:
+          scanLines = view.getUint16(offset + (2 + 1));
+          samplesPerLine = view.getUint16(offset + (2 + 1 + 2));
           numComponents = data[offset + (2 + 1 + 2 + 2)];
           break markerLoop;
         case 0xffff:
@@ -4908,7 +4917,11 @@ class JpegImage {
     if (numComponents === 3 && colorTransform === 0) {
       return null;
     }
-    return exifOffsets || {};
+    return {
+      width: samplesPerLine,
+      height: scanLines,
+      ...exifOffsets
+    };
   }
   parse(data, {
     dnlScanLines = null
@@ -5339,6 +5352,7 @@ class JpegImage {
 
 
 
+
 class JpegStream extends DecodeStream {
   static #isImageDecoderSupported = FeatureTest.isImageDecoderSupported;
   constructor(stream, maybeLength, params) {
@@ -5426,7 +5440,7 @@ class JpegStream extends DecodeStream {
   get canAsyncDecodeImageFromBuffer() {
     return this.stream.isAsync;
   }
-  async getTransferableImage() {
+  async getTransferableImage(width, height) {
     if (!(await JpegStream.canUseImageDecoder)) {
       return null;
     }
@@ -5445,15 +5459,25 @@ class JpegStream extends DecodeStream {
       if (!useImageDecoder) {
         return null;
       }
+      if (useImageDecoder.width !== width || useImageDecoder.height !== height) {
+        return null;
+      }
       if (useImageDecoder.exifStart) {
         data = data.slice();
         data.fill(0x00, useImageDecoder.exifStart, useImageDecoder.exifEnd);
       }
-      decoder = new ImageDecoder({
+      const init = {
         data,
         type: "image/jpeg",
         preferAnimation: false
-      });
+      };
+      const reducePower = ImageResizer.getReducePower(width, height);
+      if (reducePower) {
+        const factor = 2 ** reducePower;
+        init.desiredWidth = Math.ceil(width / factor);
+        init.desiredHeight = Math.ceil(height / factor);
+      }
+      decoder = new ImageDecoder(init);
       return (await decoder.decode()).image;
     } catch (reason) {
       warn(`getTransferableImage - failed: "${reason}".`);
@@ -33841,26 +33865,30 @@ class PDFImage {
         return imgData;
       }
       if (this.image instanceof JpegStream && !this.smask && !this.mask && !this.needsDecode) {
-        let imageLength = originalHeight * rowBytes;
-        if (isOffscreenCanvasSupported && !mustBeResized) {
-          let isHandled = false;
-          switch (this.colorSpace.name) {
-            case "DeviceGray":
-              imageLength *= 4;
-              isHandled = true;
-              break;
-            case "DeviceRGB":
-              imageLength = imageLength / 3 * 4;
-              isHandled = true;
-              break;
-            case "DeviceCMYK":
-              isHandled = true;
-              break;
-          }
-          if (isHandled) {
+        let isHandled = false;
+        switch (this.colorSpace.name) {
+          case "DeviceGray":
+          case "DeviceRGB":
+          case "DeviceCMYK":
+            isHandled = true;
+            break;
+        }
+        if (isHandled) {
+          if (isOffscreenCanvasSupported) {
             const image = await this.#getImage(drawWidth, drawHeight);
             if (image) {
               return image;
+            }
+          }
+          let imageLength = originalHeight * rowBytes;
+          if (isOffscreenCanvasSupported && !mustBeResized) {
+            switch (this.colorSpace.name) {
+              case "DeviceGray":
+                imageLength *= 4;
+                break;
+              case "DeviceRGB":
+                imageLength = imageLength / 3 * 4;
+                break;
             }
             const rgba = await this.getImageBytes(imageLength, {
               drawWidth,
@@ -33870,24 +33898,20 @@ class PDFImage {
             });
             return this.createBitmap(ImageKind.RGBA_32BPP, drawWidth, drawHeight, rgba);
           }
-        } else {
-          switch (this.colorSpace.name) {
-            case "DeviceGray":
-              imageLength *= 3;
-            case "DeviceRGB":
-            case "DeviceCMYK":
-              imgData.kind = ImageKind.RGB_24BPP;
-              imgData.data = await this.getImageBytes(imageLength, {
-                drawWidth,
-                drawHeight,
-                forceRGB: true,
-                internal: mustBeResized
-              });
-              if (mustBeResized) {
-                return ImageResizer.createImage(imgData);
-              }
-              return imgData;
+          if (this.colorSpace.name === "DeviceGray") {
+            imageLength *= 3;
           }
+          imgData.kind = ImageKind.RGB_24BPP;
+          imgData.data = await this.getImageBytes(imageLength, {
+            drawWidth,
+            drawHeight,
+            forceRGB: true,
+            internal: mustBeResized
+          });
+          if (mustBeResized) {
+            return ImageResizer.createImage(imgData);
+          }
+          return imgData;
         }
       }
     }
@@ -34069,14 +34093,14 @@ class PDFImage {
     };
   }
   async #getImage(width, height) {
-    const bitmap = await this.image.getTransferableImage();
+    const bitmap = await this.image.getTransferableImage(width, height);
     if (!bitmap) {
       return null;
     }
     return {
       data: null,
-      width,
-      height,
+      width: bitmap.displayWidth ?? width,
+      height: bitmap.displayHeight ?? height,
       bitmap,
       interpolate: this.interpolate
     };
