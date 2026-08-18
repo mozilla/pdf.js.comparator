@@ -162,19 +162,19 @@ reusable `_renderer.yml`. Scheduled runs skip when the source.json
 fingerprint matches gh-pages; manual, push, and `repository_dispatch`
 runs always rebuild.
 
-| Workflow          | Source resolution                                                       |
-| ----------------- | ----------------------------------------------------------------------- |
-| `cairo.yml`       | newest `cairo` `X.Y.Z` tag + newest `poppler-X.Y.Z` tag                 |
-| `splash.yml`      | newest `poppler-X.Y.Z` tag (poppler-only; no cairo backend)             |
-| `pdfium.yml`      | `pdfium`, `abseil`, `fast_float` all track HEAD (`PDFIUM_REF=main`)     |
-| `mupdf.yml`       | pinned at `1.26.1` — newer mupdf forces wasm-EH that breaks our runtime |
-| `xpdf.yml`        | pinned xpdf version (the upstream cert chain breaks live scrape)        |
-| `butteraugli.yml` | upstream HEAD                                                           |
-| `flip.yml`        | upstream HEAD                                                           |
-| `gs.yml`          | latest `ghostscript-wasm-esm` on npm                                    |
-| `pdfbox.yml`      | latest `org.apache.pdfbox:pdfbox-app` on Maven Central                  |
-| `dssim.yml`       | latest `dssim-core` crate                                               |
-| `pdfjs.yml`       | mozilla/pdf.js `master`                                                 |
+| Workflow          | Source resolution                                                                |
+| ----------------- | -------------------------------------------------------------------------------- |
+| `cairo.yml`       | newest `cairo` `X.Y.Z` tag + newest `poppler-X.Y.Z` tag                          |
+| `splash.yml`      | newest `poppler-X.Y.Z` tag (poppler-only; no cairo backend)                      |
+| `pdfium.yml`      | `pdfium`, `abseil`, `fast_float`, `dragonbox` all track HEAD (`PDFIUM_REF=main`) |
+| `mupdf.yml`       | pinned at `1.26.1` — newer mupdf forces wasm-EH that breaks our runtime          |
+| `xpdf.yml`        | pinned xpdf version (the upstream cert chain breaks live scrape)                 |
+| `butteraugli.yml` | upstream HEAD                                                                    |
+| `flip.yml`        | upstream HEAD                                                                    |
+| `gs.yml`          | latest `ghostscript-wasm-esm` on npm                                             |
+| `pdfbox.yml`      | latest `org.apache.pdfbox:pdfbox-app` on Maven Central                           |
+| `dssim.yml`       | latest `dssim-core` crate                                                        |
+| `pdfjs.yml`       | mozilla/pdf.js `master`                                                          |
 
 pdf.js is intentionally rolling: `scripts/build-pdfjs.sh` defaults to
 `PDFJS_REF=master`, writes the resolved upstream commit to

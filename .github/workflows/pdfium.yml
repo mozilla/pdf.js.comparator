@@ -42,5 +42,6 @@ jobs:
       apt_packages: "cmake ninja-build meson pkg-config autoconf automake libtool gperf"
       resolver_env: |
         ABSEIL_REF=HEAD
+        DRAGONBOX_REF=HEAD
         FAST_FLOAT_REF=HEAD
         PDFIUM_REF=main

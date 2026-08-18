@@ -90,13 +90,15 @@ FROM deps AS pdfium
 ARG PDFIUM_REF
 ARG FAST_FLOAT_REF
 ARG ABSEIL_REF
+ARG DRAGONBOX_REF
 ARG PDFIUM_CACHE_BUST
 COPY scripts/build-deps.sh    /code/scripts/
 COPY scripts/build-pdfium.sh  /code/scripts/
 COPY src/common               /code/src/common/
 COPY src/pdfium               /code/src/pdfium/
-RUN echo "pdfium ref=${PDFIUM_REF} fast_float=${FAST_FLOAT_REF} abseil=${ABSEIL_REF} cache=${PDFIUM_CACHE_BUST}" && \
+RUN echo "pdfium ref=${PDFIUM_REF} fast_float=${FAST_FLOAT_REF} abseil=${ABSEIL_REF} dragonbox=${DRAGONBOX_REF} cache=${PDFIUM_CACHE_BUST}" && \
     PDFIUM_REF="${PDFIUM_REF}" FAST_FLOAT_REF="${FAST_FLOAT_REF}" ABSEIL_REF="${ABSEIL_REF}" \
+    DRAGONBOX_REF="${DRAGONBOX_REF}" \
     bash /code/scripts/build-pdfium.sh
 
 FROM deps AS mupdf

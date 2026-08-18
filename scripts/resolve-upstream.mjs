@@ -302,6 +302,7 @@ async function resolvePdfium() {
   const pdfiumRef = process.env.PDFIUM_REF || "main";
   const fastFloatRef = process.env.FAST_FLOAT_REF || "HEAD";
   const abseilRef = process.env.ABSEIL_REF || "HEAD";
+  const dragonboxRef = process.env.DRAGONBOX_REF || "HEAD";
   const pdfium = resolveGitHead(
     "https://pdfium.googlesource.com/pdfium.git",
     pdfiumRef,
@@ -314,8 +315,12 @@ async function resolvePdfium() {
     "https://github.com/abseil/abseil-cpp.git",
     abseilRef,
   );
+  const dragonbox = resolveGitHead(
+    "https://github.com/jk-jeon/dragonbox.git",
+    dragonboxRef,
+  );
   return {
-    fingerprint: `pdfium=${pdfium};fast_float=${fastFloat};abseil=${abseil}`,
+    fingerprint: `pdfium=${pdfium};fast_float=${fastFloat};abseil=${abseil};dragonbox=${dragonbox}`,
     values: {
       pdfium_ref: pdfiumRef,
       pdfium_commit: pdfium,
@@ -323,6 +328,8 @@ async function resolvePdfium() {
       fast_float_commit: fastFloat,
       abseil_ref: abseilRef,
       abseil_commit: abseil,
+      dragonbox_ref: dragonboxRef,
+      dragonbox_commit: dragonbox,
     },
   };
 }
