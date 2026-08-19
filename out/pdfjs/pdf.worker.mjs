@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 0adc2e7
+ * pdfjsBuild = cbe0e9d
  */
 
 ;// ./src/shared/util.js
@@ -35300,9 +35300,15 @@ class PartialEvaluator {
     const stateManager = new StateManager(initialState);
     const preprocessor = new EvaluatorPreprocessor(stream, xref, stateManager);
     const timeSlotManager = new TimeSlotManager();
+    let markedContentLevel = 0;
     function closePendingRestoreOPS(argument) {
       for (let i = 0, ii = preprocessor.savedStatesDepth; i < ii; i++) {
         operatorList.addOp(OPS.restore, []);
+      }
+    }
+    function closePendingMarkedContentOPS() {
+      for (; markedContentLevel > 0; markedContentLevel--) {
+        operatorList.addOp(OPS.endMarkedContent, []);
       }
     }
     return new Promise(function promiseBody(resolve, reject) {
@@ -35318,7 +35324,7 @@ class PartialEvaluator {
       task.ensureNotTerminated();
       timeSlotManager.reset();
       const operation = {};
-      let stop, i, ii, cs, name, isValidName;
+      let stop, cs, name, isValidName;
       while (!(stop = timeSlotManager.check())) {
         operation.args = null;
         if (!preprocessor.read(operation)) {
@@ -35758,6 +35764,7 @@ class PartialEvaluator {
           case OPS.endCompat:
             continue;
           case OPS.beginMarkedContentProps:
+            markedContentLevel++;
             if (!(args[0] instanceof Name)) {
               warn(`Expected name for beginMarkedContentProps arg0=${args[0]}`);
               operatorList.addOp(OPS.beginMarkedContentProps, ["OC", null]);
@@ -35782,18 +35789,26 @@ class PartialEvaluator {
             args = [args[0].name, args[1] instanceof Dict ? args[1].get("MCID") : null];
             break;
           case OPS.beginMarkedContent:
+            if (args?.some(arg => arg instanceof Dict)) {
+              warn(`getOperatorList - ignoring operator: ${fn}`);
+              continue;
+            }
+            markedContentLevel++;
+            break;
           case OPS.endMarkedContent:
+            if (args?.some(arg => arg instanceof Dict)) {
+              warn(`getOperatorList - ignoring operator: ${fn}`);
+              continue;
+            }
+            if (markedContentLevel === 0) {
+              continue;
+            }
+            markedContentLevel--;
+            break;
           default:
-            if (args !== null) {
-              for (i = 0, ii = args.length; i < ii; i++) {
-                if (args[i] instanceof Dict) {
-                  break;
-                }
-              }
-              if (i < ii) {
-                warn("getOperatorList - ignoring operator: " + fn);
-                continue;
-              }
+            if (args?.some(arg => arg instanceof Dict)) {
+              warn(`getOperatorList - ignoring operator: ${fn}`);
+              continue;
             }
         }
         operatorList.addOp(fn, args);
@@ -35802,6 +35817,7 @@ class PartialEvaluator {
         next(deferred);
         return;
       }
+      closePendingMarkedContentOPS();
       closePendingRestoreOPS();
       resolve();
     }).catch(reason => {
@@ -35810,6 +35826,7 @@ class PartialEvaluator {
       }
       if (this.options.ignoreErrors) {
         warn(`getOperatorList - ignoring errors during "${task.name}" ` + `task: "${reason}".`);
+        closePendingMarkedContentOPS();
         closePendingRestoreOPS();
         return;
       }
@@ -35826,7 +35843,6 @@ class PartialEvaluator {
     seenStyles = new Set(),
     viewBox,
     lang = null,
-    markedContentData = null,
     disableNormalization = false,
     keepWhiteSpace = false,
     prevRefs = null,
@@ -35849,11 +35865,8 @@ class PartialEvaluator {
     }
     resources ||= Dict.empty;
     stateManager ||= new StateManager(new TextState());
-    if (includeMarkedContent) {
-      markedContentData ||= {
-        level: 0
-      };
-    }
+    let markedContentLevel = 0;
+    let textMarkedContentLevel = null;
     const textContent = {
       items: [],
       styles: Object.create(null),
@@ -36319,6 +36332,17 @@ class PartialEvaluator {
       textContentItem.initialized = false;
       textContentItem.str.length = 0;
     }
+    function closePendingMarkedContentItems(level = 0) {
+      if (!includeMarkedContent || markedContentLevel <= level) {
+        return;
+      }
+      flushTextContentItem();
+      for (; markedContentLevel > level; markedContentLevel--) {
+        textContent.items.push({
+          type: "endMarkedContent"
+        });
+      }
+    }
     function enqueueChunk(batch = false) {
       const length = textContent.items.length;
       if (length === 0) {
@@ -36406,6 +36430,13 @@ class PartialEvaluator {
           case OPS.beginText:
             textState.textMatrix = IDENTITY_MATRIX.slice();
             textState.textLineMatrix = IDENTITY_MATRIX.slice();
+            textMarkedContentLevel = markedContentLevel;
+            break;
+          case OPS.endText:
+            if (textMarkedContentLevel !== null) {
+              closePendingMarkedContentItems(textMarkedContentLevel);
+              textMarkedContentLevel = null;
+            }
             break;
           case OPS.showSpacedText:
             if (!stateManager.state.font) {
@@ -36527,7 +36558,6 @@ class PartialEvaluator {
                 seenStyles,
                 viewBox,
                 lang,
-                markedContentData,
                 disableNormalization,
                 keepWhiteSpace,
                 prevRefs: seenRefs
@@ -36590,7 +36620,7 @@ class PartialEvaluator {
           case OPS.beginMarkedContent:
             flushTextContentItem();
             if (includeMarkedContent) {
-              markedContentData.level++;
+              markedContentLevel++;
               textContent.items.push({
                 type: "beginMarkedContent",
                 tag: args[0] instanceof Name ? args[0].name : null
@@ -36600,7 +36630,7 @@ class PartialEvaluator {
           case OPS.beginMarkedContentProps:
             flushTextContentItem();
             if (includeMarkedContent) {
-              markedContentData.level++;
+              markedContentLevel++;
               const mcid = args[1] instanceof Dict ? args[1].get("MCID") : null;
               textContent.items.push({
                 type: "beginMarkedContentProps",
@@ -36612,10 +36642,10 @@ class PartialEvaluator {
           case OPS.endMarkedContent:
             flushTextContentItem();
             if (includeMarkedContent) {
-              if (markedContentData.level === 0) {
+              if (markedContentLevel === 0) {
                 break;
               }
-              markedContentData.level--;
+              markedContentLevel--;
               textContent.items.push({
                 type: "endMarkedContent"
               });
@@ -36632,6 +36662,7 @@ class PartialEvaluator {
         return;
       }
       flushTextContentItem();
+      closePendingMarkedContentItems();
       enqueueChunk();
       resolve();
     }).catch(reason => {
@@ -36641,6 +36672,7 @@ class PartialEvaluator {
       if (this.options.ignoreErrors) {
         warn(`getTextContent - ignoring errors during "${task.name}" ` + `task: "${reason}".`);
         flushTextContentItem();
+        closePendingMarkedContentItems();
         enqueueChunk();
         return;
       }
