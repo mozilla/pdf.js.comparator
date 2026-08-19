@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = cbe0e9d
+ * pdfjsBuild = e051279
  */
 
 ;// ./src/shared/util.js
@@ -1241,6 +1241,7 @@ function stringToUTF16String(str, bigEndian = false) {
   return buf.join("");
 }
 const PDFStringTranslateTable = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x2d8, 0x2c7, 0x2c6, 0x2d9, 0x2dd, 0x2db, 0x2da, 0x2dc, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x2022, 0x2020, 0x2021, 0x2026, 0x2014, 0x2013, 0x192, 0x2044, 0x2039, 0x203a, 0x2212, 0x2030, 0x201e, 0x201c, 0x201d, 0x2018, 0x2019, 0x201a, 0x2122, 0xfb01, 0xfb02, 0x141, 0x152, 0x160, 0x178, 0x17d, 0x131, 0x142, 0x153, 0x161, 0x17e, 0, 0x20ac];
+const PDFStringTextDecoders = Object.create(null);
 function stringToPDFString(str, keepEscapeSequence = false) {
   if (str[0] >= "\xEF") {
     let encoding;
@@ -1259,7 +1260,7 @@ function stringToPDFString(str, keepEscapeSequence = false) {
     }
     if (encoding) {
       try {
-        const decoder = new TextDecoder(encoding, {
+        const decoder = PDFStringTextDecoders[encoding] ??= new TextDecoder(encoding, {
           fatal: true
         });
         const buffer = stringToBytes(str);
@@ -4861,11 +4862,14 @@ class JpegImage {
   }
   static canUseImageDecoder(data, colorTransform = -1) {
     const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
-    let exifOffsets = null;
+    const info = {
+      width: 0,
+      height: 0,
+      exifStart: 0,
+      exifEnd: 0
+    };
     let offset = 0;
     let numComponents = null;
-    let scanLines = 0,
-      samplesPerLine = 0;
     let fileMarker = view.getUint16(offset);
     offset += 2;
     if (fileMarker !== 0xffd8) {
@@ -4883,13 +4887,11 @@ class JpegImage {
           } = readDataBlock(data, view, offset);
           offset = newOffset;
           if (appData[0] === 0x45 && appData[1] === 0x78 && appData[2] === 0x69 && appData[3] === 0x66 && appData[4] === 0 && appData[5] === 0) {
-            if (exifOffsets) {
+            if (info.exifStart) {
               throw new JpegError("Duplicate EXIF-blocks found.");
             }
-            exifOffsets = {
-              exifStart: oldOffset + 6,
-              exifEnd: newOffset
-            };
+            info.exifStart = oldOffset + 6;
+            info.exifEnd = newOffset;
           }
           fileMarker = view.getUint16(offset);
           offset += 2;
@@ -4897,8 +4899,8 @@ class JpegImage {
         case 0xffc0:
         case 0xffc1:
         case 0xffc2:
-          scanLines = view.getUint16(offset + (2 + 1));
-          samplesPerLine = view.getUint16(offset + (2 + 1 + 2));
+          info.height = view.getUint16(offset + (2 + 1));
+          info.width = view.getUint16(offset + (2 + 1 + 2));
           numComponents = data[offset + (2 + 1 + 2 + 2)];
           break markerLoop;
         case 0xffff:
@@ -4917,11 +4919,7 @@ class JpegImage {
     if (numComponents === 3 && colorTransform === 0) {
       return null;
     }
-    return {
-      width: samplesPerLine,
-      height: scanLines,
-      ...exifOffsets
-    };
+    return info;
   }
   parse(data, {
     dnlScanLines = null
