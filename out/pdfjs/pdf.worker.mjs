@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = e051279
+ * pdfjsBuild = d63ef00
  */
 
 ;// ./src/shared/util.js
@@ -11234,7 +11234,7 @@ class RunLengthStream extends DecodeStream {
   }
   readBlock() {
     const repeatHeader = this.stream.getBytes(2);
-    if (!repeatHeader || repeatHeader.length < 2 || repeatHeader[0] === 128) {
+    if (repeatHeader.length < 2 || repeatHeader[0] === 128) {
       this.eof = true;
       return;
     }
@@ -21106,6 +21106,7 @@ class CFFFont {
 }
 
 ;// ./src/shared/obj_bin_transform_utils.js
+
 class CSS_FONT_INFO {
   static strings = ["fontFamily", "fontWeight", "italicAngle"];
 }
@@ -21132,12 +21133,22 @@ class PATTERN_INFO {
   static N_STOP = 12;
   static N_FIGURES = 16;
 }
+class InfoUtils {
+  static get decoder() {
+    return shadow(this, "decoder", new TextDecoder());
+  }
+  static get encoder() {
+    return shadow(this, "encoder", new TextEncoder());
+  }
+}
 
 ;// ./src/core/obj_bin_transform_core.js
 
 
 function compileCssFontInfo(info) {
-  const encoder = new TextEncoder();
+  const {
+    encoder
+  } = InfoUtils;
   const encodedStrings = {};
   let stringsLength = 0;
   for (const prop of CSS_FONT_INFO.strings) {
@@ -21160,7 +21171,9 @@ function compileCssFontInfo(info) {
   return buffer;
 }
 function compileSystemFontInfo(info) {
-  const encoder = new TextEncoder();
+  const {
+    encoder
+  } = InfoUtils;
   const encodedStrings = {};
   let stringsLength = 0;
   for (const prop of SYSTEM_FONT_INFO.strings) {
@@ -21208,7 +21221,9 @@ function compileSystemFontInfo(info) {
 function compileFontInfo(font) {
   const systemFontInfoBuffer = font.systemFontInfo ? compileSystemFontInfo(font.systemFontInfo) : null;
   const cssFontInfoBuffer = font.cssFontInfo ? compileCssFontInfo(font.cssFontInfo) : null;
-  const encoder = new TextEncoder();
+  const {
+    encoder
+  } = InfoUtils;
   const encodedStrings = {};
   let stringsLength = 0;
   for (const prop of FONT_INFO.strings) {
@@ -54571,13 +54586,24 @@ class WidgetAnnotation extends Annotation {
     }
     const defaultVPadding = Math.min(Math.floor((totalHeight - fontSize) / 2), defaultPadding);
     const alignment = this.data.textAlignment;
+    let {
+      ascent: fontAscent,
+      descent: fontDescent
+    } = font;
+    if (isNaN(fontAscent) || isNaN(fontDescent) || !fontAscent && !fontDescent) {
+      fontAscent = (/* inlined export .LINE_FACTOR */1.35) - (/* inlined export .LINE_DESCENT_FACTOR */0.35);
+      fontDescent = (/* inlined export .LINE_DESCENT_FACTOR */0.35);
+    } else {
+      fontDescent = Math.abs(fontDescent);
+    }
+    const vShift = (totalHeight - (fontAscent + fontDescent) * fontSize) / 2 + fontDescent * fontSize;
     if (this.data.multiLine) {
       return this._getMultilineAppearance(defaultAppearance, encodedLines, font, fontSize, totalWidth, totalHeight, alignment, defaultHPadding, defaultVPadding, descent, lineHeight, annotationStorage);
     }
     if (this.data.comb) {
-      return this._getCombAppearance(defaultAppearance, font, encodedLines[0], fontSize, totalWidth, totalHeight, alignment, bidi(lines[0]).dir === "rtl", annotationStorage);
+      return this._getCombAppearance(defaultAppearance, font, encodedLines[0], fontSize, totalWidth, vShift, alignment, bidi(lines[0]).dir === "rtl", annotationStorage);
     }
-    const bottomPadding = defaultVPadding + descent;
+    const bottomPadding = vShift;
     if (alignment === 0 || alignment > 2) {
       return `/Tx BMC q ${colors}BT ` + defaultAppearance + ` 1 0 0 1 ${numberToString(defaultHPadding)} ${numberToString(bottomPadding)} Tm (${escapeString(encodedLines[0])}) Tj` + " ET Q EMC";
     }
@@ -54809,7 +54835,7 @@ class TextWidgetAnnotation extends WidgetAnnotation {
   get hasTextContent() {
     return !!this.appearance && !this._needAppearances;
   }
-  _getCombAppearance(defaultAppearance, font, text, fontSize, width, height, alignment, isRTL, annotationStorage) {
+  _getCombAppearance(defaultAppearance, font, text, fontSize, width, vShift, alignment, isRTL, annotationStorage) {
     const combWidth = width / this.data.maxLen;
     const colors = this.getBorderAndBackgroundAppearances(annotationStorage);
     const cells = font.getCharPositions(text).map(([start, end]) => {
@@ -54841,7 +54867,6 @@ class TextWidgetAnnotation extends WidgetAnnotation {
       previousWidth = glyphWidth;
     }
     const renderedComb = buf.join(" ");
-    const vShift = (height - (font.capHeight || font.ascent || 1) * fontSize) / 2;
     return `/Tx BMC q ${colors}BT ` + defaultAppearance + ` 1 0 0 1 ${numberToString(hShift)} ${numberToString(vShift)} Tm ${renderedComb}` + " ET Q EMC";
   }
   _getMultilineAppearance(defaultAppearance, lines, font, fontSize, width, height, alignment, hPadding, vPadding, descent, lineHeight, annotationStorage) {
@@ -57611,12 +57636,12 @@ class DecryptStream extends DecodeStream {
   }
   readBlock() {
     let chunk = this.#nextChunk ?? this.stream.getBytes(chunkSize);
-    if (!chunk?.length) {
+    if (!chunk.length) {
       this.eof = true;
       return;
     }
     this.#nextChunk = this.stream.getBytes(chunkSize);
-    const hasMoreData = this.#nextChunk?.length > 0;
+    const hasMoreData = this.#nextChunk.length > 0;
     const decrypt = this.decrypt;
     chunk = decrypt(chunk, !hasMoreData);
     const bufferLength = this.bufferLength,

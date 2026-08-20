@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = e051279
+ * pdfjsBuild = d63ef00
  */
 
 ;// ./src/shared/util.js
@@ -2098,7 +2098,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "c3226d3d-a3d4-4784-b833-07f7a1faedd9";
+const INTERNAL_EVT = "eb0c71bb-71da-4750-8fdf-fce00c50b4bc";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -8273,6 +8273,7 @@ class FontFaceObject {
 }
 
 ;// ./src/shared/obj_bin_transform_utils.js
+
 class CSS_FONT_INFO {
   static strings = ["fontFamily", "fontWeight", "italicAngle"];
 }
@@ -8299,13 +8300,20 @@ class PATTERN_INFO {
   static N_STOP = 12;
   static N_FIGURES = 16;
 }
+class InfoUtils {
+  static get decoder() {
+    return shadow(this, "decoder", new TextDecoder());
+  }
+  static get encoder() {
+    return shadow(this, "encoder", new TextEncoder());
+  }
+}
 
 ;// ./src/display/obj_bin_transform_display.js
 
 
 class CssFontInfo {
   #buffer;
-  #decoder = new TextDecoder();
   #view;
   constructor(buffer) {
     this.#buffer = buffer;
@@ -8313,12 +8321,15 @@ class CssFontInfo {
   }
   #readString(index) {
     assert(index < CSS_FONT_INFO.strings.length, "Invalid string index");
+    const {
+      decoder
+    } = InfoUtils;
     let offset = 0;
     for (let i = 0; i < index; i++) {
       offset += this.#view.getUint32(offset) + 4;
     }
     const length = this.#view.getUint32(offset);
-    return this.#decoder.decode(new Uint8Array(this.#buffer, offset + 4, length));
+    return decoder.decode(new Uint8Array(this.#buffer, offset + 4, length));
   }
   get fontFamily() {
     return this.#readString(0);
@@ -8332,7 +8343,6 @@ class CssFontInfo {
 }
 class SystemFontInfo {
   #buffer;
-  #decoder = new TextDecoder();
   #view;
   constructor(buffer) {
     this.#buffer = buffer;
@@ -8343,12 +8353,15 @@ class SystemFontInfo {
   }
   #readString(index) {
     assert(index < SYSTEM_FONT_INFO.strings.length, "Invalid string index");
+    const {
+      decoder
+    } = InfoUtils;
     let offset = 5;
     for (let i = 0; i < index; i++) {
       offset += this.#view.getUint32(offset) + 4;
     }
     const length = this.#view.getUint32(offset);
-    return this.#decoder.decode(new Uint8Array(this.#buffer, offset + 4, length));
+    return decoder.decode(new Uint8Array(this.#buffer, offset + 4, length));
   }
   get css() {
     return this.#readString(0);
@@ -8363,13 +8376,16 @@ class SystemFontInfo {
     return this.#readString(3);
   }
   get style() {
+    const {
+      decoder
+    } = InfoUtils;
     let offset = 1;
     offset += 4 + this.#view.getUint32(offset);
     const styleLength = this.#view.getUint32(offset);
-    const style = this.#decoder.decode(new Uint8Array(this.#buffer, offset + 4, styleLength));
+    const style = decoder.decode(new Uint8Array(this.#buffer, offset + 4, styleLength));
     offset += 4 + styleLength;
     const weightLength = this.#view.getUint32(offset);
-    const weight = this.#decoder.decode(new Uint8Array(this.#buffer, offset + 4, weightLength));
+    const weight = decoder.decode(new Uint8Array(this.#buffer, offset + 4, weightLength));
     return {
       style,
       weight
@@ -8378,7 +8394,6 @@ class SystemFontInfo {
 }
 class FontInfo {
   #buffer;
-  #decoder = new TextDecoder();
   #view;
   constructor({
     buffer,
@@ -8465,12 +8480,15 @@ class FontInfo {
   }
   #readString(index) {
     assert(index < FONT_INFO.strings.length, "Invalid string index");
+    const {
+      decoder
+    } = InfoUtils;
     let offset = FONT_INFO.OFFSET_STRINGS + 4;
     for (let i = 0; i < index; i++) {
       offset += this.#view.getUint32(offset) + 4;
     }
     const length = this.#view.getUint32(offset);
-    return this.#decoder.decode(new Uint8Array(this.#buffer, offset + 4, length));
+    return decoder.decode(new Uint8Array(this.#buffer, offset + 4, length));
   }
   get fallbackName() {
     return this.#readString(0);
@@ -17168,7 +17186,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.3.0";
-const build = "e051279";
+const build = "d63ef00";
 
 ;// ./src/display/editor/color_picker.js
 
