@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 9aea8e2
+ * pdfjsBuild = 0f26334
  */
 
 ;// ./src/shared/util.js
@@ -4853,12 +4853,8 @@ function skipData(data, view, offset) {
   return endOffset;
 }
 class JpegImage {
-  constructor({
-    decodeTransform = null,
-    colorTransform = -1
-  } = {}) {
-    this._decodeTransform = decodeTransform;
-    this._colorTransform = colorTransform;
+  constructor(options) {
+    this._colorTransform = options?.colorTransform ?? -1;
   }
   static canUseImageDecoder(data, colorTransform = -1) {
     const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
@@ -5173,7 +5169,7 @@ class JpegImage {
     this.numComponents = this.components.length;
     return undefined;
   }
-  #getLinearizedBlockData(width, height, isSourcePDF) {
+  #getLinearizedBlockData(width, height) {
     const scaleX = this.width / width,
       scaleY = this.height / height;
     let component, componentScaleX, componentScaleY, blocksPerScanline;
@@ -5207,14 +5203,6 @@ class JpegImage {
         for (x = 0; x < width; x++) {
           data[offset] = output[index + xScaleBlockOffset[x]];
           offset += numComponents;
-        }
-      }
-    }
-    let transform = this._decodeTransform;
-    if (transform) {
-      for (i = 0; i < dataLength;) {
-        for (j = 0, k = 0; j < numComponents; j++, i++, k += 2) {
-          data[i] = (data[i] * transform[k] >> 8) + transform[k + 1];
         }
       }
     }
@@ -5299,13 +5287,12 @@ class JpegImage {
     width,
     height,
     forceRGBA = false,
-    forceRGB = false,
-    isSourcePDF = true
+    forceRGB = false
   }) {
     if (this.numComponents > 4) {
       throw new JpegError("Unsupported color mode");
     }
-    const data = this.#getLinearizedBlockData(width, height, isSourcePDF);
+    const data = this.#getLinearizedBlockData(width, height);
     if (this.numComponents === 1 && (forceRGBA || forceRGB)) {
       const len = data.length * (forceRGBA ? 4 : 3);
       const rgbaData = new Uint8ClampedArray(len);
@@ -5377,27 +5364,8 @@ class JpegStream extends DecodeStream {
   }
   get jpegOptions() {
     const jpegOptions = {
-      decodeTransform: undefined,
       colorTransform: undefined
     };
-    const decodeArr = this.dict.getArray("D", "Decode");
-    if ((this.forceRGBA || this.forceRGB) && Array.isArray(decodeArr)) {
-      const bitsPerComponent = this.dict.get("BPC", "BitsPerComponent") || 8;
-      const decodeArrLength = decodeArr.length;
-      const transform = new Int32Array(decodeArrLength);
-      let transformNeeded = false;
-      const maxValue = (1 << bitsPerComponent) - 1;
-      for (let i = 0; i < decodeArrLength; i += 2) {
-        transform[i] = (decodeArr[i + 1] - decodeArr[i]) * 256 | 0;
-        transform[i + 1] = decodeArr[i] * maxValue | 0;
-        if (transform[i] !== 256 || transform[i + 1] !== 0) {
-          transformNeeded = true;
-        }
-      }
-      if (transformNeeded) {
-        jpegOptions.decodeTransform = transform;
-      }
-    }
     if (this.params instanceof Dict) {
       const colorTransform = this.params.get("ColorTransform");
       if (Number.isInteger(colorTransform)) {
@@ -5443,9 +5411,6 @@ class JpegStream extends DecodeStream {
       return null;
     }
     const jpegOptions = this.jpegOptions;
-    if (jpegOptions.decodeTransform) {
-      return null;
-    }
     let decoder;
     try {
       const bytes = this.canAsyncDecodeImageFromBuffer && (await this.stream.asyncGetBytes()) || this.bytes;
@@ -33839,14 +33804,14 @@ class PDFImage {
       }
       return imgData;
     }
-    if (!forceRGBA) {
+    if (!forceRGBA && !this.smask && !this.mask) {
       let kind;
       if (this.colorSpace.name === "DeviceGray" && bpc === 1) {
         kind = ImageKind.GRAYSCALE_1BPP;
       } else if (this.colorSpace.name === "DeviceRGB" && bpc === 8 && !this.needsDecode) {
         kind = ImageKind.RGB_24BPP;
       }
-      if (kind && !this.smask && !this.mask && drawWidth === originalWidth && drawHeight === originalHeight) {
+      if (kind && drawWidth === originalWidth && drawHeight === originalHeight) {
         const image = await this.#getImage(originalWidth, originalHeight);
         if (image) {
           return image;
@@ -33877,7 +33842,7 @@ class PDFImage {
         }
         return imgData;
       }
-      if (this.image instanceof JpegStream && !this.smask && !this.mask && !this.needsDecode) {
+      if (this.image instanceof JpegStream && !this.needsDecode) {
         let isHandled = false;
         switch (this.colorSpace.name) {
           case "DeviceGray":

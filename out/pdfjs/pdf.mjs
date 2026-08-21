@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 9aea8e2
+ * pdfjsBuild = 0f26334
  */
 
 ;// ./src/shared/util.js
@@ -2098,7 +2098,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "35c7df28-8db3-4f65-b98c-98e970ebd548";
+const INTERNAL_EVT = "cc3ee9a7-19b6-4e86-a5d3-8338158e167a";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -17212,7 +17212,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.3.0";
-const build = "9aea8e2";
+const build = "0f26334";
 
 ;// ./src/display/editor/color_picker.js
 
