@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = d63ef00
+ * pdfjsBuild = 9aea8e2
  */
 
 ;// ./src/shared/util.js
@@ -2098,7 +2098,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "eb0c71bb-71da-4750-8fdf-fce00c50b4bc";
+const INTERNAL_EVT = "35c7df28-8db3-4f65-b98c-98e970ebd548";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -4846,6 +4846,7 @@ class TouchManager {
   #touchInfo = null;
   #touchManagerAC;
   #touchMoveAC = null;
+  #unconfirmedPinch = 0;
   constructor({
     container,
     isPinchingDisabled = null,
@@ -4872,6 +4873,9 @@ class TouchManager {
   }
   get MIN_TOUCH_DISTANCE_TO_PINCH() {
     return 35 / OutputScale.pixelRatio;
+  }
+  get MIN_TOUCH_DISTANCE_TO_SCALE() {
+    return 4 / OutputScale.pixelRatio;
   }
   #onTouchStart(evt) {
     if (this.#isPinchingDisabled?.()) {
@@ -4975,7 +4979,9 @@ class TouchManager {
       touch1X: touch1.screenX,
       touch1Y: touch1.screenY,
       panX: (touch0.clientX + touch1.clientX) / 2,
-      panY: (touch0.clientY + touch1.clientY) / 2
+      panY: (touch0.clientY + touch1.clientY) / 2,
+      screenPanX: (touch0.screenX + touch1.screenX) / 2,
+      screenPanY: (touch0.screenY + touch1.screenY) / 2
     };
   }
   #onTouchMove(evt) {
@@ -5023,9 +5029,15 @@ class TouchManager {
     touchInfo.panY = panY;
     const dx = panX - pPanX;
     const dy = panY - pPanY;
+    const screenPanX = (screen0X + screen1X) / 2;
+    const screenPanY = (screen0Y + screen1Y) / 2;
+    const translation = Math.hypot(screenPanX - touchInfo.screenPanX, screenPanY - touchInfo.screenPanY);
+    touchInfo.screenPanX = screenPanX;
+    touchInfo.screenPanY = screenPanY;
     const distance = Math.hypot(currGapX, currGapY);
     const pDistance = Math.hypot(prevGapX, prevGapY);
-    if (distance < MIN_TOUCH_SPAN || pDistance < MIN_TOUCH_SPAN || !this.#isPinching && Math.abs(pDistance - distance) <= this.MIN_TOUCH_DISTANCE_TO_PINCH) {
+    const minDistance = this.#isPinching ? this.MIN_TOUCH_DISTANCE_TO_SCALE : this.MIN_TOUCH_DISTANCE_TO_PINCH + 2 * translation;
+    if (distance < MIN_TOUCH_SPAN || pDistance < MIN_TOUCH_SPAN || Math.abs(pDistance - distance) <= minDistance) {
       if (dx || dy) {
         this.#onPanning?.(dx, dy);
       }
@@ -5035,12 +5047,25 @@ class TouchManager {
     touchInfo.touch0Y = screen0Y;
     touchInfo.touch1X = screen1X;
     touchInfo.touch1Y = screen1Y;
+    const direction = Math.sign(distance - pDistance);
     if (!this.#isPinching) {
       this.#isPinching = true;
+      this.#unconfirmedPinch = direction;
       if (dx || dy) {
         this.#onPanning?.(dx, dy);
       }
       return;
+    }
+    if (this.#unconfirmedPinch) {
+      const unconfirmed = this.#unconfirmedPinch;
+      this.#unconfirmedPinch = 0;
+      if (direction !== unconfirmed && Math.abs(distance - pDistance) <= 2 * translation) {
+        this.#isPinching = false;
+        if (dx || dy) {
+          this.#onPanning?.(dx, dy);
+        }
+        return;
+      }
     }
     this.#onPinching?.([pPanX, pPanY], pDistance, distance, dx, dy);
   }
@@ -5062,6 +5087,7 @@ class TouchManager {
   #endGesture() {
     this.#touchInfo = null;
     this.#isPinching = false;
+    this.#unconfirmedPinch = 0;
     this.#ownsGesture = false;
     if (this.#touchMoveAC) {
       this.#touchMoveAC.abort();
@@ -17186,7 +17212,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.3.0";
-const build = "d63ef00";
+const build = "9aea8e2";
 
 ;// ./src/display/editor/color_picker.js
 
