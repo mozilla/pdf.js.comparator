@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 0f26334
+ * pdfjsBuild = a570239
  */
 
 ;// ./src/shared/util.js
@@ -837,27 +837,24 @@ class Dict {
   get size() {
     return this.#map.size;
   }
-  #getValue(isAsync, key1, key2, key3) {
+  #getValue(isAsync, key1, key2) {
     let value = this.#map.get(key1);
     if (value === undefined && key2 !== undefined) {
       value = this.#map.get(key2);
-      if (value === undefined && key3 !== undefined) {
-        value = this.#map.get(key3);
-      }
     }
     if (value instanceof Ref && this.xref) {
       return isAsync ? this.xref.fetchAsync(value, this.suppressEncryption) : this.xref.fetch(value, this.suppressEncryption);
     }
     return value;
   }
-  get(key1, key2, key3) {
-    return this.#getValue(false, key1, key2, key3);
+  get(key1, key2) {
+    return this.#getValue(false, key1, key2);
   }
-  async getAsync(key1, key2, key3) {
-    return this.#getValue(true, key1, key2, key3);
+  async getAsync(key1, key2) {
+    return this.#getValue(true, key1, key2);
   }
-  getArray(key1, key2, key3) {
-    let value = this.#getValue(false, key1, key2, key3);
+  getArray(key1, key2) {
+    let value = this.#getValue(false, key1, key2);
     if (Array.isArray(value)) {
       value = value.slice();
       for (let i = 0, ii = value.length; i < ii; i++) {
@@ -34715,6 +34712,17 @@ class PartialEvaluator {
       }
     }
   }
+  #createTransferMap(fn) {
+    const transferFn = this._pdfFunctionFactory.create(fn),
+      tmp = new Float32Array(1);
+    return Uint8Array.from({
+      length: 256
+    }, (_, i) => {
+      tmp[0] = i / 255;
+      transferFn(tmp, 0, tmp, 0);
+      return tmp[0] * 255 | 0;
+    });
+  }
   handleSMask(smask, resources, operatorList, task, stateManager, localColorSpaceCache, seenRefs) {
     const smaskContent = smask.get("G");
     const smaskOptions = {
@@ -34723,15 +34731,7 @@ class PartialEvaluator {
     };
     const transferObj = smask.get("TR");
     if (isPDFFunction(transferObj)) {
-      const transferFn = this._pdfFunctionFactory.create(transferObj);
-      const transferMap = new Uint8Array(256);
-      const tmp = new Float32Array(1);
-      for (let i = 0; i < 256; i++) {
-        tmp[0] = i / 255;
-        transferFn(tmp, 0, tmp, 0);
-        transferMap[i] = tmp[0] * 255 | 0;
-      }
-      smaskOptions.transferMap = transferMap;
+      smaskOptions.transferMap = this.#createTransferMap(transferObj);
     }
     return this.buildFormXObject(resources, smaskContent, smaskOptions, operatorList, task, stateManager.state.clone({
       newPath: true
@@ -34740,10 +34740,7 @@ class PartialEvaluator {
   handleTransferFunction(tr) {
     let transferArray;
     if (Array.isArray(tr)) {
-      transferArray = tr;
-      if (tr.length > 1 && tr.every(map => map === tr[0])) {
-        transferArray = [tr[0]];
-      }
+      transferArray = tr.length > 1 && tr.every(map => map === tr[0]) ? [tr[0]] : tr;
     } else if (isPDFFunction(tr)) {
       transferArray = [tr];
     } else {
@@ -34761,15 +34758,7 @@ class PartialEvaluator {
       } else if (!isPDFFunction(transferObj)) {
         return null;
       }
-      const transferFn = this._pdfFunctionFactory.create(transferObj);
-      const transferMap = new Uint8Array(256),
-        tmp = new Float32Array(1);
-      for (let j = 0; j < 256; j++) {
-        tmp[0] = j / 255;
-        transferFn(tmp, 0, tmp, 0);
-        transferMap[j] = tmp[0] * 255 | 0;
-      }
-      transferMaps.push(transferMap);
+      transferMaps.push(this.#createTransferMap(transferObj));
       numEffectfulFns++;
     }
     if (!(numFns === 1 || numFns === 4)) {
@@ -41178,11 +41167,8 @@ class Catalog {
         case "A":
         case "a":
           const LIMIT = 26;
-          const A_UPPER_CASE = 0x41,
-            A_LOWER_CASE = 0x61;
-          const baseCharCode = style === "a" ? A_LOWER_CASE : A_UPPER_CASE;
           const letterIndex = currentIndex - 1;
-          const character = String.fromCharCode(baseCharCode + letterIndex % LIMIT);
+          const character = String.fromCharCode(style.charCodeAt(0) + letterIndex % LIMIT);
           currentLabel = character.repeat(Math.floor(letterIndex / LIMIT) + 1);
           break;
         default:
@@ -59418,39 +59404,40 @@ class Page {
   async #replaceIdByRef(annotations, deletedAnnotations, existingAnnotations) {
     const promises = [];
     for (const annotation of annotations) {
-      if (annotation.id) {
-        const ref = Ref.fromString(annotation.id);
-        if (!ref) {
-          warn(`A non-linked annotation cannot be modified: ${annotation.id}`);
-          continue;
-        }
-        if (annotation.deleted) {
-          deletedAnnotations.put(ref, ref);
-          if (annotation.popupRef) {
-            const popupRef = Ref.fromString(annotation.popupRef);
-            if (popupRef) {
-              deletedAnnotations.put(popupRef, popupRef);
-            }
-          }
-          continue;
-        }
-        if (annotation.popup?.deleted) {
+      if (!annotation.id) {
+        continue;
+      }
+      const ref = Ref.fromString(annotation.id);
+      if (!ref) {
+        warn(`A non-linked annotation cannot be modified: ${annotation.id}`);
+        continue;
+      }
+      if (annotation.deleted) {
+        deletedAnnotations.put(ref);
+        if (annotation.popupRef) {
           const popupRef = Ref.fromString(annotation.popupRef);
           if (popupRef) {
-            deletedAnnotations.put(popupRef, popupRef);
+            deletedAnnotations.put(popupRef);
           }
         }
-        existingAnnotations?.put(ref);
-        annotation.ref = ref;
-        promises.push(this.xref.fetchAsync(ref).then(obj => {
-          if (obj instanceof Dict) {
-            annotation.oldAnnotation = obj.clone();
-          }
-        }, () => {
-          warn(`Cannot fetch \`oldAnnotation\` for: ${ref}.`);
-        }));
-        delete annotation.id;
+        continue;
       }
+      if (annotation.popup?.deleted) {
+        const popupRef = Ref.fromString(annotation.popupRef);
+        if (popupRef) {
+          deletedAnnotations.put(popupRef);
+        }
+      }
+      existingAnnotations?.put(ref);
+      annotation.ref = ref;
+      promises.push(this.xref.fetchAsync(ref).then(obj => {
+        if (obj instanceof Dict) {
+          annotation.oldAnnotation = obj.clone();
+        }
+      }, () => {
+        warn(`Cannot fetch \`oldAnnotation\` for: ${ref}.`);
+      }));
+      delete annotation.id;
     }
     await Promise.all(promises);
   }
@@ -59459,7 +59446,7 @@ class Page {
       throw new Error("XFA: Cannot save new annotations.");
     }
     const partialEvaluator = this.#createPartialEvaluator(handler);
-    const deletedAnnotations = new RefMap();
+    const deletedAnnotations = new RefSet();
     const existingAnnotations = new RefSet();
     await this.#replaceIdByRef(annotations, deletedAnnotations, existingAnnotations);
     const pageDict = this.pageDict;
