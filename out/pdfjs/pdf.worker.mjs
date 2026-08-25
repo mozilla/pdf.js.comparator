@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = a570239
+ * pdfjsBuild = c1951c8
  */
 
 ;// ./src/shared/util.js
@@ -819,9 +819,7 @@ class Cmd {
     return CmdCache[cmd] ||= new Cmd(cmd);
   }
 }
-const nonSerializable = function nonSerializableClosure() {
-  return nonSerializable;
-};
+const nonSerializable = () => nonSerializable;
 class Dict {
   __nonSerializable__ = nonSerializable;
   #map = new Map();
@@ -5419,7 +5417,12 @@ class JpegStream extends DecodeStream {
       if (!useImageDecoder) {
         return null;
       }
-      if (useImageDecoder.width !== width || useImageDecoder.height !== height) {
+      const {
+        width: frameWidth,
+        height: frameHeight
+      } = useImageDecoder;
+      const reducePower = ImageResizer.getReducePower(frameWidth, frameHeight);
+      if ((frameWidth !== width || frameHeight !== height) && (reducePower || !frameHeight)) {
         return null;
       }
       if (useImageDecoder.exifStart) {
@@ -5431,11 +5434,10 @@ class JpegStream extends DecodeStream {
         type: "image/jpeg",
         preferAnimation: false
       };
-      const reducePower = ImageResizer.getReducePower(width, height);
       if (reducePower) {
         const factor = 2 ** reducePower;
-        init.desiredWidth = Math.ceil(width / factor);
-        init.desiredHeight = Math.ceil(height / factor);
+        init.desiredWidth = Math.ceil(frameWidth / factor);
+        init.desiredHeight = Math.ceil(frameHeight / factor);
       }
       decoder = new ImageDecoder(init);
       return (await decoder.decode()).image;
@@ -11667,15 +11669,7 @@ class Parser {
     return this.xref ? this.xref.fetchIfRef(obj) : obj;
   }
   #hasCryptFilter(filter) {
-    if (!Array.isArray(filter)) {
-      return isName(filter, "Crypt");
-    }
-    for (const f of filter) {
-      if (isName(this.#fetchIfRef(f), "Crypt")) {
-        return true;
-      }
-    }
-    return false;
+    return Array.isArray(filter) ? filter.some(f => isName(this.#fetchIfRef(f), "Crypt")) : isName(filter, "Crypt");
   }
   #findStreamLength(startPos) {
     const {
@@ -38878,9 +38872,6 @@ class FileSpec {
       return;
     }
     this.root = root;
-    if (root.has("FS")) {
-      this.fs = root.get("FS");
-    }
     if (root.has("RF")) {
       warn("Related file specifications are not supported");
     }
@@ -59268,7 +59259,7 @@ class Page {
       }
     };
   }
-  #createPartialEvaluator(handler, pageIndex = this.pageIndex) {
+  _createPartialEvaluator(handler, pageIndex = this.pageIndex) {
     return new PartialEvaluator({
       xref: this.xref,
       handler,
@@ -59282,9 +59273,6 @@ class Page {
       systemFontCache: this.systemFontCache,
       options: this.evaluatorOptions
     });
-  }
-  createAnnotationEvaluator(handler) {
-    return this.#createPartialEvaluator(handler);
   }
   #getInheritableProperty(key, getArray = false) {
     const value = getInheritableProperty({
@@ -59445,7 +59433,7 @@ class Page {
     if (this.xfaFactory) {
       throw new Error("XFA: Cannot save new annotations.");
     }
-    const partialEvaluator = this.#createPartialEvaluator(handler);
+    const partialEvaluator = this._createPartialEvaluator(handler);
     const deletedAnnotations = new RefSet();
     const existingAnnotations = new RefSet();
     await this.#replaceIdByRef(annotations, deletedAnnotations, existingAnnotations);
@@ -59471,7 +59459,7 @@ class Page {
     }
   }
   async save(handler, task, annotationStorage, changes) {
-    const partialEvaluator = this.#createPartialEvaluator(handler);
+    const partialEvaluator = this._createPartialEvaluator(handler);
     const annotations = await this._parsedAnnotations;
     const promises = [];
     for (const annotation of annotations) {
@@ -59510,7 +59498,7 @@ class Page {
   }) {
     const contentStreamPromise = this.getContentStream();
     const resourcesPromise = this.loadResources(RESOURCES_KEYS_OPERATOR_LIST);
-    const partialEvaluator = this.#createPartialEvaluator(handler, pageIndex);
+    const partialEvaluator = this._createPartialEvaluator(handler, pageIndex);
     const newAnnotsByPage = !this.xfaFactory ? getNewAnnotationsMap(annotationStorage) : null;
     const newAnnots = newAnnotsByPage?.get(this.pageIndex);
     let newAnnotationsPromise = Promise.resolve(null);
@@ -59641,7 +59629,7 @@ class Page {
     const langPromise = this.pdfManager.ensureCatalog("lang");
     const [contentStream,, lang] = await Promise.all([contentStreamPromise, resourcesPromise, langPromise]);
     const resources = await this.#getMergedResources(contentStream.dict, RESOURCES_KEYS_TEXT_CONTENT);
-    const partialEvaluator = this.#createPartialEvaluator(handler);
+    const partialEvaluator = this._createPartialEvaluator(handler);
     return partialEvaluator.getTextContent({
       stream: contentStream,
       task,
@@ -59691,7 +59679,7 @@ class Page {
         annotationsData.push(annotation.data);
       }
       if (annotation.hasTextContent && isVisible) {
-        partialEvaluator ??= this.#createPartialEvaluator(handler);
+        partialEvaluator ??= this._createPartialEvaluator(handler);
         textContentPromises.push(annotation.extractTextContent(partialEvaluator, task, [-Infinity, -Infinity, Infinity, Infinity]).catch(function (reason) {
           warn(`getAnnotationsData - ignoring textContent during "${task.name}" task: "${reason}".`);
         }));
@@ -59791,7 +59779,7 @@ class Page {
         }
         annotation.data.pageIndex = pageIndex;
         if (annotation.hasTextContent && annotation.viewable) {
-          partialEvaluator ??= this.#createPartialEvaluator(handler);
+          partialEvaluator ??= this._createPartialEvaluator(handler);
           await annotation.extractTextContent(partialEvaluator, task, [-Infinity, -Infinity, Infinity, Infinity]);
         }
         return annotation.data;
@@ -63687,7 +63675,7 @@ class PDFEditor {
         imagesPromises
       } = this.#newAnnotationsParams;
       const changes = new RefMap();
-      const newData = await AnnotationFactory.saveNewAnnotations(page.createAnnotationEvaluator(handler), this.xrefWrapper, task, newAnnotations, imagesPromises, changes);
+      const newData = await AnnotationFactory.saveNewAnnotations(page._createPartialEvaluator(handler), this.xrefWrapper, task, newAnnotations, imagesPromises, changes);
       for (const [ref, {
         data
       }] of changes.items()) {
