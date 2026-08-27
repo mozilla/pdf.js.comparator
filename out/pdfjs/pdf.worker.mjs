@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 9fe9b64
+ * pdfjsBuild = 8213fbc
  */
 
 ;// ./src/shared/util.js
@@ -60279,15 +60279,12 @@ class PDFDocument {
             default:
               if (value instanceof Name) {
                 customValue = value;
+                break;
               }
-              break;
+              warn(`Bad value, for custom key "${key}", in Info: ${value}.`);
+              continue;
           }
-          if (customValue === undefined) {
-            warn(`Bad value, for custom key "${key}", in Info: ${value}.`);
-            continue;
-          }
-          docInfo.Custom ??= Object.create(null);
-          docInfo.Custom[key] = customValue;
+          (docInfo.Custom ??= new Map()).set(key, customValue);
           continue;
       }
       warn(`Bad value, for key "${key}", in Info: ${value}.`);
@@ -60830,9 +60827,6 @@ class BasePdfManager {
   ensureDoc(prop, args) {
     return this.ensure(this.pdfDocument, prop, args);
   }
-  ensureXRef(prop, args) {
-    return this.ensure(this.pdfDocument.xref, prop, args);
-  }
   ensureCatalog(prop, args) {
     return this.ensure(this.pdfDocument.catalog, prop, args);
   }
@@ -60885,9 +60879,6 @@ class LocalPdfManager extends BasePdfManager {
       return value.apply(obj, args);
     }
     return value;
-  }
-  requestRange(begin, end) {
-    return Promise.resolve();
   }
   requestLoadedStream(noFetch = false) {
     return this._loadedStreamPromise;
