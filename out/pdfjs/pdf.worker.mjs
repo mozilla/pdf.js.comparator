@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 49ff3dc
+ * pdfjsBuild = 9fe9b64
  */
 
 ;// ./src/shared/util.js
@@ -53351,6 +53351,20 @@ function getTransformMatrix(rect, bbox, matrix) {
   const yRatio = (rect[3] - rect[1]) / (maxY - minY);
   return [xRatio, 0, 0, yRatio, rect[0] - minX * xRatio, rect[1] - minY * yRatio];
 }
+function writeLineToCurveToAppearance(data, buffer, maybeClose = false) {
+  buffer.push(`${numberToString(data[4])} ${numberToString(data[5])} m`);
+  for (let i = 6, ii = data.length; i < ii; i += 6) {
+    if (isNaN(data[i])) {
+      buffer.push(`${numberToString(data[i + 4])} ${numberToString(data[i + 5])} l`);
+    } else {
+      const curve = data.slice(i, i + 6);
+      buffer.push(`${curve.map(numberToString).join(" ")} c`);
+    }
+  }
+  if (maybeClose && data.length === 6) {
+    buffer.push(`${numberToString(data[4])} ${numberToString(data[5])} l`);
+  }
+}
 class Annotation {
   appearance = null;
   _oc = undefined;
@@ -56217,18 +56231,7 @@ class InkAnnotation extends MarkupAnnotation {
       appearanceBuffer.push("/R0 gs");
     }
     for (const outline of paths.lines) {
-      appearanceBuffer.push(`${numberToString(outline[4])} ${numberToString(outline[5])} m`);
-      for (let i = 6, ii = outline.length; i < ii; i += 6) {
-        if (isNaN(outline[i])) {
-          appearanceBuffer.push(`${numberToString(outline[i + 4])} ${numberToString(outline[i + 5])} l`);
-        } else {
-          const [c1x, c1y, c2x, c2y, x, y] = outline.slice(i, i + 6);
-          appearanceBuffer.push([c1x, c1y, c2x, c2y, x, y].map(numberToString).join(" ") + " c");
-        }
-      }
-      if (outline.length === 6) {
-        appearanceBuffer.push(`${numberToString(outline[4])} ${numberToString(outline[5])} l`);
-      }
+      writeLineToCurveToAppearance(outline, appearanceBuffer, true);
     }
     appearanceBuffer.push("S");
     const appearance = appearanceBuffer.join("\n");
@@ -56263,15 +56266,7 @@ class InkAnnotation extends MarkupAnnotation {
       return null;
     }
     const appearanceBuffer = [`${getPdfColor(color, true)}`, "/R0 gs"];
-    appearanceBuffer.push(`${numberToString(outline[4])} ${numberToString(outline[5])} m`);
-    for (let i = 6, ii = outline.length; i < ii; i += 6) {
-      if (isNaN(outline[i])) {
-        appearanceBuffer.push(`${numberToString(outline[i + 4])} ${numberToString(outline[i + 5])} l`);
-      } else {
-        const [c1x, c1y, c2x, c2y, x, y] = outline.slice(i, i + 6);
-        appearanceBuffer.push([c1x, c1y, c2x, c2y, x, y].map(numberToString).join(" ") + " c");
-      }
-    }
+    writeLineToCurveToAppearance(outline, appearanceBuffer);
     appearanceBuffer.push("h f");
     const appearance = appearanceBuffer.join("\n");
     const appearanceStreamDict = new Dict(xref);
@@ -56570,18 +56565,7 @@ class StampAnnotation extends MarkupAnnotation {
     }
     const appearanceBuffer = [`${thickness} w 1 J 1 j`, `${getPdfColor(color, areContours)}`];
     for (const line of lines) {
-      appearanceBuffer.push(`${numberToString(line[4])} ${numberToString(line[5])} m`);
-      for (let i = 6, ii = line.length; i < ii; i += 6) {
-        if (isNaN(line[i])) {
-          appearanceBuffer.push(`${numberToString(line[i + 4])} ${numberToString(line[i + 5])} l`);
-        } else {
-          const [c1x, c1y, c2x, c2y, x, y] = line.slice(i, i + 6);
-          appearanceBuffer.push([c1x, c1y, c2x, c2y, x, y].map(numberToString).join(" ") + " c");
-        }
-      }
-      if (line.length === 6) {
-        appearanceBuffer.push(`${numberToString(line[4])} ${numberToString(line[5])} l`);
-      }
+      writeLineToCurveToAppearance(line, appearanceBuffer, true);
     }
     appearanceBuffer.push(areContours ? "F" : "S");
     const appearance = appearanceBuffer.join("\n");
