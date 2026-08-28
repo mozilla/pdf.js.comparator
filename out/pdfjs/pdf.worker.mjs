@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = c3257df
+ * pdfjsBuild = 8801a6a
  */
 
 ;// ./src/shared/util.js
@@ -40648,16 +40648,10 @@ class Catalog {
     if (!(obj instanceof Dict)) {
       return null;
     }
-    const markInfo = {
-      Marked: false,
-      UserProperties: false,
-      Suspects: false
-    };
-    for (const key in markInfo) {
-      const value = obj.get(key);
-      if (typeof value === "boolean") {
-        markInfo[key] = value;
-      }
+    const markInfo = new Map();
+    for (const key of ["Marked", "UserProperties", "Suspects"]) {
+      const val = obj.get(key);
+      markInfo.set(key, typeof val === "boolean" ? val : false);
     }
     return markInfo;
   }
