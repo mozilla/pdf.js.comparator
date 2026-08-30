@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = abc6d41
+ * pdfjsBuild = 9785821
  */
 
 ;// ./src/shared/util.js
@@ -2098,7 +2098,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "011de4a2-cb60-4481-8f64-92f3c852becf";
+const INTERNAL_EVT = "6e6847e6-ff01-4874-ad9e-417a36a7a2ac";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -17104,7 +17104,7 @@ class InternalRenderTask {
     this._operationsFilter = operationsFilter;
   }
   get completed() {
-    return this.capability.promise.catch(function () {});
+    return this.capability.promise.catch(() => {});
   }
   initializeGraphics({
     transparency = false,
@@ -17210,7 +17210,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.3.0";
-const build = "abc6d41";
+const build = "9785821";
 
 ;// ./src/display/editor/color_picker.js
 

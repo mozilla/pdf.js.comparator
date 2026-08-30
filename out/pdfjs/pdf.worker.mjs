@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = abc6d41
+ * pdfjsBuild = 9785821
  */
 
 ;// ./src/shared/util.js
@@ -35318,7 +35318,7 @@ class PartialEvaluator {
                 throw new FormatError(`Unhandled XObject subtype ${type.name}`);
               }
               resolveXObject();
-            }).catch(function (reason) {
+            }).catch(reason => {
               if (reason instanceof AbortException) {
                 return;
               }
@@ -35608,7 +35608,7 @@ class PartialEvaluator {
                 localColorSpaceCache,
                 seenRefs
               }).then(resolveGState, rejectGState);
-            }).catch(function (reason) {
+            }).catch(reason => {
               if (reason instanceof AbortException) {
                 return;
               }
@@ -36495,7 +36495,7 @@ class PartialEvaluator {
                 }
                 resolveXObject();
               }, rejectXObject);
-            }).catch(function (reason) {
+            }).catch(reason => {
               if (reason instanceof AbortException) {
                 return;
               }
@@ -36534,7 +36534,7 @@ class PartialEvaluator {
               textState.fontName = null;
               textState.fontSize = gStateFont[1];
               handleSetFont(null, gStateFont[0]).then(resolveGState, rejectGState);
-            }).catch(function (reason) {
+            }).catch(reason => {
               if (reason instanceof AbortException) {
                 return;
               }
@@ -38907,7 +38907,7 @@ class FileSpec {
 const XMLParserErrorCode = {
   NoError: 0,
   EndOfDocument: -1,
-  UnterminatedCdat: -2,
+  UnterminatedCdata: -2,
   UnterminatedXmlDeclaration: -3,
   UnterminatedDoctypeDeclaration: -4,
   UnterminatedComment: -5,
@@ -39068,7 +39068,7 @@ class XMLParserBase {
             } else if (s.substring(j + 1, j + 8) === "[CDATA[") {
               q = s.indexOf("]]>", j + 8);
               if (q < 0) {
-                this.onError(XMLParserErrorCode.UnterminatedCdat);
+                this.onError(XMLParserErrorCode.UnterminatedCdata);
                 return;
               }
               this.onCdata(s.substring(j + 8, q));
@@ -59403,7 +59403,7 @@ class Page {
     const annotations = await this._parsedAnnotations;
     const promises = [];
     for (const annotation of annotations) {
-      promises.push(annotation.save(partialEvaluator, task, annotationStorage, changes).catch(function (reason) {
+      promises.push(annotation.save(partialEvaluator, task, annotationStorage, changes).catch(reason => {
         warn("save - ignoring annotation data during " + `"${task.name}" task: "${reason}".`);
         return null;
       }));
@@ -59526,7 +59526,7 @@ class Page {
     const opListPromises = [];
     for (const annotation of annotations) {
       if (intentAny || intentDisplay && annotation.mustBeViewed(annotationStorage, renderForms) && annotation.mustBeViewedWhenEditing(isEditing, modifiedIds) || intentPrint && annotation.mustBePrinted(annotationStorage)) {
-        opListPromises.push(annotation.getOperatorList(partialEvaluator, task, intent, annotationStorage).catch(function (reason) {
+        opListPromises.push(annotation.getOperatorList(partialEvaluator, task, intent, annotationStorage).catch(reason => {
           warn("getOperatorList - ignoring annotation data during " + `"${task.name}" task: "${reason}".`);
           return {
             opList: null,
@@ -59620,7 +59620,7 @@ class Page {
       }
       if (annotation.hasTextContent && isVisible) {
         partialEvaluator ??= this._createPartialEvaluator(handler);
-        textContentPromises.push(annotation.extractTextContent(partialEvaluator, task, [-Infinity, -Infinity, Infinity, Infinity]).catch(function (reason) {
+        textContentPromises.push(annotation.extractTextContent(partialEvaluator, task, [-Infinity, -Infinity, Infinity, Infinity]).catch(reason => {
           warn(`getAnnotationsData - ignoring textContent during "${task.name}" task: "${reason}".`);
         }));
       } else if (annotation.overlaysTextContent && isVisible) {
@@ -59659,7 +59659,7 @@ class Page {
       const orphanFields = fieldObjects?.orphanFields;
       const annotationPromises = [];
       for (const annotationRef of annots) {
-        annotationPromises.push(AnnotationFactory.create(this.xref, annotationRef, annotationGlobals, this._localIdFactory, false, orphanFields, null, this.ref).catch(function (reason) {
+        annotationPromises.push(AnnotationFactory.create(this.xref, annotationRef, annotationGlobals, this._localIdFactory, false, orphanFields, null, this.ref).catch(reason => {
           warn(`_parsedAnnotations: "${reason}".`);
           return null;
         }));
@@ -59723,7 +59723,7 @@ class Page {
           await annotation.extractTextContent(partialEvaluator, task, [-Infinity, -Infinity, Infinity, Infinity]);
         }
         return annotation.data;
-      }).catch(function (reason) {
+      }).catch(reason => {
         warn(`collectAnnotationsByType: "${reason}".`);
         return null;
       }));
@@ -60479,7 +60479,7 @@ class PDFDocument {
     if (parentRef && !field.has("Parent") && isName(field.get("Subtype"), "Widget")) {
       orphanFields.put(fieldRef, parentRef);
     }
-    promises.getOrInsertComputed(name, makeArr).push(AnnotationFactory.create(xref, fieldRef, annotationGlobals, null, true, orphanFields, null, null).then(annotation => annotation?.getFieldObject()).catch(function (reason) {
+    promises.getOrInsertComputed(name, makeArr).push(AnnotationFactory.create(xref, fieldRef, annotationGlobals, null, true, orphanFields, null, null).then(annotation => annotation?.getFieldObject()).catch(reason => {
       warn(`#collectFieldObjects: "${reason}".`);
       return null;
     }));
