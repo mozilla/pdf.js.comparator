@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 4ed57bc
+ * pdfjsBuild = 561a4cc
  */
 
 ;// ./src/shared/util.js
@@ -5879,7 +5879,6 @@ class OperatorList {
     this.argsArray = [];
     this.optimizer = streamSink && !(intent & RenderingIntentFlag.OPLIST) ? new QueueOptimizer(this) : new NullOptimizer(this);
     this.dependencies = new Set();
-    this._totalLength = 0;
     this.weight = 0;
     this._resolved = streamSink ? null : Promise.resolve();
   }
@@ -5893,9 +5892,6 @@ class OperatorList {
   }
   get ready() {
     return this._resolved || this._streamSink.ready;
-  }
-  get totalLength() {
-    return this._totalLength + this.length;
   }
   addOp(fn, args) {
     this.optimizer.push(fn, args);
@@ -6003,14 +5999,12 @@ class OperatorList {
   }
   flush(lastChunk = false, separateAnnots = null) {
     this.optimizer.flush();
-    const length = this.length;
-    this._totalLength += length;
     this._streamSink.enqueue({
       fnArray: this.fnArray,
       argsArray: this.argsArray,
       lastChunk,
       separateAnnots,
-      length
+      length: this.length
     }, 1, this._transfers);
     this.dependencies.clear();
     this.fnArray.length = 0;
@@ -59514,9 +59508,7 @@ class Page {
     }
     if (annotations.length === 0 || intent & RenderingIntentFlag.ANNOTATIONS_DISABLE) {
       pageOpList.flush(true);
-      return {
-        length: pageOpList.totalLength
-      };
+      return;
     }
     const renderForms = !!(intent & RenderingIntentFlag.ANNOTATIONS_FORMS),
       isEditing = !!(intent & RenderingIntentFlag.IS_EDITING),
@@ -59552,9 +59544,6 @@ class Page {
       form,
       canvas
     });
-    return {
-      length: pageOpList.totalLength
-    };
   }
   async extractTextContent({
     handler,
@@ -64380,7 +64369,6 @@ class WorkerMessageHandler {
     let terminated = false;
     let cancelXHRs = null;
     const WorkerTasks = new Set();
-    const verbosity = getVerbosityLevel();
     const {
       docId,
       apiVersion
@@ -64970,7 +64958,6 @@ class WorkerMessageHandler {
       pdfManager.getPage(pageId).then(function (page) {
         const task = new WorkerTask(`GetOperatorList: page ${pageIndex}`);
         startWorkerTask(task);
-        const start = verbosity >= VerbosityLevel.INFOS ? Date.now() : 0;
         page.getOperatorList({
           handler,
           sink,
@@ -64980,10 +64967,7 @@ class WorkerMessageHandler {
           annotationStorage,
           modifiedIds,
           pageIndex
-        }).then(opListInfo => {
-          if (start) {
-            info(`${task.name}; time=${Date.now() - start}ms, len=${opListInfo.length}`);
-          }
+        }).then(() => {
           sink.close();
         }, reason => {
           if (task.terminated) {
@@ -65004,7 +64988,6 @@ class WorkerMessageHandler {
       pdfManager.getPage(pageId).then(function (page) {
         const task = new WorkerTask("GetTextContent: page " + pageIndex);
         startWorkerTask(task);
-        const start = verbosity >= VerbosityLevel.INFOS ? Date.now() : 0;
         page.extractTextContent({
           handler,
           task,
@@ -65012,9 +64995,6 @@ class WorkerMessageHandler {
           includeMarkedContent,
           disableNormalization
         }).then(() => {
-          if (start) {
-            info(`${task.name}; time=${Date.now() - start}ms`);
-          }
           sink.close();
         }, reason => {
           if (task.terminated) {
