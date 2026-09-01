@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 3bc7da7
+ * pdfjsBuild = 53541b2
  */
 
 ;// ./src/shared/util.js
@@ -1547,6 +1547,13 @@ function _collectJS(entry, xref, list, parents) {
     parents.remove(parent);
   }
 }
+function _collectAction(dict, name, xref, actions) {
+  const list = [];
+  _collectJS(dict, xref, list, new RefSet());
+  if (list.length) {
+    actions.set(name, list);
+  }
+}
 function collectActions(xref, dict, eventType) {
   const actions = new Map();
   const additionalActionsDicts = getInheritableProperty({
@@ -1562,26 +1569,14 @@ function collectActions(xref, dict, eventType) {
       }
       for (const [key, rawActionDict] of additionalActions.getRawEntries()) {
         const action = eventType[key];
-        if (!action) {
-          continue;
-        }
-        const parents = new RefSet();
-        const list = [];
-        _collectJS(rawActionDict, xref, list, parents);
-        if (list.length > 0) {
-          actions.set(action, list);
+        if (action) {
+          _collectAction(rawActionDict, action, xref, actions);
         }
       }
     }
   }
   if (dict.has("A")) {
-    const actionDict = dict.get("A");
-    const parents = new RefSet();
-    const list = [];
-    _collectJS(actionDict, xref, list, parents);
-    if (list.length > 0) {
-      actions.set("Action", list);
-    }
+    _collectAction(dict.get("A"), "Action", xref, actions);
   }
   return actions.size ? actions : null;
 }
