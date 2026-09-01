@@ -15,14 +15,13 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
  * @licend The above is the entire license notice for the
  * JavaScript code in this page
  */
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 53541b2
+ * pdfjsBuild = 645324b
  */
 
 ;// ./src/shared/util.js
@@ -2098,7 +2097,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "441e2d1d-7371-48d1-91a7-a3e687950bfc";
+const INTERNAL_EVT = "6beecc5a-8157-41ee-b7ac-3f5a8b057d53";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -11023,7 +11022,7 @@ class CanvasGraphics {
           continue;
         }
       }
-      if (!operationsFilter || operationsFilter(i)) {
+      if (!operationsFilter || operationsFilter(i, operatorList)) {
         fnId = fnArray[i];
         fnArgs = argsArray[i] ?? null;
         if (fnId !== OPS.dependency) {
@@ -17202,7 +17201,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.3.0";
-const build = "53541b2";
+const build = "645324b";
 
 ;// ./src/display/editor/color_picker.js
 
