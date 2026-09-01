@@ -22,7 +22,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 561a4cc
+ * pdfjsBuild = 3bc7da7
  */
 
 ;// ./src/shared/util.js
@@ -56729,19 +56729,22 @@ class ScreenAnnotation extends MediaAnnotation {
   }
   static *#renditionActions(dict) {
     const action = dict.get("A");
-    if (action instanceof Dict && isName(action.get("S"), "Rendition") && this.#isPlayAction(action)) {
+    if (this.#isPlayAction(action)) {
       yield action;
     }
     const additionalActions = dict.get("AA");
     if (additionalActions instanceof Dict) {
       for (const [, aa] of additionalActions) {
-        if (aa instanceof Dict && isName(aa.get("S"), "Rendition") && this.#isPlayAction(aa)) {
+        if (this.#isPlayAction(aa)) {
           yield aa;
         }
       }
     }
   }
   static #isPlayAction(action) {
+    if (!(action instanceof Dict) || !isName(action.get("S"), "Rendition")) {
+      return false;
+    }
     const operation = action.get("OP");
     return operation === undefined || operation === AnnotationRenditionOperation.PLAY_OR_RESUME || operation === AnnotationRenditionOperation.PLAY;
   }
