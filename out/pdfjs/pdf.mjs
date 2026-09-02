@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 645324b
+ * pdfjsBuild = 74515c6
  */
 
 ;// ./src/shared/util.js
@@ -2097,7 +2097,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "6beecc5a-8157-41ee-b7ac-3f5a8b057d53";
+const INTERNAL_EVT = "8370dd8c-41d1-4ddf-a433-b098748d9523";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -15036,6 +15036,7 @@ class TextLayer {
   #layoutTextParams = null;
   #pageHeight = 0;
   #pageWidth = 0;
+  #pixelRatio = OutputScale.pixelRatio;
   #reader = null;
   #rootContainer = null;
   #rotation = 0;
@@ -15071,7 +15072,7 @@ class TextLayer {
     }
     this.#container = this.#rootContainer = container;
     this.#imagesHandler = images;
-    this.#scale = viewport.scale * OutputScale.pixelRatio;
+    this.#scale = viewport.scale * this.#pixelRatio;
     this.#rotation = viewport.rotation;
     this.#layoutTextParams = {
       div: null,
@@ -15143,6 +15144,7 @@ class TextLayer {
     if (scale !== this.#scale) {
       onBefore?.();
       this.#scale = scale;
+      this.#pixelRatio = OutputScale.pixelRatio;
       const params = {
         div: null,
         properties: null,
@@ -15232,9 +15234,10 @@ class TextLayer {
     const divStyle = textDiv.style;
     divStyle.left = `${(100 * left / this.#pageWidth).toFixed(2)}%`;
     divStyle.top = `${(100 * top / this.#pageHeight).toFixed(2)}%`;
-    divStyle.setProperty("--font-height", `${fontHeight.toFixed(2)}px`);
+    const roundedFontHeight = Math.round(fontHeight * 100) / 100;
+    divStyle.setProperty("--font-height", `${roundedFontHeight}px`);
     divStyle.fontFamily = fontFamily;
-    textDivProperties.fontSize = fontHeight;
+    textDivProperties.fontSize = roundedFontHeight;
     textDiv.setAttribute("role", "presentation");
     textDiv.textContent = geom.str;
     textDiv.dir = geom.dir;
@@ -15279,20 +15282,22 @@ class TextLayer {
     const {
       style
     } = div;
-    if (properties.canvasWidth !== 0 && properties.hasText) {
+    const {
+      canvasWidth,
+      fontSize
+    } = properties;
+    if (canvasWidth !== 0 && fontSize !== 0 && properties.hasText) {
       const {
         fontFamily
       } = style;
-      const {
-        canvasWidth,
-        fontSize
-      } = properties;
-      TextLayer.#ensureCtxFont(ctx, fontSize * this.#scale, fontFamily);
+      const pixelRatio = this.#pixelRatio;
+      const measuredSize = TextLayer.#quantizeFontSize(fontSize * this.#scale / pixelRatio) * pixelRatio;
+      TextLayer.#ensureCtxFont(ctx, measuredSize, fontFamily);
       const {
         width
       } = ctx.measureText(div.textContent);
       if (width > 0) {
-        style.setProperty("--scale-x", canvasWidth * this.#scale / width);
+        style.setProperty("--scale-x", canvasWidth * measuredSize / (width * fontSize));
       }
     }
     if (properties.angle !== 0) {
@@ -15329,6 +15334,11 @@ class TextLayer {
       });
     }
     return ctx;
+  }
+  static #quantizeFontSize(size) {
+    size = Math.fround(size);
+    const d = Math.fround(size * ((1 << 17) + 1));
+    return Math.fround(d - Math.fround(d - size));
   }
   static #ensureCtxFont(ctx, size, family) {
     const cached = this.#canvasCtxFonts.get(ctx);
@@ -17201,7 +17211,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.3.0";
-const build = "645324b";
+const build = "74515c6";
 
 ;// ./src/display/editor/color_picker.js
 
