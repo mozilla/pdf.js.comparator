@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 74515c6
+ * pdfjsBuild = 5b20b7b
  */
 
 ;// ./src/shared/util.js
@@ -2097,7 +2097,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "8370dd8c-41d1-4ddf-a433-b098748d9523";
+const INTERNAL_EVT = "f2379502-067b-45cd-971d-b854fb9a6989";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -10430,15 +10430,12 @@ class TilingPattern {
     return nXLast <= nXFirst && nYLast <= nYFirst ? [nXFirst, nYFirst] : null;
   }
   updatePatternDims(clippedBBox, dims) {
-    const inv = Util.inverseTransform(this.patternBaseMatrix);
-    const c1 = [clippedBBox[0], clippedBBox[1]];
-    const c2 = [clippedBBox[2], clippedBBox[3]];
-    Util.applyTransform(c1, inv);
-    Util.applyTransform(c2, inv);
-    dims[0] = Math.abs(c2[0] - c1[0]);
-    dims[1] = Math.abs(c2[1] - c1[1]);
-    dims[2] = Math.min(c1[0], c2[0]);
-    dims[3] = Math.min(c1[1], c2[1]);
+    const bbox = [Infinity, Infinity, -Infinity, -Infinity];
+    Util.axialAlignedBoundingBox(clippedBBox, Util.inverseTransform(this.patternBaseMatrix), bbox);
+    dims[0] = bbox[2] - bbox[0];
+    dims[1] = bbox[3] - bbox[1];
+    dims[2] = bbox[0];
+    dims[3] = bbox[1];
   }
   _renderTileCanvas(owner, opIdx, dimx, dimy) {
     const [x0, y0, x1, y1] = this.bbox;
@@ -13485,10 +13482,7 @@ function getFilenameFromContentDispositionHeader(contentDisposition) {
     }
     return value.replaceAll(/=\?([\w-]*)\?([QB])\?((?:[^?]|\?(?!=))*)\?=/gi, function (matches, charset, encoding, text) {
       if (encoding === "q" || encoding === "Q") {
-        text = text.replaceAll("_", " ");
-        text = text.replaceAll(/=([0-9a-f]{2})/gi, function (match, hex) {
-          return String.fromCharCode(parseInt(hex, 16));
-        });
+        text = text.replaceAll("_", " ").replaceAll(/=([0-9a-f]{2})/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
         return textdecode(charset, text);
       }
       try {
@@ -17211,7 +17205,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.3.0";
-const build = "74515c6";
+const build = "5b20b7b";
 
 ;// ./src/display/editor/color_picker.js
 
