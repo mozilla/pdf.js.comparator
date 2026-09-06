@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = b2035ee
+ * pdfjsBuild = 2a131af
  */
 
 ;// ./src/shared/util.js
@@ -2097,7 +2097,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "f3250480-fe94-46d2-8136-543120dad87e";
+const INTERNAL_EVT = "14c7aedb-da2a-4950-b4ff-49e755a11b33";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -10430,7 +10430,7 @@ class TilingPattern {
     return nXLast <= nXFirst && nYLast <= nYFirst ? [nXFirst, nYFirst] : null;
   }
   updatePatternDims(clippedBBox, dims) {
-    const bbox = [Infinity, Infinity, -Infinity, -Infinity];
+    const bbox = BBOX_INIT.slice();
     Util.axialAlignedBoundingBox(clippedBBox, Util.inverseTransform(this.patternBaseMatrix), bbox);
     dims[0] = bbox[2] - bbox[0];
     dims[1] = bbox[3] - bbox[1];
@@ -17205,7 +17205,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.3.0";
-const build = "b2035ee";
+const build = "2a131af";
 
 ;// ./src/display/editor/color_picker.js
 
