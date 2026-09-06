@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 716aff9
+ * pdfjsBuild = b2035ee
  */
 
 ;// ./src/shared/util.js
@@ -56604,7 +56604,8 @@ class MediaAnnotation extends Annotation {
     if (subtype instanceof Name && MediaAnnotation.#MEDIA_MIME_TYPE_RE.test(subtype.name)) {
       return subtype.name;
     }
-    const ext = filename.split(".").at(-1)?.toLowerCase();
+    const extPos = filename.lastIndexOf(".") + 1,
+      ext = extPos > 0 && filename.substring(extPos).toLowerCase();
     switch (ext) {
       case "mp4":
       case "m4v":
