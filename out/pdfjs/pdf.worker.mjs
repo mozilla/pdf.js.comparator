@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 4c60257
+ * pdfjsBuild = 3463d92
  */
 
 ;// ./src/shared/util.js
@@ -32251,7 +32251,7 @@ class PDFFunction {
   }
   static constructSampled(factory, fn, dict) {
     function interpolate(x, xmin, xmax, ymin, ymax) {
-      return ymin + (x - xmin) * ((ymax - ymin) / (xmax - xmin));
+      return xmin === xmax ? ymin : ymin + (x - xmin) * ((ymax - ymin) / (xmax - xmin));
     }
     const domain = toNumberArray(dict.getArray("Domain"));
     const range = toNumberArray(dict.getArray("Range"));
