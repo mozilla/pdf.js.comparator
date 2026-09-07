@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 3463d92
+ * pdfjsBuild = e67b540
  */
 
 ;// ./src/shared/util.js
@@ -993,15 +993,17 @@ class Ref {
     return this.#str;
   }
   static fromString(str) {
-    const ref = RefCache.get(str);
+    let ref = RefCache.get(str);
     if (ref) {
       return ref;
     }
-    const m = /^(\d+)R(\d*)$/.exec(str);
-    if (!m || m[1] === "0") {
+    const m = /^([1-9]\d*)R([1-9]\d*)?$/.exec(str);
+    if (!m) {
       return null;
     }
-    return this.get(parseInt(m[1], 10), !m[2] ? 0 : parseInt(m[2], 10));
+    ref = new Ref(str, parseInt(m[1], 10), !m[2] ? 0 : parseInt(m[2], 10));
+    RefCache.set(str, ref);
+    return ref;
   }
   static get(num, gen) {
     const str = gen === 0 ? `${num}R` : `${num}R${gen}`;
