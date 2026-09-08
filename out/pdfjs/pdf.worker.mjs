@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = e67b540
+ * pdfjsBuild = 0cdd6cd
  */
 
 ;// ./src/shared/util.js
@@ -32198,6 +32198,9 @@ function toNumberArray(arr) {
   }
   return arr;
 }
+function interpolate(x, xmin, xmax, ymin, ymax) {
+  return xmin === xmax ? ymin : ymin + (x - xmin) * ((ymax - ymin) / (xmax - xmin));
+}
 class PDFFunction {
   static getSampleArray(size, outputSize, bps, stream) {
     let length = outputSize;
@@ -32231,7 +32234,7 @@ class PDFFunction {
       case FunctionType.EXPONENTIAL_INTERPOLATION:
         return this.constructInterpolated(factory, dict);
       case FunctionType.STITCHING:
-        return this.constructStiched(factory, dict);
+        return this.constructStitched(factory, dict);
       case FunctionType.POSTSCRIPT_CALCULATOR:
         return this.constructPostScript(factory, fn, dict);
     }
@@ -32252,9 +32255,6 @@ class PDFFunction {
     };
   }
   static constructSampled(factory, fn, dict) {
-    function interpolate(x, xmin, xmax, ymin, ymax) {
-      return xmin === xmax ? ymin : ymin + (x - xmin) * ((ymax - ymin) / (xmax - xmin));
-    }
     const domain = toNumberArray(dict.getArray("Domain"));
     const range = toNumberArray(dict.getArray("Range"));
     if (!domain || !range) {
@@ -32334,14 +32334,14 @@ class PDFFunction {
       }
     };
   }
-  static constructStiched(factory, dict) {
+  static constructStitched(factory, dict) {
     const domain = toNumberArray(dict.getArray("Domain"));
     if (!domain) {
       throw new FormatError("No domain");
     }
     const inputSize = domain.length / 2;
     if (inputSize !== 1) {
-      throw new FormatError("Bad domain for stiched function");
+      throw new FormatError("Bad domain for stitched function");
     }
     const {
       xref
@@ -32353,7 +32353,7 @@ class PDFFunction {
     const bounds = toNumberArray(dict.getArray("Bounds"));
     const encode = toNumberArray(dict.getArray("Encode"));
     const tmpBuf = new Float32Array(1);
-    return function constructStichedFn(src, srcOffset, dest, destOffset) {
+    return function constructStitchedFn(src, srcOffset, dest, destOffset) {
       const v = MathClamp(src[srcOffset], domain[0], domain[1]);
       const length = bounds.length;
       let i;
@@ -32364,9 +32364,7 @@ class PDFFunction {
       }
       const dmin = i > 0 ? bounds[i - 1] : domain[0];
       const dmax = i < length ? bounds[i] : domain[1];
-      const rmin = encode[2 * i];
-      const rmax = encode[2 * i + 1];
-      tmpBuf[0] = dmin === dmax ? rmin : rmin + (v - dmin) * (rmax - rmin) / (dmax - dmin);
+      tmpBuf[0] = interpolate(v, dmin, dmax, encode[2 * i], encode[2 * i + 1]);
       fns[i](tmpBuf, 0, dest, destOffset);
     };
   }
