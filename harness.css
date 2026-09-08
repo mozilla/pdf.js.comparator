@@ -358,6 +358,9 @@ select {
   transition:
     border-color 0.15s ease,
     background 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .toggle input[type="checkbox"]:hover {
   border-color: var(--ink-2);
@@ -368,14 +371,12 @@ select {
 }
 .toggle input[type="checkbox"]:checked::after {
   content: "";
-  position: absolute;
-  left: 3px;
-  top: 0;
   width: 5px;
   height: 9px;
   border: solid #fff;
   border-width: 0 2px 2px 0;
   transform: rotate(45deg);
+  margin-top: -2px;
 }
 .toggle input[type="checkbox"]:focus-visible {
   outline: none;
