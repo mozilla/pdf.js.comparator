@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 0cdd6cd
+ * pdfjsBuild = 66646a6
  */
 
 ;// ./src/shared/util.js
@@ -12322,7 +12322,7 @@ class CMap {
       }
     } else {
       for (const i in map) {
-        callback(i, map[i]);
+        callback(+i, map[i]);
       }
     }
   }
@@ -18786,27 +18786,27 @@ class CFFFDSelect {
   }
 }
 class CFFOffsetTracker {
-  offsets = Object.create(null);
+  #offsets = new Map();
   isTracking(key) {
-    return key in this.offsets;
+    return this.#offsets.has(key);
   }
   track(key, location) {
-    if (key in this.offsets) {
+    if (this.#offsets.has(key)) {
       throw new FormatError(`Already tracking location of ${key}`);
     }
-    this.offsets[key] = location;
+    this.#offsets.set(key, location);
   }
   offset(value) {
-    for (const key in this.offsets) {
-      this.offsets[key] += value;
+    for (const [key, val] of this.#offsets) {
+      this.#offsets.set(key, val + value);
     }
   }
   setEntryLocation(key, values, output) {
-    if (!(key in this.offsets)) {
+    if (!this.#offsets.has(key)) {
       throw new FormatError(`Not tracking location of ${key}`);
     }
     const data = output.data;
-    const dataOffset = this.offsets[key];
+    const dataOffset = this.#offsets.get(key);
     const size = 5;
     for (let i = 0, ii = values.length; i < ii; ++i) {
       const offset0 = i * size + dataOffset;
@@ -20863,7 +20863,7 @@ class ToUnicodeMap {
   }
   forEach(callback) {
     for (const charCode in this._map) {
-      callback(charCode, this._map[charCode].codePointAt(0));
+      callback(+charCode, this._map[charCode].codePointAt(0));
     }
   }
   has(i) {
@@ -27236,14 +27236,14 @@ class Font {
           this.toUnicode.forEach(function (charCode, unicodeCharCode) {
             const cid = map[charCode];
             if (cidToGidMap[cid] === undefined) {
-              map[+charCode] = unicodeCharCode;
+              map[charCode] = unicodeCharCode;
             }
           });
         }
       }
       if (!(this.toUnicode instanceof IdentityToUnicodeMap)) {
         this.toUnicode.forEach(function (charCode, unicodeCharCode) {
-          map[+charCode] = unicodeCharCode;
+          map[charCode] = unicodeCharCode;
         });
       }
       this.toFontChar = map;
@@ -27257,7 +27257,7 @@ class Font {
       const map = buildToFontChar(this.defaultEncoding, getGlyphsUnicode(), this.differences);
       if (type === "CIDFontType2" && !this.cidEncoding.startsWith("Identity-") && !(this.toUnicode instanceof IdentityToUnicodeMap)) {
         this.toUnicode.forEach(function (charCode, unicodeCharCode) {
-          map[+charCode] = unicodeCharCode;
+          map[charCode] = unicodeCharCode;
         });
       }
       this.toFontChar = map;
@@ -27272,7 +27272,7 @@ class Font {
             unicodeCharCode = unicode;
           }
         }
-        map[+charCode] = unicodeCharCode;
+        map[charCode] = unicodeCharCode;
       });
       if (this.composite && this.toUnicode instanceof IdentityToUnicodeMap) {
         if (/Tahoma|Verdana/i.test(name)) {
@@ -27898,7 +27898,7 @@ class Font {
         last.endOffset = oldGlyfDataLength;
       }
       const droppedGlyphs = pruneCompositeGlyphCycles(oldGlyfData, locaEntries, numGlyphs);
-      const missingGlyphs = Object.create(null);
+      const missingGlyphs = new Set();
       let writeOffset = 0;
       itemEncode(locaData, 0, writeOffset);
       for (i = 0, j = itemSize; i < numGlyphs; i++, j += itemSize) {
@@ -27908,7 +27908,7 @@ class Font {
         } : sanitizeGlyph(oldGlyfData, locaEntries[i].offset, locaEntries[i].endOffset, newGlyfData, writeOffset, hintsValid);
         const newLength = glyphProfile.length;
         if (newLength === 0) {
-          missingGlyphs[i] = true;
+          missingGlyphs.add(i);
         }
         if (glyphProfile.sizeOfInstructions > maxSizeOfInstructions) {
           maxSizeOfInstructions = glyphProfile.sizeOfInstructions;
@@ -28463,7 +28463,7 @@ class Font {
       throw new FormatError('Required "head" table is not found');
     }
     sanitizeHead(tables.head, numGlyphs, isTrueType ? tables.loca.length : 0);
-    let missingGlyphs = Object.create(null);
+    let missingGlyphs = new Set();
     if (isTrueType) {
       const glyphsInfo = sanitizeGlyphLocations(tables.loca, tables.glyf, numGlyphs, isGlyphLocationsLong, hintsValid, dupFirstEntry, maxSizeOfInstructions);
       missingGlyphs = glyphsInfo.missingGlyphs;
@@ -28505,7 +28505,7 @@ class Font {
     };
     const charCodeToGlyphId = Object.create(null);
     function hasGlyph(glyphId) {
-      return !missingGlyphs[glyphId];
+      return !missingGlyphs.has(glyphId);
     }
     if (properties.composite) {
       const cidToGidMap = properties.cidToGidMap || [];
