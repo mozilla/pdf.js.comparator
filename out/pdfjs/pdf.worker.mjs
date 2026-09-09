@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 248bdcc
+ * pdfjsBuild = 583cc67
  */
 
 ;// ./src/shared/util.js
@@ -53104,6 +53104,9 @@ class AnnotationFactory {
     }
     return imagePromises;
   }
+  static getPrintData(annotation) {
+    throw new Error("Not implemented: getPrintData");
+  }
   static async saveNewAnnotations(evaluator, xref, task, annotations, imagePromises, changes) {
     let baseFontRef;
     const promises = [];
@@ -53116,7 +53119,7 @@ class AnnotationFactory {
       }
       switch (annotation.annotationType) {
         case AnnotationEditorType.FREETEXT:
-          if (!baseFontRef) {
+          if (!annotation.appearanceRef && !baseFontRef) {
             const baseFont = new Dict(xref);
             baseFont.setIfName("BaseFont", "Helvetica");
             baseFont.setIfName("Type", "Font");
@@ -54031,18 +54034,15 @@ class MarkupAnnotation extends Annotation {
   static async createNewAnnotation(xref, annotation, changes, params) {
     const annotationRef = annotation.ref ||= xref.getNewTemporaryRef();
     const ap = await this.createNewAppearanceStream(annotation, xref, params);
-    let annotationDict;
+    let apRef = annotation.appearanceRef ?? null;
     if (ap) {
-      const apRef = xref.getNewTemporaryRef();
-      annotationDict = this.createNewDict(annotation, xref, {
-        apRef
-      });
-      changes.put(apRef, {
+      changes.put(apRef = xref.getNewTemporaryRef(), {
         data: ap
       });
-    } else {
-      annotationDict = this.createNewDict(annotation, xref, {});
     }
+    const annotationDict = this.createNewDict(annotation, xref, {
+      apRef
+    });
     if (Number.isInteger(annotation.parentTreeId)) {
       annotationDict.set("StructParent", annotation.parentTreeId);
     }
@@ -55775,6 +55775,15 @@ class FreeTextAnnotation extends MarkupAnnotation {
       n.set("N", apRef || ap);
     }
     return freetext;
+  }
+  static getPrintData({
+    color,
+    fontSize,
+    rect,
+    rotation,
+    value
+  }) {
+    throw new Error("Not implemented: getPrintData");
   }
   static async createNewAppearanceStream(annotation, xref, params) {
     const {
@@ -64836,6 +64845,7 @@ class WorkerMessageHandler {
       isPureXfa,
       numPages,
       annotationStorage,
+      supportsPrintToPDF,
       filename
     }) {
       const globalPromises = [pdfManager.requestLoadedStream(), pdfManager.ensureCatalog("acroForm"), pdfManager.ensureCatalog("acroFormRef"), pdfManager.ensureDoc("startXRef"), pdfManager.ensureDoc("xref"), pdfManager.ensureCatalog("structTreeRoot")];

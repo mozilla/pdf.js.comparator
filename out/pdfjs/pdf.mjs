@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 248bdcc
+ * pdfjsBuild = 583cc67
  */
 
 ;// ./src/shared/util.js
@@ -1944,6 +1944,9 @@ class EditorToolbar {
   }
   async addEditSignatureButton(signatureManager) {
     const button = this.#signatureDescriptionButton = await signatureManager.renderEditButton(this.#editor);
+    if (!button) {
+      return;
+    }
     this.#addListenersToElement(button);
     this.#buttons.append(button, this.#divider);
   }
@@ -2097,7 +2100,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "98b63e7c-383d-45f4-aa82-960f90bdd32f";
+const INTERNAL_EVT = "7557b066-2ac6-4747-9103-20253e12c9a1";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -15805,8 +15808,8 @@ class PDFDocumentProxy {
   getData() {
     return this._transport.getData();
   }
-  saveDocument() {
-    return this._transport.saveDocument();
+  saveDocument(printToPDF) {
+    return this._transport.saveDocument(printToPDF);
   }
   extractPages(pageInfos, copyLevels = null) {
     return this._transport.extractPages(pageInfos, copyLevels);
@@ -16506,6 +16509,7 @@ class WorkerTransport {
   #pagePromises = new Map();
   #pageRefCache = new Map();
   #passwordCapability = null;
+  #printToPDF = null;
   constructor(messageHandler, loadingTask, networkStream, params, factory, pagesMapper) {
     this.messageHandler = messageHandler;
     this.loadingTask = loadingTask;
@@ -16861,7 +16865,7 @@ class WorkerTransport {
   getData() {
     return this.messageHandler.sendWithPromise("GetData", null);
   }
-  saveDocument() {
+  saveDocument(printToPDF = null) {
     if (this.annotationStorage.size <= 0) {
       warn("saveDocument called while `annotationStorage` is empty, " + "please use the getData-method instead.");
     }
@@ -16873,8 +16877,10 @@ class WorkerTransport {
       isPureXfa: !!this._htmlForXfa,
       numPages: this._numPages,
       annotationStorage: map,
+      supportsPrintToPDF: this.#printToPDF !== null,
       filename: this.#fullReader?.filename ?? null
     }, transfer).finally(() => {
+      this.#printToPDF = null;
       this.annotationStorage.resetModified();
     });
   }
@@ -17283,7 +17289,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.3.0";
-const build = "248bdcc";
+const build = "583cc67";
 
 ;// ./src/display/editor/color_picker.js
 
