@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 583cc67
+ * pdfjsBuild = 61ac0bd
  */
 
 ;// ./src/shared/util.js
@@ -12640,7 +12640,7 @@ async function extendCMap(cMap, fetchBuiltInCMap, useCMap) {
     }
     cMap.numCodespaceRanges = cMap.useCMap.numCodespaceRanges;
   }
-  cMap.useCMap.forEach(function (key, value) {
+  cMap.useCMap.forEach((key, value) => {
     if (!cMap.contains(key)) {
       cMap.mapOne(key, value);
     }
@@ -27233,7 +27233,7 @@ class Font {
           }
         }
         if (cidToGidMap.length !== this.toUnicode.length && properties.hasIncludedToUnicodeMap && this.toUnicode instanceof IdentityToUnicodeMap) {
-          this.toUnicode.forEach(function (charCode, unicodeCharCode) {
+          this.toUnicode.forEach((charCode, unicodeCharCode) => {
             const cid = map[charCode];
             if (cidToGidMap[cid] === undefined) {
               map[charCode] = unicodeCharCode;
@@ -27242,7 +27242,7 @@ class Font {
         }
       }
       if (!(this.toUnicode instanceof IdentityToUnicodeMap)) {
-        this.toUnicode.forEach(function (charCode, unicodeCharCode) {
+        this.toUnicode.forEach((charCode, unicodeCharCode) => {
           map[charCode] = unicodeCharCode;
         });
       }
@@ -27256,7 +27256,7 @@ class Font {
     } else if (isStandardFont || isMappedToStandardFont) {
       const map = buildToFontChar(this.defaultEncoding, getGlyphsUnicode(), this.differences);
       if (type === "CIDFontType2" && !this.cidEncoding.startsWith("Identity-") && !(this.toUnicode instanceof IdentityToUnicodeMap)) {
-        this.toUnicode.forEach(function (charCode, unicodeCharCode) {
+        this.toUnicode.forEach((charCode, unicodeCharCode) => {
           map[charCode] = unicodeCharCode;
         });
       }
@@ -28510,7 +28510,7 @@ class Font {
     if (properties.composite) {
       const cidToGidMap = properties.cidToGidMap || [];
       const isCidToGidMapEmpty = cidToGidMap.length === 0;
-      properties.cMap.forEach(function (charCode, cid) {
+      properties.cMap.forEach((charCode, cid) => {
         if (typeof cid === "string") {
           cid = convertCidString(charCode, cid, true);
         }
@@ -36830,7 +36830,7 @@ class PartialEvaluator {
       });
       const toUnicode = [],
         buf = [];
-      properties.cMap.forEach(function (charcode, cid) {
+      properties.cMap.forEach((charcode, cid) => {
         if (cid > 0xffff) {
           throw new FormatError("Max size of CID is 65,535");
         }
@@ -36873,7 +36873,7 @@ class PartialEvaluator {
           return new IdentityToUnicodeMap(0, 0xffff);
         }
         const map = new Array(cmap.length);
-        cmap.forEach(function (charCode, token) {
+        cmap.forEach((charCode, token) => {
           if (typeof token === "number") {
             map[charCode] = String.fromCodePoint(token);
             return;
