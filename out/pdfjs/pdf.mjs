@@ -20,8 +20,8 @@
  */
 
 /**
- * pdfjsVersion = 6.3.0
- * pdfjsBuild = 61385f9
+ * pdfjsVersion = 6.4.0
+ * pdfjsBuild = f4f90c2
  */
 
 ;// ./src/shared/util.js
@@ -2100,7 +2100,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "b0f22ac8-0ae8-491f-9171-fcc8deeda6ac";
+const INTERNAL_EVT = "ff18125b-e22b-4ab2-a6d1-58caa947da00";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -15564,7 +15564,7 @@ function getDocument(src = {}) {
   }
   const docParams = {
     docId,
-    apiVersion: "6.3.0",
+    apiVersion: "6.4.0",
     data,
     password,
     disableAutoFetch,
@@ -17288,8 +17288,8 @@ class InternalRenderTask {
     }
   }
 }
-const version = "6.3.0";
-const build = "61385f9";
+const version = "6.4.0";
+const build = "f4f90c2";
 
 ;// ./src/display/editor/color_picker.js
 
@@ -28336,11 +28336,11 @@ globalThis.pdfjsLib = {
   updateUrlHash: updateUrlHash,
   Util: Util,
   VerbosityLevel: VerbosityLevel,
-  version: (/* inlined export .version */"6.3.0"),
+  version: (/* inlined export .version */"6.4.0"),
   XfaLayer: XfaLayer
 };
 
-const __webpack_exports__version = (/* inlined export .version */"6.3.0");
+const __webpack_exports__version = (/* inlined export .version */"6.4.0");
 export { AbortException, AnnotationEditorLayer, AnnotationEditorParamsType, AnnotationEditorType, AnnotationEditorUIManager, AnnotationLayer, AnnotationMode, AnnotationType, CSSConstants, ColorPicker, DOMSVGFactory, DrawLayer, FeatureTest, GlobalWorkerOptions, ImageKind, InvalidPDFException, MathClamp, OPS, OutputScale, PDFDataRangeTransport, PDFDateString, PDFWorker, PasswordException, PasswordResponses, PermissionFlag, PixelsPerInch, RenderingCancelledException, ResponseException, SignatureExtractor, SupportedImageMimeTypes, TextLayer, TextLayerImages, TouchManager, Util, VerbosityLevel, XfaLayer, applyOpacity, build, createValidAbsoluteUrl, fetchData, findContrastColor, getDocument, getFilenameFromUrl, getPdfFilenameFromUrl, getRGB, getRGBA, getUuid, isDataScheme, isPdfFile, isValidExplicitDest, makeArr, makeMap, makeObj, makeSet, noContextMenu, normalizeUnicode, renderRichText, setLayerDimensions, shadow, stopEvent, updateUrlHash, __webpack_exports__version as version };
 
 //# sourceMappingURL=pdf.mjs.map
