@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.3.0
- * pdfjsBuild = 61ac0bd
+ * pdfjsBuild = 10db1d6
  */
 
 ;// ./src/shared/util.js
@@ -61310,6 +61310,189 @@ class MessageHandler {
   }
 }
 
+;// ./src/core/editor/print_appearances.js
+/* unused harmony import specifier */ var print_appearances_Ref;
+/* unused harmony import specifier */ var print_appearances_Dict;
+/* unused harmony import specifier */ var print_appearances_EOF;
+/* unused harmony import specifier */ var print_appearances_Cmd;
+/* unused harmony import specifier */ var print_appearances_RefMap;
+/* unused harmony import specifier */ var print_appearances_stringToBytes;
+/* unused harmony import specifier */ var print_appearances_warn;
+/* unused harmony import specifier */ var print_appearances_BaseStream;
+/* unused harmony import specifier */ var print_appearances_EvaluatorPreprocessor;
+/* unused harmony import specifier */ var print_appearances_Lexer;
+/* unused harmony import specifier */ var print_appearances_LocalPdfManager;
+/* unused harmony import specifier */ var print_appearances_Stream;
+
+
+
+
+
+
+
+const MARKED_CONTENT_OPS = new Set(["BDC", "BMC", "DP", "EMC", "MP"]);
+class ChangesXRefWrapper {
+  #changes;
+  #xref;
+  constructor(changes, xref) {
+    this.#changes = changes;
+    this.#xref = xref;
+  }
+  getNewTemporaryRef() {
+    return this.#xref.getNewTemporaryRef();
+  }
+  fetch(ref) {
+    return this.#changes.has(ref) ? this.#changes.get(ref).data : this.#xref.fetch(ref);
+  }
+  fetchIfRef(obj) {
+    return obj instanceof print_appearances_Ref ? this.fetch(obj) : obj;
+  }
+  async fetchAsync(ref) {
+    return this.fetch(ref);
+  }
+  async fetchIfRefAsync(obj) {
+    return this.fetchIfRef(obj);
+  }
+}
+async function copyObject(obj, sourceXref, target) {
+  const {
+    changes,
+    refs,
+    xref,
+    xrefWrapper
+  } = target;
+  if (obj instanceof print_appearances_Ref) {
+    let newRef = refs.get(obj);
+    if (!newRef) {
+      refs.put(obj, newRef = xref.getNewTemporaryRef());
+      const value = await sourceXref.fetchAsync(obj);
+      changes.put(newRef, {
+        data: await copyObject(value, sourceXref, target)
+      });
+    }
+    return newRef;
+  }
+  if (Array.isArray(obj)) {
+    return Promise.all(obj.map(value => copyObject(value, sourceXref, target)));
+  }
+  let dict, stream;
+  if (obj instanceof print_appearances_BaseStream) {
+    ({
+      dict
+    } = stream = obj.getOriginalStream().clone());
+  } else if (obj instanceof print_appearances_Dict) {
+    dict = obj.clone();
+  } else {
+    return obj;
+  }
+  dict.xref = xrefWrapper;
+  const promises = [];
+  for (const [key, value] of dict.getRawEntries()) {
+    promises.push(copyObject(value, sourceXref, target).then(newValue => dict.set(key, newValue)));
+  }
+  await Promise.all(promises);
+  return stream ?? dict;
+}
+function filterContentStream(bytes, isWidget) {
+  const lexer = new print_appearances_Lexer(new print_appearances_Stream(bytes), print_appearances_EvaluatorPreprocessor.opMap);
+  const parts = isWidget ? [print_appearances_stringToBytes("/Tx BMC\n")] : [];
+  let start = 0;
+  let end = 0;
+  try {
+    while (true) {
+      const obj = lexer.getObj();
+      if (obj === print_appearances_EOF) {
+        break;
+      }
+      if (!(obj instanceof print_appearances_Cmd) || !print_appearances_EvaluatorPreprocessor.opMap[obj.cmd]) {
+        continue;
+      }
+      if (obj.cmd === "BI") {
+        print_appearances_warn("filterContentStream: inline images aren't supported.");
+        return null;
+      }
+      const cmdEnd = lexer.currentChar < 0 ? bytes.length : lexer.stream.pos - 1;
+      if (MARKED_CONTENT_OPS.has(obj.cmd)) {
+        parts.push(bytes.subarray(start, end));
+        start = cmdEnd;
+      }
+      end = cmdEnd;
+    }
+  } catch (reason) {
+    print_appearances_warn(`filterContentStream: "${reason}".`);
+    return null;
+  }
+  parts.push(bytes.subarray(start));
+  if (isWidget) {
+    parts.push(print_appearances_stringToBytes("\nEMC"));
+  }
+  const data = new Uint8Array(parts.reduce((length, part) => length + part.length, 0));
+  let offset = 0;
+  for (const part of parts) {
+    data.set(part, offset);
+    offset += part.length;
+  }
+  return data;
+}
+async function importPrintedAppearances({
+  buffer,
+  changes,
+  docId,
+  entries,
+  evaluatorOptions,
+  handler,
+  xref
+}) {
+  const pdfManager = new print_appearances_LocalPdfManager({
+    source: buffer,
+    docId: `${docId}_printToPDF`,
+    handler,
+    evaluatorOptions
+  });
+  await pdfManager.initDocument(false);
+  const {
+    pdfDocument
+  } = pdfManager;
+  if (pdfDocument.numPages !== entries.length) {
+    throw new Error("The generated PDF must have one page per appearance.");
+  }
+  const appearances = new Map();
+  const target = {
+    changes,
+    refs: new print_appearances_RefMap(),
+    xref,
+    xrefWrapper: new ChangesXRefWrapper(changes, xref)
+  };
+  for (let i = 0, ii = entries.length; i < ii; i++) {
+    const {
+      key,
+      isWidget,
+      matrix,
+      data
+    } = entries[i];
+    const page = await pdfDocument.getPage(i);
+    const contentStream = await page.getContentStream();
+    contentStream.reset();
+    const bytes = filterContentStream(contentStream.getBytes(), isWidget);
+    if (!bytes) {
+      continue;
+    }
+    const dict = new print_appearances_Dict(xref);
+    dict.setIfName("Type", "XObject");
+    dict.setIfName("Subtype", "Form");
+    dict.set("FormType", 1);
+    dict.set("BBox", [0, 0, data.width, data.height]);
+    dict.setIfArray("Matrix", matrix);
+    dict.set("Resources", await copyObject(page.resources, pdfDocument.xref, target));
+    const ref = xref.getNewTemporaryRef();
+    changes.put(ref, {
+      data: new print_appearances_Stream(bytes, 0, bytes.length, dict)
+    });
+    appearances.set(key, ref);
+  }
+  return appearances;
+}
+
 ;// ./src/core/writer.js
 
 
@@ -64343,6 +64526,7 @@ class PDFWorkerStreamRangeReader extends BasePDFStreamRangeReader {
 }
 
 ;// ./src/core/worker.js
+
 
 
 
