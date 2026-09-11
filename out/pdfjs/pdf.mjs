@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.4.0
- * pdfjsBuild = f4f90c2
+ * pdfjsBuild = 4ae29fe
  */
 
 ;// ./src/shared/util.js
@@ -2100,7 +2100,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "ff18125b-e22b-4ab2-a6d1-58caa947da00";
+const INTERNAL_EVT = "72b306aa-e632-4f58-9a6b-332eb70eb5a0";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -7927,6 +7927,7 @@ function serializeFontFamily(fontFamily) {
 
 
 class FontLoader {
+  #nativeFontFaces = new Set();
   #systemFonts = new Set();
   #styleSheet = null;
   constructor({
@@ -7934,17 +7935,16 @@ class FontLoader {
     styleElement = null
   }) {
     this._document = ownerDocument;
-    this.nativeFontFaces = new Set();
     this.styleElement = null;
     this.loadingRequests = [];
     this.loadTestFontId = 0;
   }
   addNativeFontFace(nativeFontFace) {
-    this.nativeFontFaces.add(nativeFontFace);
+    this.#nativeFontFaces.add(nativeFontFace);
     this._document.fonts.add(nativeFontFace);
   }
   removeNativeFontFace(nativeFontFace) {
-    this.nativeFontFaces.delete(nativeFontFace);
+    this.#nativeFontFaces.delete(nativeFontFace);
     this._document.fonts.delete(nativeFontFace);
   }
   insertRule(rule) {
@@ -7973,10 +7973,10 @@ class FontLoader {
     return this.#styleSheet = this.styleElement.sheet;
   }
   clear() {
-    for (const nativeFontFace of this.nativeFontFaces) {
+    for (const nativeFontFace of this.#nativeFontFaces) {
       this._document.fonts.delete(nativeFontFace);
     }
-    this.nativeFontFaces.clear();
+    this.#nativeFontFaces.clear();
     this.#systemFonts.clear();
     if (this.#styleSheet) {
       const {
@@ -7987,10 +7987,8 @@ class FontLoader {
       }
       this.#styleSheet = null;
     }
-    if (this.styleElement) {
-      this.styleElement.remove();
-      this.styleElement = null;
-    }
+    this.styleElement?.remove();
+    this.styleElement = null;
   }
   async loadSystemFont({
     systemFontInfo: info,
@@ -17289,7 +17287,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.4.0";
-const build = "f4f90c2";
+const build = "4ae29fe";
 
 ;// ./src/display/editor/color_picker.js
 
