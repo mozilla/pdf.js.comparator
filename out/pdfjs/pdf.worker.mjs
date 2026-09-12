@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.4.0
- * pdfjsBuild = 4ae29fe
+ * pdfjsBuild = fd453c2
  */
 
 ;// ./src/shared/util.js
@@ -10860,14 +10860,13 @@ class LZWStream extends DecodeStream {
       codeLength: 9,
       nextCode: 258,
       dictionaryValues: new Uint8Array(maxLzwDictionarySize),
-      dictionaryLengths: new Uint16Array(maxLzwDictionarySize),
+      dictionaryLengths: new Uint16Array(maxLzwDictionarySize).fill(1, 0, 256),
       dictionaryPrevCodes: new Uint16Array(maxLzwDictionarySize),
       currentSequence: new Uint8Array(maxLzwDictionarySize),
       currentSequenceLength: 0
     };
     for (let i = 0; i < 256; ++i) {
       lzwState.dictionaryValues[i] = i;
-      lzwState.dictionaryLengths[i] = 1;
     }
     this.lzwState = lzwState;
   }
@@ -12425,11 +12424,9 @@ class IdentityCMap extends CMap {
     return Number.isInteger(value) && value <= 0xffff ? value : -1;
   }
   getMap() {
-    const map = new Array(0x10000);
-    for (let i = 0; i <= 0xffff; i++) {
-      map[i] = i;
-    }
-    return map;
+    return Array.from({
+      length: 0x10000
+    }, (_, i) => i);
   }
   get length() {
     return 0x10000;
@@ -57585,11 +57582,10 @@ class ARCFourCipher {
   a = 0;
   b = 0;
   constructor(key) {
-    const s = new Uint8Array(256);
+    const s = Uint8Array.from({
+      length: 256
+    }, (_, i) => i);
     const keyLength = key.length;
-    for (let i = 0; i < 256; ++i) {
-      s[i] = i;
-    }
     for (let i = 0, j = 0; i < 256; ++i) {
       const tmp = s[i];
       j = j + tmp + key[i % keyLength] & 0xff;
