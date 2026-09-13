@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.4.0
- * pdfjsBuild = b247146
+ * pdfjsBuild = 7ab3cb0
  */
 
 ;// ./src/shared/util.js
@@ -2100,7 +2100,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "b076d434-83fe-49ca-bb58-d82938846c17";
+const INTERNAL_EVT = "059a521b-02fc-4eaa-a33b-19116cb1149c";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -8048,40 +8048,36 @@ class FontLoader {
       if (this.isSyncFontLoadingSupported) {
         return;
       }
-      await new Promise(resolve => {
-        const request = this._queueLoadingCallback(resolve);
-        this._prepareFontLoadEvent(font, request);
-      });
+      await this.#testFontLoaded(font);
     }
   }
   get isFontLoadingAPISupported() {
-    const hasFonts = !!this._document?.fonts;
-    return shadow(this, "isFontLoadingAPISupported", hasFonts);
+    return shadow(this, "isFontLoadingAPISupported", !!this._document?.fonts);
   }
   get isSyncFontLoadingSupported() {
     return shadow(this, "isSyncFontLoadingSupported", isNodeJS || FeatureTest.platform.isFirefox);
   }
-  _queueLoadingCallback(callback) {
+  #testFontLoaded(font) {
     function completeRequest() {
       assert(!request.done, "completeRequest() cannot be called twice.");
       request.done = true;
       while (loadingRequests.length > 0 && loadingRequests[0].done) {
         const otherRequest = loadingRequests.shift();
-        setTimeout(otherRequest.callback, 0);
+        setTimeout(otherRequest.resolve, 0);
       }
     }
     const {
       loadingRequests
     } = this;
+    const {
+      promise,
+      resolve
+    } = Promise.withResolvers();
     const request = {
       done: false,
-      complete: completeRequest,
-      callback
+      resolve
     };
     loadingRequests.push(request);
-    return request;
-  }
-  _prepareFontLoadEvent(font, request) {
     this._loadTestFont ??= atob("T1RUTwALAIAAAwAwQ0ZGIDHtZg4AAAOYAAAAgUZGVE1lkzZwAAAEHAAAABxHREVGABQA" + "FQAABDgAAAAeT1MvMlYNYwkAAAEgAAAAYGNtYXABDQLUAAACNAAAAUJoZWFk/xVFDQAA" + "ALwAAAA2aGhlYQdkA+oAAAD0AAAAJGhtdHgD6AAAAAAEWAAAAAZtYXhwAAJQAAAAARgA" + "AAAGbmFtZVjmdH4AAAGAAAAAsXBvc3T/hgAzAAADeAAAACAAAQAAAAEAALZRFsRfDzz1" + "AAsD6AAAAADOBOTLAAAAAM4KHDwAAAAAA+gDIQAAAAgAAgAAAAAAAAABAAADIQAAAFoD" + "6AAAAAAD6AABAAAAAAAAAAAAAAAAAAAAAQAAUAAAAgAAAAQD6AH0AAUAAAKKArwAAACM" + "AooCvAAAAeAAMQECAAACAAYJAAAAAAAAAAAAAQAAAAAAAAAAAAAAAFBmRWQAwAAuAC4D" + "IP84AFoDIQAAAAAAAQAAAAAAAAAAACAAIAABAAAADgCuAAEAAAAAAAAAAQAAAAEAAAAA" + "AAEAAQAAAAEAAAAAAAIAAQAAAAEAAAAAAAMAAQAAAAEAAAAAAAQAAQAAAAEAAAAAAAUA" + "AQAAAAEAAAAAAAYAAQAAAAMAAQQJAAAAAgABAAMAAQQJAAEAAgABAAMAAQQJAAIAAgAB" + "AAMAAQQJAAMAAgABAAMAAQQJAAQAAgABAAMAAQQJAAUAAgABAAMAAQQJAAYAAgABWABY" + "AAAAAAAAAwAAAAMAAAAcAAEAAAAAADwAAwABAAAAHAAEACAAAAAEAAQAAQAAAC7//wAA" + "AC7////TAAEAAAAAAAABBgAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" + "AAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" + "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" + "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" + "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" + "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMAAAAAAAD/gwAyAAAAAQAAAAAAAAAAAAAAAAAA" + "AAABAAQEAAEBAQJYAAEBASH4DwD4GwHEAvgcA/gXBIwMAYuL+nz5tQXkD5j3CBLnEQAC" + "AQEBIVhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYAAABAQAADwACAQEEE/t3" + "Dov6fAH6fAT+fPp8+nwHDosMCvm1Cvm1DAz6fBQAAAAAAAABAAAAAMmJbzEAAAAAzgTj" + "FQAAAADOBOQpAAEAAAAAAAAADAAUAAQAAAABAAAAAgABAAAAAAAAAAAD6AAAAAAAAA==");
     function int32(data, offset) {
       return data.charCodeAt(offset) << 24 | data.charCodeAt(offset + 1) << 16 | data.charCodeAt(offset + 2) << 8 | data.charCodeAt(offset + 3) & 0xff;
@@ -8146,8 +8142,9 @@ class FontLoader {
     this._document.body.append(div);
     isFontReady(loadTestFontId, () => {
       div.remove();
-      request.complete();
+      completeRequest();
     });
+    return promise;
   }
 }
 class FontFaceObject {
@@ -17286,7 +17283,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.4.0";
-const build = "b247146";
+const build = "7ab3cb0";
 
 ;// ./src/display/editor/color_picker.js
 
