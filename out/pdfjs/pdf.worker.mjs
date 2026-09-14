@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.4.0
- * pdfjsBuild = 5d7f2ba
+ * pdfjsBuild = 88f6044
  */
 
 ;// ./src/shared/util.js
@@ -18660,6 +18660,7 @@ class CFFIndex {
   }
 }
 class CFFDict {
+  values = new Map();
   constructor(tables, strings) {
     this.keyToNameMap = tables.keyToNameMap;
     this.nameToKeyMap = tables.nameToKeyMap;
@@ -18668,10 +18669,9 @@ class CFFDict {
     this.opcodes = tables.opcodes;
     this.order = tables.order;
     this.strings = strings;
-    this.values = Object.create(null);
   }
   setByKey(key, value) {
-    if (!(key in this.keyToNameMap)) {
+    if (!this.keyToNameMap.has(key)) {
       return false;
     }
     if (value.length === 0) {
@@ -18683,51 +18683,51 @@ class CFFDict {
         return true;
       }
     }
-    const type = this.types[key];
+    const type = this.types.get(key);
     if (type === "num" || type === "sid" || type === "offset") {
       value = value[0];
     }
-    this.values[key] = value;
+    this.values.set(key, value);
     return true;
   }
   setByName(name, value) {
-    if (!(name in this.nameToKeyMap)) {
+    if (!this.nameToKeyMap.has(name)) {
       throw new FormatError(`Invalid dictionary name "${name}"`);
     }
-    this.values[this.nameToKeyMap[name]] = value;
+    const key = this.nameToKeyMap.get(name);
+    this.values.set(key, value);
   }
   hasName(name) {
-    return this.nameToKeyMap[name] in this.values;
+    const key = this.nameToKeyMap.get(name);
+    return this.values.has(key);
   }
   getByName(name) {
-    if (!(name in this.nameToKeyMap)) {
+    if (!this.nameToKeyMap.has(name)) {
       throw new FormatError(`Invalid dictionary name ${name}"`);
     }
-    const key = this.nameToKeyMap[name];
-    if (!(key in this.values)) {
-      return this.defaults[key];
-    }
-    return this.values[key];
+    const key = this.nameToKeyMap.get(name);
+    return this.values.has(key) ? this.values.get(key) : this.defaults.get(key);
   }
   removeByName(name) {
-    delete this.values[this.nameToKeyMap[name]];
+    const key = this.nameToKeyMap.get(name);
+    this.values.delete(key);
   }
   static createTables(layout) {
     const tables = {
-      keyToNameMap: {},
-      nameToKeyMap: {},
-      defaults: {},
-      types: {},
-      opcodes: {},
+      keyToNameMap: new Map(),
+      nameToKeyMap: new Map(),
+      defaults: new Map(),
+      types: new Map(),
+      opcodes: new Map(),
       order: []
     };
     for (const entry of layout) {
       const key = Array.isArray(entry[0]) ? (entry[0][0] << 8) + entry[0][1] : entry[0];
-      tables.keyToNameMap[key] = entry[1];
-      tables.nameToKeyMap[entry[1]] = key;
-      tables.types[key] = entry[2];
-      tables.defaults[key] = entry[3];
-      tables.opcodes[key] = Array.isArray(entry[0]) ? entry[0] : [entry[0]];
+      tables.keyToNameMap.set(key, entry[1]);
+      tables.nameToKeyMap.set(entry[1], key);
+      tables.types.set(key, entry[2]);
+      tables.defaults.set(key, entry[3]);
+      tables.opcodes.set(key, Array.isArray(entry[0]) ? entry[0] : [entry[0]]);
       tables.order.push(key);
     }
     return tables;
@@ -18738,9 +18738,9 @@ class CFFTopDict extends CFFDict {
   static get tables() {
     return shadow(this, "tables", this.createTables(CFFTopDictLayout));
   }
+  privateDict = null;
   constructor(strings) {
     super(CFFTopDict.tables, strings);
-    this.privateDict = null;
   }
 }
 const CFFPrivateDictLayout = [[6, "BlueValues", "delta", null], [7, "OtherBlues", "delta", null], [8, "FamilyBlues", "delta", null], [9, "FamilyOtherBlues", "delta", null], [[12, 9], "BlueScale", "num", DEFAULT_BLUE_SCALE], [[12, 10], "BlueShift", "num", DEFAULT_BLUE_SHIFT], [[12, 11], "BlueFuzz", "num", DEFAULT_BLUE_FUZZ], [10, "StdHW", "num", null], [11, "StdVW", "num", null], [[12, 12], "StemSnapH", "delta", null], [[12, 13], "StemSnapV", "delta", null], [[12, 14], "ForceBold", "num", 0], [[12, 17], "LanguageGroup", "num", 0], [[12, 18], "ExpansionFactor", "num", DEFAULT_EXPANSION_FACTOR], [[12, 19], "initialRandomSeed", "num", 0], [20, "defaultWidthX", "num", 0], [21, "nominalWidthX", "num", 0], [19, "Subrs", "offset", null]];
@@ -18748,9 +18748,9 @@ class CFFPrivateDict extends CFFDict {
   static get tables() {
     return shadow(this, "tables", this.createTables(CFFPrivateDictLayout));
   }
+  subrsIndex = null;
   constructor(strings) {
     super(CFFPrivateDict.tables, strings);
-    this.subrsIndex = null;
   }
 }
 const CFFCharsetPredefinedTypes = {
@@ -19016,11 +19016,11 @@ class CFFCompiler {
   compileDict(dict, offsetTracker) {
     const out = [];
     for (const key of dict.order) {
-      if (!(key in dict.values)) {
+      if (!dict.values.has(key)) {
         continue;
       }
-      let values = dict.values[key];
-      let types = dict.types[key];
+      let values = dict.values.get(key);
+      let types = dict.types.get(key);
       if (!Array.isArray(types)) {
         types = [types];
       }
@@ -19039,7 +19039,7 @@ class CFFCompiler {
             out.push(...this.encodeNumber(value));
             break;
           case "offset":
-            const name = dict.keyToNameMap[key];
+            const name = dict.keyToNameMap.get(key);
             if (!offsetTracker.isTracking(name)) {
               offsetTracker.track(name, out.length);
             }
@@ -19056,7 +19056,7 @@ class CFFCompiler {
             throw new FormatError(`Unknown data type of ${type}`);
         }
       }
-      out.push(...dict.opcodes[key]);
+      out.push(...dict.opcodes.get(key));
     }
     return out;
   }
