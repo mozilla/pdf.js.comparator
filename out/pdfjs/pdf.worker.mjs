@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.4.0
- * pdfjsBuild = 59c19f1
+ * pdfjsBuild = 58550d5
  */
 
 ;// ./src/shared/util.js
@@ -17400,30 +17400,30 @@ function recoverGlyphName(name, glyphsUnicodeMap) {
   return name;
 }
 function type1FontGlyphMapping(properties, builtInEncoding, glyphNames) {
-  const charCodeToGlyphId = Object.create(null);
+  const charCodeToGlyphId = new Map();
   let glyphId, charCode, baseEncoding;
   const isSymbolicFont = !!(properties.flags & FontFlags.Symbolic);
   if (properties.isInternalFont) {
     baseEncoding = builtInEncoding;
     for (charCode = 0; charCode < baseEncoding.length; charCode++) {
       glyphId = glyphNames.indexOf(baseEncoding[charCode]);
-      charCodeToGlyphId[charCode] = glyphId >= 0 ? glyphId : 0;
+      charCodeToGlyphId.set(charCode, glyphId >= 0 ? glyphId : 0);
     }
   } else if (properties.baseEncodingName) {
     baseEncoding = getEncoding(properties.baseEncodingName);
     for (charCode = 0; charCode < baseEncoding.length; charCode++) {
       glyphId = glyphNames.indexOf(baseEncoding[charCode]);
-      charCodeToGlyphId[charCode] = glyphId >= 0 ? glyphId : 0;
+      charCodeToGlyphId.set(charCode, glyphId >= 0 ? glyphId : 0);
     }
   } else if (isSymbolicFont) {
     for (charCode in builtInEncoding) {
-      charCodeToGlyphId[charCode] = builtInEncoding[charCode];
+      charCodeToGlyphId.set(+charCode, builtInEncoding[charCode]);
     }
   } else {
     baseEncoding = StandardEncoding;
     for (charCode = 0; charCode < baseEncoding.length; charCode++) {
       glyphId = glyphNames.indexOf(baseEncoding[charCode]);
-      charCodeToGlyphId[charCode] = glyphId >= 0 ? glyphId : 0;
+      charCodeToGlyphId.set(charCode, glyphId >= 0 ? glyphId : 0);
     }
   }
   const differences = properties.differences;
@@ -17439,7 +17439,7 @@ function type1FontGlyphMapping(properties, builtInEncoding, glyphNames) {
           glyphId = glyphNames.indexOf(standardGlyphName);
         }
       }
-      charCodeToGlyphId[charCode] = glyphId >= 0 ? glyphId : 0;
+      charCodeToGlyphId.set(+charCode, glyphId >= 0 ? glyphId : 0);
     }
   }
   return charCodeToGlyphId;
@@ -20947,34 +20947,32 @@ class CFFFont {
       cMap
     } = properties;
     const charsets = cff.charset.charset;
-    let charCodeToGlyphId;
-    let glyphId;
     if (properties.composite) {
       let invCidToGidMap;
       if (cidToGidMap?.length > 0) {
-        invCidToGidMap = Object.create(null);
+        invCidToGidMap = new Map();
         for (let i = 0, ii = cidToGidMap.length; i < ii; i++) {
           const gid = cidToGidMap[i];
           if (gid !== undefined) {
-            invCidToGidMap[gid] = i;
+            invCidToGidMap.set(gid, i);
           }
         }
       }
-      charCodeToGlyphId = Object.create(null);
-      let charCode;
+      const charCodeToGlyphId = new Map();
+      let charCode, glyphId;
       if (cff.isCIDFont) {
         for (glyphId = 0; glyphId < charsets.length; glyphId++) {
           const cid = charsets[glyphId];
           charCode = cMap.charCodeOf(cid);
-          if (invCidToGidMap?.[charCode] !== undefined) {
-            charCode = invCidToGidMap[charCode];
+          if (invCidToGidMap?.has(charCode)) {
+            charCode = invCidToGidMap.get(charCode);
           }
-          charCodeToGlyphId[charCode] = glyphId;
+          charCodeToGlyphId.set(charCode, glyphId);
         }
       } else {
         for (glyphId = 0; glyphId < cff.charStrings.count; glyphId++) {
           charCode = cMap.charCodeOf(glyphId);
-          charCodeToGlyphId[charCode] = glyphId;
+          charCodeToGlyphId.set(charCode, glyphId);
         }
       }
       return charCodeToGlyphId;
@@ -20983,8 +20981,7 @@ class CFFFont {
     if (properties.isInternalFont) {
       encoding = properties.defaultEncoding;
     }
-    charCodeToGlyphId = type1FontGlyphMapping(properties, encoding, charsets);
-    return charCodeToGlyphId;
+    return type1FontGlyphMapping(properties, encoding, charsets);
   }
   hasGlyphId(id) {
     return this.cff.hasGlyphId(id);
@@ -26157,10 +26154,10 @@ class Type1Font {
   getGlyphMapping(properties) {
     const charstrings = this.charstrings;
     if (properties.composite) {
-      const charCodeToGlyphId = Object.create(null);
+      const charCodeToGlyphId = new Map();
       for (let glyphId = 0, charstringsLen = charstrings.length; glyphId < charstringsLen; glyphId++) {
         const charCode = properties.cMap.charCodeOf(glyphId);
-        charCodeToGlyphId[charCode] = glyphId + 1;
+        charCodeToGlyphId.set(charCode, glyphId + 1);
       }
       return charCodeToGlyphId;
     }
@@ -26576,7 +26573,7 @@ function convertCidString(charCode, cid, shouldThrow = false) {
   return cid;
 }
 function adjustMapping(charCodeToGlyphId, hasGlyph, newGlyphZeroId, toUnicode) {
-  const newMap = Object.create(null);
+  const newMap = new Map();
   const toUnicodeExtraMap = new Map();
   const toFontChar = [];
   const usedGlyphIds = new Set();
@@ -26586,9 +26583,8 @@ function adjustMapping(charCodeToGlyphId, hasGlyph, newGlyphZeroId, toUnicode) {
   let privateUseOffetEnd = PRIVATE_USE_AREAS[privateUseAreaIndex][1];
   const isInPrivateArea = code => PRIVATE_USE_AREAS[0][0] <= code && code <= PRIVATE_USE_AREAS[0][1] || PRIVATE_USE_AREAS[1][0] <= code && code <= PRIVATE_USE_AREAS[1][1];
   let LIGATURE_TO_UNICODE = null;
-  for (const originalCharCode in charCodeToGlyphId) {
-    let glyphId = charCodeToGlyphId[originalCharCode];
-    if (!hasGlyph(glyphId)) {
+  for (const [charCode, gid] of charCodeToGlyphId) {
+    if (!hasGlyph(gid)) {
       continue;
     }
     if (nextAvailableFontCharCode > privateUseOffetEnd) {
@@ -26601,10 +26597,8 @@ function adjustMapping(charCodeToGlyphId, hasGlyph, newGlyphZeroId, toUnicode) {
       privateUseOffetEnd = PRIVATE_USE_AREAS[privateUseAreaIndex][1];
     }
     const fontCharCode = nextAvailableFontCharCode++;
-    if (glyphId === 0) {
-      glyphId = newGlyphZeroId;
-    }
-    let unicode = toUnicode.get(originalCharCode);
+    const glyphId = gid === 0 ? newGlyphZeroId : gid;
+    let unicode = toUnicode.get(charCode);
     if (typeof unicode === "string") {
       if (unicode.length === 1) {
         unicode = unicode.codePointAt(0);
@@ -26625,8 +26619,8 @@ function adjustMapping(charCodeToGlyphId, hasGlyph, newGlyphZeroId, toUnicode) {
       toUnicodeExtraMap.set(unicode, glyphId);
       usedGlyphIds.add(glyphId);
     }
-    newMap[fontCharCode] = glyphId;
-    toFontChar[originalCharCode] = fontCharCode;
+    newMap.set(fontCharCode, glyphId);
+    toFontChar[charCode] = fontCharCode;
   }
   return {
     toFontChar,
@@ -26635,15 +26629,15 @@ function adjustMapping(charCodeToGlyphId, hasGlyph, newGlyphZeroId, toUnicode) {
     nextAvailableFontCharCode
   };
 }
-function getRanges(glyphs, toUnicodeExtraMap, numGlyphs) {
+function getRanges(charCodeToGlyphId, toUnicodeExtraMap, numGlyphs) {
   const codes = [];
-  for (const charCode in glyphs) {
-    if (glyphs[charCode] >= numGlyphs) {
+  for (const [charCode, glyphId] of charCodeToGlyphId) {
+    if (glyphId >= numGlyphs) {
       continue;
     }
     codes.push({
-      fontCharCode: charCode | 0,
-      glyphId: glyphs[charCode]
+      fontCharCode: charCode,
+      glyphId
     });
   }
   if (toUnicodeExtraMap) {
@@ -26683,8 +26677,8 @@ function getRanges(glyphs, toUnicodeExtraMap, numGlyphs) {
   }
   return ranges;
 }
-function createCmapTable(glyphs, toUnicodeExtraMap, numGlyphs) {
-  const ranges = getRanges(glyphs, toUnicodeExtraMap, numGlyphs);
+function createCmapTable(charCodeToGlyphId, toUnicodeExtraMap, numGlyphs) {
+  const ranges = getRanges(charCodeToGlyphId, toUnicodeExtraMap, numGlyphs);
   const hasNonBmp = ranges.at(-1)[1] > 0xffff;
   let i, ii, j, jj;
   for (i = ranges.length - 1; i >= 0; --i) {
@@ -26858,7 +26852,7 @@ function validateOS2Table(os2, file) {
   os2.data[8] = os2.data[9] = 0;
   return true;
 }
-function createOS2Table(properties, charstrings, override) {
+function createOS2Table(properties, charCodeToGlyphId, override) {
   override ||= {
     unitsPerEm: 0,
     yMax: 0,
@@ -26873,9 +26867,8 @@ function createOS2Table(properties, charstrings, override) {
   let firstCharIndex = null;
   let lastCharIndex = 0;
   let position = -1;
-  if (charstrings) {
-    for (let code in charstrings) {
-      code |= 0;
+  if (charCodeToGlyphId) {
+    for (const code of charCodeToGlyphId.keys()) {
       if (firstCharIndex > code || !firstCharIndex) {
         firstCharIndex = code;
       }
@@ -28498,7 +28491,7 @@ class Font {
       tag: "post",
       data: createPostTable(properties)
     };
-    const charCodeToGlyphId = Object.create(null);
+    const charCodeToGlyphId = new Map();
     function hasGlyph(glyphId) {
       return !missingGlyphs.has(glyphId);
     }
@@ -28519,7 +28512,7 @@ class Font {
           glyphId = cidToGidMap[cid];
         }
         if (glyphId >= 0 && glyphId < numGlyphs && hasGlyph(glyphId)) {
-          charCodeToGlyphId[charCode] = glyphId;
+          charCodeToGlyphId.set(charCode, glyphId);
         }
       });
     } else {
@@ -28568,13 +28561,13 @@ class Font {
             if (mapping.charCode !== unicodeOrCharCode) {
               continue;
             }
-            charCodeToGlyphId[charCode] = mapping.glyphId;
+            charCodeToGlyphId.set(charCode, mapping.glyphId);
             break;
           }
         }
       } else if (cmapPlatformId === 0) {
         for (const mapping of cmapMappings) {
-          charCodeToGlyphId[mapping.charCode] = mapping.glyphId;
+          charCodeToGlyphId.set(mapping.charCode, mapping.glyphId);
         }
         forcePostTable = true;
       } else if (cmapPlatformId === 3 && cmapEncodingId === 0) {
@@ -28583,16 +28576,16 @@ class Font {
           if (charCode >= 0xf000 && charCode <= 0xf0ff) {
             charCode &= 0xff;
           }
-          charCodeToGlyphId[charCode] = mapping.glyphId;
+          charCodeToGlyphId.set(charCode, mapping.glyphId);
         }
       } else {
         for (const mapping of cmapMappings) {
-          charCodeToGlyphId[mapping.charCode] = mapping.glyphId;
+          charCodeToGlyphId.set(mapping.charCode, mapping.glyphId);
         }
       }
       if (properties.glyphNames && (baseEncoding.length || this.differences.length)) {
         for (let i = 0; i < 256; ++i) {
-          if (!forcePostTable && charCodeToGlyphId[i] !== undefined) {
+          if (!forcePostTable && charCodeToGlyphId.has(i)) {
             continue;
           }
           const glyphName = this.differences[i] || baseEncoding[i];
@@ -28601,16 +28594,16 @@ class Font {
           }
           const glyphId = properties.glyphNames.indexOf(glyphName);
           if (glyphId > 0 && hasGlyph(glyphId)) {
-            charCodeToGlyphId[i] = glyphId;
+            charCodeToGlyphId.set(i, glyphId);
           }
         }
       }
-      if (!properties.isInternalFont && charCodeToGlyphId[0] === undefined && hasGlyph(0)) {
-        charCodeToGlyphId[0] = 0;
+      if (!properties.isInternalFont && !charCodeToGlyphId.has(0) && hasGlyph(0)) {
+        charCodeToGlyphId.set(0, 0);
       }
     }
-    if (charCodeToGlyphId.length === 0) {
-      charCodeToGlyphId[0] = 0;
+    if (!charCodeToGlyphId.size) {
+      charCodeToGlyphId.set(0, 0);
     }
     const glyphZeroId = dupFirstEntry ? numGlyphsOut - 1 : 0;
     if (!properties.cssFontInfo) {
@@ -28668,20 +28661,20 @@ class Font {
     } = font;
     function getCharCodes(charCodeToGlyphId, glyphId) {
       let charCodes = null;
-      for (const charCode in charCodeToGlyphId) {
-        if (glyphId === charCodeToGlyphId[charCode]) {
-          (charCodes ||= []).push(charCode | 0);
+      for (const [charCode, gid] of charCodeToGlyphId) {
+        if (glyphId === gid) {
+          (charCodes ??= []).push(charCode);
         }
       }
       return charCodes;
     }
     function createCharCode(charCodeToGlyphId, glyphId) {
-      for (const charCode in charCodeToGlyphId) {
-        if (glyphId === charCodeToGlyphId[charCode]) {
-          return charCode | 0;
+      for (const [charCode, gid] of charCodeToGlyphId) {
+        if (glyphId === gid) {
+          return charCode;
         }
       }
-      newMapping.charCodeToGlyphId[newMapping.nextAvailableFontCharCode] = glyphId;
+      newMapping.charCodeToGlyphId.set(newMapping.nextAvailableFontCharCode, glyphId);
       return newMapping.nextAvailableFontCharCode++;
     }
     if (newMapping && (/* inlined export .SEAC_ANALYSIS_ENABLED */true) && seacs?.size) {
@@ -28705,7 +28698,9 @@ class Font {
           continue;
         }
         for (const charCode of charCodes) {
-          const charCodeToGlyphId = newMapping.charCodeToGlyphId;
+          const {
+            charCodeToGlyphId
+          } = newMapping;
           const baseFontCharCode = createCharCode(charCodeToGlyphId, baseGlyphId);
           const accentFontCharCode = createCharCode(charCodeToGlyphId, accentGlyphId);
           seacMap.set(charCode, {
