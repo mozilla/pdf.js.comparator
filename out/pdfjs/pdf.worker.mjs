@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.4.0
- * pdfjsBuild = 88f6044
+ * pdfjsBuild = 4cd7338
  */
 
 ;// ./src/shared/util.js
@@ -12424,9 +12424,7 @@ class IdentityCMap extends CMap {
     return Number.isInteger(value) && value <= 0xffff ? value : -1;
   }
   getMap() {
-    return Array.from({
-      length: 0x10000
-    }, (_, i) => i);
+    unreachable("should not call getMap");
   }
   get length() {
     return 0x10000;
