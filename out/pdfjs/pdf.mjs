@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.4.0
- * pdfjsBuild = c65061e
+ * pdfjsBuild = ba66792
  */
 
 ;// ./src/shared/util.js
@@ -2100,7 +2100,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "1879e959-e2e7-4bac-ad7c-d2fac0735712";
+const INTERNAL_EVT = "b1127637-879e-44d9-a7ad-3f68f736f641";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -17283,7 +17283,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.4.0";
-const build = "c65061e";
+const build = "ba66792";
 
 ;// ./src/display/editor/color_picker.js
 
@@ -20859,11 +20859,15 @@ class MediaAnnotationElement extends AnnotationElement {
     const {
       signal
     } = this.#abortController;
-    const url = URL.createObjectURL(new Blob([content], {
+    const blob = new Blob([content], {
       type: contentType
-    }));
+    });
+    if (!/^(?:video|audio)\//.test(blob.type)) {
+      return;
+    }
+    const url = URL.createObjectURL(blob);
     this.#contentUrl = url;
-    const isAudio = contentType.startsWith("audio/");
+    const isAudio = blob.type.startsWith("audio/");
     const media = document.createElement(isAudio ? "audio" : "video");
     this.#media = media;
     media.className = "mediaContent";

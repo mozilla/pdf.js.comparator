@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.4.0
- * pdfjsBuild = c65061e
+ * pdfjsBuild = ba66792
  */
 
 ;// ./src/shared/util.js
@@ -21126,6 +21126,18 @@ function compileSystemFontInfo(info) {
   return buffer.transferToFixedLength(offset);
 }
 function compileFontInfo(font) {
+  function writeArray(arr, arrLen, writerName, increment) {
+    if (arr) {
+      view.setUint8(offset++, arrLen);
+      for (const val of arr) {
+        view[writerName](offset, val, true);
+        offset += increment;
+      }
+    } else {
+      view.setUint8(offset++, 0);
+      offset += increment * arrLen;
+    }
+  }
   const systemFontInfoBuffer = font.systemFontInfo ? compileSystemFontInfo(font.systemFontInfo) : null;
   const cssFontInfoBuffer = font.cssFontInfo ? compileCssFontInfo(font.cssFontInfo) : null;
   const {
@@ -21162,38 +21174,11 @@ function compileFontInfo(font) {
     offset += 8;
   }
   assert(offset === FONT_INFO.OFFSET_BBOX, "compileFontInfo: Number properties offset mismatch");
-  if (font.bbox) {
-    view.setUint8(offset++, 4);
-    for (const coord of font.bbox) {
-      view.setInt16(offset, coord, true);
-      offset += 2;
-    }
-  } else {
-    view.setUint8(offset++, 0);
-    offset += 2 * 4;
-  }
+  writeArray(font.bbox, 4, "setInt16", 2);
   assert(offset === FONT_INFO.OFFSET_FONT_MATRIX, "compileFontInfo: BBox properties offset mismatch");
-  if (font.fontMatrix) {
-    view.setUint8(offset++, 6);
-    for (const point of font.fontMatrix) {
-      view.setFloat64(offset, point, true);
-      offset += 8;
-    }
-  } else {
-    view.setUint8(offset++, 0);
-    offset += 8 * 6;
-  }
+  writeArray(font.fontMatrix, 6, "setFloat64", 8);
   assert(offset === FONT_INFO.OFFSET_DEFAULT_VMETRICS, "compileFontInfo: FontMatrix properties offset mismatch");
-  if (font.defaultVMetrics) {
-    view.setUint8(offset++, 3);
-    for (const metric of font.defaultVMetrics) {
-      view.setInt16(offset, metric, true);
-      offset += 2;
-    }
-  } else {
-    view.setUint8(offset++, 0);
-    offset += 3 * 2;
-  }
+  writeArray(font.defaultVMetrics, 3, "setInt16", 2);
   assert(offset === FONT_INFO.OFFSET_STRINGS, "compileFontInfo: DefaultVMetrics properties offset mismatch");
   view.setUint32(FONT_INFO.OFFSET_STRINGS, 0);
   offset += 4;
@@ -56597,7 +56582,8 @@ class FileAttachmentAnnotation extends MarkupAnnotation {
   }
 }
 class MediaAnnotation extends Annotation {
-  static #MEDIA_MIME_TYPE_RE = /^(?:video|audio)\//;
+  static #MEDIA_MIME_TYPE_RE = /^(?:video|audio)\/[a-z0-9][\w!#$&^.+-]{0,126}$/i;
+  static #MEDIA_CONTENT_TYPE_RE = /^(?:video|audio)\/[a-z0-9][\w!#$&^.+-]{0,126}(?: *; *[a-z0-9][\w!#$&^.+-]{0,126} *= *(?:[-!#$%&'*+.^\x60{|}~\w]+|"(?:[\x20\x21\x23-\x5b\x5d-\x7e]|\\[\x20-\x7e])*"))* *$/i;
   constructor(params) {
     super(params);
     this.data.noHTML = true;
@@ -56616,8 +56602,8 @@ class MediaAnnotation extends Annotation {
       contentType
     };
   }
-  static _getContentType(assetDict, filename, contentType = null) {
-    if (typeof contentType === "string" && MediaAnnotation.#MEDIA_MIME_TYPE_RE.test(contentType)) {
+  static _getContentType(assetDict, filename, contentType = null, contentTypeIsName = false) {
+    if (typeof contentType === "string" && (contentTypeIsName ? MediaAnnotation.#MEDIA_MIME_TYPE_RE : MediaAnnotation.#MEDIA_CONTENT_TYPE_RE).test(contentType)) {
       return contentType;
     }
     const stream = FileSpec.pickPlatformItem(assetDict.get("EF"));
@@ -56797,6 +56783,7 @@ class ScreenAnnotation extends MediaAnnotation {
     const data = xref.fetchIfRef(rawData);
     const contentTypeHint = clip.get("CT");
     let explicitType = typeof contentTypeHint === "string" ? contentTypeHint : null;
+    let explicitTypeIsName = false;
     let assetDict, filename;
     if (data instanceof BaseStream) {
       assetDict = data.dict;
@@ -56806,6 +56793,7 @@ class ScreenAnnotation extends MediaAnnotation {
         const subtype = data.dict.get("Subtype");
         if (subtype instanceof Name) {
           explicitType = subtype.name;
+          explicitTypeIsName = true;
         }
       }
     } else if (data instanceof Dict) {
@@ -56819,7 +56807,7 @@ class ScreenAnnotation extends MediaAnnotation {
     } else {
       return null;
     }
-    const contentType = MediaAnnotation._getContentType(assetDict, filename, explicitType);
+    const contentType = MediaAnnotation._getContentType(assetDict, filename, explicitType, explicitTypeIsName);
     if (!contentType) {
       return null;
     }
