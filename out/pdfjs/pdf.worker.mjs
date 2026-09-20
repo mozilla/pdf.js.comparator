@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.4.0
- * pdfjsBuild = ccd820e
+ * pdfjsBuild = b7338b8
  */
 
 ;// ./src/shared/util.js
@@ -2936,10 +2936,7 @@ class ChunkedStream extends Stream {
       return;
     }
     const chunk = Math.floor(pos / this.chunkSize);
-    if (chunk > this.numChunks) {
-      return;
-    }
-    if (chunk === this._lastSuccessfulEnsureByteChunk) {
+    if (chunk > this.numChunks || chunk === this._lastSuccessfulEnsureByteChunk) {
       return;
     }
     if (!this._loadedChunks.has(chunk)) {
@@ -2948,10 +2945,7 @@ class ChunkedStream extends Stream {
     this._lastSuccessfulEnsureByteChunk = chunk;
   }
   ensureRange(begin, end) {
-    if (begin >= end) {
-      return;
-    }
-    if (end <= this.progressiveDataLength) {
+    if (begin >= end || end <= this.progressiveDataLength) {
       return;
     }
     const beginChunk = Math.floor(begin / this.chunkSize);
@@ -26226,10 +26220,7 @@ const PDF_GLYPH_SPACE_UNITS = 1000;
 const EXPORT_DATA_PROPERTIES = ["ascent", "bbox", "black", "bold", "cssFontInfo", "data", "defaultVMetrics", "defaultWidth", "descent", "disableFontFace", "fallbackName", "fontExtraProperties", "fontMatrix", "isInvalidPDFjsFont", "isType3Font", "italic", "loadedName", "mimetype", "missingFile", "name", "remeasure", "systemFontInfo", "vertical"];
 const EXPORT_DATA_EXTRA_PROPERTIES = ["cMap", "composite", "defaultEncoding", "differences", "isMonospace", "isSerifFont", "isSymbolicFont", "seacMap", "subtype", "toFontChar", "toUnicode", "type", "vmetrics", "widths"];
 function adjustWidths(properties) {
-  if (!properties.fontMatrix) {
-    return;
-  }
-  if (properties.fontMatrix[0] === FONT_IDENTITY_MATRIX[0]) {
+  if (!properties.fontMatrix || properties.fontMatrix[0] === FONT_IDENTITY_MATRIX[0]) {
     return;
   }
   const scale = 0.001 / properties.fontMatrix[0];
@@ -26316,10 +26307,7 @@ function adjustType1ToUnicode(properties, builtInEncoding) {
   }
 }
 function amendFallbackToUnicode(properties) {
-  if (!properties.fallbackToUnicode) {
-    return;
-  }
-  if (properties.toUnicode instanceof IdentityToUnicodeMap) {
+  if (!properties.fallbackToUnicode || properties.toUnicode instanceof IdentityToUnicodeMap) {
     return;
   }
   const toUnicode = [];
@@ -30378,19 +30366,13 @@ class PsJsCompiler {
       second
     } = node;
     if (op === TOKEN.bitshift) {
-      if (first.type !== PS_NODE.const || !Number.isInteger(first.value)) {
-        return false;
-      }
-      if (!this._compileNode(second)) {
+      if (first.type !== PS_NODE.const || !Number.isInteger(first.value) || !this._compileNode(second)) {
         return false;
       }
       this.ir.push(OP.SHIFT, first.value);
       return true;
     }
-    if (!this._compileNode(second)) {
-      return false;
-    }
-    if (!this._compileNode(first)) {
+    if (!this._compileNode(second) || !this._compileNode(first)) {
       return false;
     }
     switch (op) {
@@ -31307,10 +31289,7 @@ class PsWasmCompiler {
   _compileSafeDivNode(first, second) {
     const tmp = this._allocLocal();
     try {
-      if (!this._compileNode(second)) {
-        return false;
-      }
-      if (!this._compileNode(first)) {
+      if (!this._compileNode(second) || !this._compileNode(first)) {
         return false;
       }
       const code = this._code;
@@ -31328,10 +31307,7 @@ class PsWasmCompiler {
   _compileSafeIdivNode(first, second) {
     const tmp = this._allocLocal();
     try {
-      if (!this._compileNode(second)) {
-        return false;
-      }
-      if (!this._compileNode(first)) {
+      if (!this._compileNode(second) || !this._compileNode(first)) {
         return false;
       }
       const code = this._code;
@@ -31347,10 +31323,7 @@ class PsWasmCompiler {
     }
   }
   _compileBitshiftNode(first, second) {
-    if (first.type !== PS_NODE.const || !Number.isInteger(first.value)) {
-      return false;
-    }
-    if (!this._compileNode(second)) {
+    if (first.type !== PS_NODE.const || !Number.isInteger(first.value) || !this._compileNode(second)) {
       return false;
     }
     const code = this._code;
@@ -31418,10 +31391,7 @@ class PsWasmCompiler {
   _compileAtanNode(first, second) {
     const localR = this._allocLocal();
     try {
-      if (!this._compileNode(second)) {
-        return false;
-      }
-      if (!this._compileNode(first)) {
+      if (!this._compileNode(second) || !this._compileNode(first)) {
         return false;
       }
       const code = this._code;
@@ -31443,10 +31413,7 @@ class PsWasmCompiler {
     }
   }
   _compileBitwiseNode(op, first, second) {
-    if (!this._compileBitwiseOperandI32(second)) {
-      return false;
-    }
-    if (!this._compileBitwiseOperandI32(first)) {
+    if (!this._compileBitwiseOperandI32(second) || !this._compileBitwiseOperandI32(first)) {
       return false;
     }
     const code = this._code;
@@ -31488,13 +31455,8 @@ class PsWasmCompiler {
       } finally {
         this._releaseLocal(tmp);
       }
-    } else {
-      if (!this._compileNode(second)) {
-        return false;
-      }
-      if (!this._compileNode(first)) {
-        return false;
-      }
+    } else if (!this._compileNode(second) || !this._compileNode(first)) {
+      return false;
     }
     const code = this._code;
     switch (op) {
@@ -31567,20 +31529,14 @@ class PsWasmCompiler {
     if (node.type === PS_NODE.binary) {
       const wasmOp = PsWasmCompiler.#comparisonToOp.get(node.op);
       if (wasmOp !== undefined) {
-        if (!this._compileNode(node.second)) {
-          return false;
-        }
-        if (!this._compileNode(node.first)) {
+        if (!this._compileNode(node.second) || !this._compileNode(node.first)) {
           return false;
         }
         this._code.push(wasmOp);
         return true;
       }
       if (node.valueType === PS_VALUE_TYPE.boolean && (node.op === TOKEN.and || node.op === TOKEN.or || node.op === TOKEN.xor)) {
-        if (!this._compileNodeAsBoolI32(node.second)) {
-          return false;
-        }
-        if (!this._compileNodeAsBoolI32(node.first)) {
+        if (!this._compileNodeAsBoolI32(node.second) || !this._compileNodeAsBoolI32(node.first)) {
           return false;
         }
         switch (node.op) {
@@ -31943,13 +31899,7 @@ class GlobalImageCache {
     return byteSize;
   }
   get #cacheLimitReached() {
-    if (this._imageCache.size < GlobalImageCache.MIN_IMAGES_TO_CACHE) {
-      return false;
-    }
-    if (this.#byteSize < GlobalImageCache.MAX_BYTE_SIZE) {
-      return false;
-    }
-    return true;
+    return this._imageCache.size >= GlobalImageCache.MIN_IMAGES_TO_CACHE && this.#byteSize >= GlobalImageCache.MAX_BYTE_SIZE;
   }
   shouldCache(ref, pageIndex) {
     const pageIndexSet = this._refCache.getOrPutComputed(ref, makeSet);
@@ -31980,10 +31930,7 @@ class GlobalImageCache {
   }
   getData(ref, pageIndex) {
     const pageIndexSet = this._refCache.get(ref);
-    if (!pageIndexSet) {
-      return null;
-    }
-    if (pageIndexSet.size < GlobalImageCache.NUM_PAGES_THRESHOLD) {
+    if (!pageIndexSet || pageIndexSet.size < GlobalImageCache.NUM_PAGES_THRESHOLD) {
       return null;
     }
     const imageData = this._imageCache.get(ref);
@@ -41631,10 +41578,7 @@ class Catalog {
           break;
         }
         const parentDict = xref.fetch(parentRaw);
-        if (!(parentDict instanceof Dict)) {
-          break;
-        }
-        if (isName(parentDict.get("Type"), "StructTreeRoot")) {
+        if (!(parentDict instanceof Dict) || isName(parentDict.get("Type"), "StructTreeRoot")) {
           break;
         }
         const pg = parentDict.getRaw("Pg");
@@ -43002,10 +42946,7 @@ function searchNode(root, container, expr, dotDotAllowed = true, useCache = true
 }
 function createDataNode(root, container, expr) {
   const parsed = parseExpression(expr);
-  if (!parsed) {
-    return null;
-  }
-  if (parsed.some(x => x.operator === operators.dotDot)) {
+  if (!parsed || parsed.some(x => x.operator === operators.dotDot)) {
     return null;
   }
   const fn = shortcuts.get(parsed[0].name);
@@ -44523,10 +44464,7 @@ function getTransformedBBox(node) {
   return [node.x + x + Math.min(0, w), node.y + y + Math.min(0, h), Math.abs(w), Math.abs(h)];
 }
 function checkDimensions(node, space) {
-  if (node[$getTemplateRoot]()[$extra].firstUnsplittable === null) {
-    return true;
-  }
-  if (node.w === 0 || node.h === 0) {
+  if (node[$getTemplateRoot]()[$extra].firstUnsplittable === null || node.w === 0 || node.h === 0) {
     return true;
   }
   const ERROR = 2;
@@ -44586,10 +44524,7 @@ function checkDimensions(node, space) {
       }
       return space.height > ERROR;
     case "position":
-      if (node[$getTemplateRoot]()[$extra].noLayoutFailure) {
-        return true;
-      }
-      if (node.h === "" || Math.round(h + y - space.height) <= ERROR) {
+      if (node[$getTemplateRoot]()[$extra].noLayoutFailure || node.h === "" || Math.round(h + y - space.height) <= ERROR) {
         return true;
       }
       const area = node[$getTemplateRoot]()[$extra].currentContentArea;
