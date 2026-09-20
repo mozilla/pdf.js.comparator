@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.4.0
- * pdfjsBuild = 545f520
+ * pdfjsBuild = ccd820e
  */
 
 ;// ./src/shared/util.js
@@ -643,10 +643,7 @@ class Util {
     }
     const yLow = Math.max(Math.min(rect1[1], rect1[3]), Math.min(rect2[1], rect2[3]));
     const yHigh = Math.min(Math.max(rect1[1], rect1[3]), Math.max(rect2[1], rect2[3]));
-    if (yLow > yHigh) {
-      return null;
-    }
-    return [xLow, yLow, xHigh, yHigh];
+    return yLow > yHigh ? null : [xLow, yLow, xHigh, yHigh];
   }
   static pointBoundingBox(x, y, minMax) {
     minMax[0] = Math.min(minMax[0], x);
@@ -1152,10 +1149,7 @@ class BaseStream {
   getUint16() {
     const b0 = this.getByte();
     const b1 = this.getByte();
-    if (b0 === -1 || b1 === -1) {
-      return -1;
-    }
-    return (b0 << 8) + b1;
+    return b0 === -1 || b1 === -1 ? -1 : (b0 << 8) + b1;
   }
   getInt32() {
     const b0 = this.getByte();
@@ -1481,13 +1475,10 @@ function parseXFAPath(path) {
   const positionPattern = /^(.+)\[(\d+)\]$/;
   return path.split(".").map(component => {
     const m = component.match(positionPattern);
-    if (m) {
-      return {
-        name: m[1],
-        pos: parseInt(m[2], 10)
-      };
-    }
-    return {
+    return m ? {
+      name: m[1],
+      pos: parseInt(m[2], 10)
+    } : {
       name: component,
       pos: 0
     };
@@ -1712,10 +1703,7 @@ function numberToString(value) {
   if (roundedValue % 100 === 0) {
     return (roundedValue / 100).toString();
   }
-  if (roundedValue % 10 === 0) {
-    return value.toFixed(1);
-  }
-  return value.toFixed(2);
+  return roundedValue % 10 === 0 ? value.toFixed(1) : value.toFixed(2);
 }
 function getNewAnnotationsMap(annotationStorage) {
   if (!annotationStorage) {
@@ -2504,19 +2492,13 @@ class CalRGBCS extends ColorSpace {
     if (color <= 0.0031308) {
       return MathClamp(12.92 * color, 0, 1);
     }
-    if (color >= 0.99554525) {
-      return 1;
-    }
-    return MathClamp((1 + 0.055) * color ** (1 / 2.4) - 0.055, 0, 1);
+    return color >= 0.99554525 ? 1 : MathClamp((1 + 0.055) * color ** (1 / 2.4) - 0.055, 0, 1);
   }
   #decodeL(L) {
     if (L < 0) {
       return -this.#decodeL(-L);
     }
-    if (L > 8.0) {
-      return ((L + 16) / 116) ** 3;
-    }
-    return L * CalRGBCS.#DECODE_L_CONSTANT;
+    return L > 8.0 ? ((L + 16) / 116) ** 3 : L * CalRGBCS.#DECODE_L_CONSTANT;
   }
   #compensateBlackPoint(sourceBlackPoint, XYZ_Flat, result) {
     if (sourceBlackPoint[0] === 0 && sourceBlackPoint[1] === 0 && sourceBlackPoint[2] === 0) {
@@ -3440,10 +3422,7 @@ class ImageResizer {
     }
     const area = width * height;
     if (!this.needsToBeResized(width, height)) {
-      if (area > maxArea) {
-        return Math.ceil(Math.log2(area / maxArea));
-      }
-      return 0;
+      return area > maxArea ? Math.ceil(Math.log2(area / maxArea)) : 0;
     }
     const {
       MAX_DIM,
@@ -4334,10 +4313,7 @@ function decodeScan(data, view, offset, frame, components, resetInterval, spectr
       return readBit() === 1 ? 1 : -1;
     }
     const n = receive(length);
-    if (n >= 1 << length - 1) {
-      return n;
-    }
-    return n + (-1 << length) + 1;
+    return n >= 1 << length - 1 ? n : n + (-1 << length) + 1;
   }
   function decodeBaseline(component, blockOffset) {
     const t = decodeHuffman(component.huffmanTableDC);
@@ -4818,10 +4794,7 @@ function skipData(data, view, offset) {
   offset += 2;
   const endOffset = offset + length - 2;
   const fileMarker = findNextFileMarker(data, view, endOffset, offset);
-  if (fileMarker?.invalid) {
-    return fileMarker.offset;
-  }
-  return endOffset;
+  return fileMarker?.invalid ? fileMarker.offset : endOffset;
 }
 class JpegImage {
   constructor(options) {
@@ -5289,10 +5262,7 @@ class JpegImage {
         if (forceRGBA) {
           return this._convertYcckToRgba(data);
         }
-        if (forceRGB) {
-          return this._convertYcckToRgb(data);
-        }
-        return this._convertYcckToCmyk(data);
+        return forceRGB ? this._convertYcckToRgb(data) : this._convertYcckToCmyk(data);
       } else if (forceRGBA) {
         return this._convertCmykToRgba(data);
       } else if (forceRGB) {
@@ -7026,10 +6996,7 @@ function hexToStr(a, size) {
   if (size === 1) {
     return String.fromCharCode(a[0], a[1]);
   }
-  if (size === 3) {
-    return String.fromCharCode(a[0], a[1], a[2], a[3]);
-  }
-  return String.fromCharCode(...a.subarray(0, size + 1));
+  return size === 3 ? String.fromCharCode(a[0], a[1], a[2], a[3]) : String.fromCharCode(...a.subarray(0, size + 1));
 }
 function addHex(a, b, size) {
   let c = 0;
@@ -7254,10 +7221,7 @@ class BinaryCMapReader {
           throw new Error(`BinaryCMapReader.process - unknown type: ${type}`);
       }
     }
-    if (useCMap) {
-      return extend(useCMap);
-    }
-    return cMap;
+    return useCMap ? extend(useCMap) : cMap;
   }
 }
 
@@ -9328,10 +9292,7 @@ class BrotliStream extends DecodeStream {
     if (!data) {
       return this.getBytes(length);
     }
-    if (data.length <= length) {
-      return data;
-    }
-    return data.subarray(0, length);
+    return data.length <= length ? data : data.subarray(0, length);
   }
   async asyncGetBytes() {
     const {
@@ -9859,10 +9820,7 @@ class FlateStream extends DecodeStream {
     if (!data) {
       return this.getBytes(length);
     }
-    if (data.length <= length) {
-      return data;
-    }
-    return data.subarray(0, length);
+    return data.length <= length ? data : data.subarray(0, length);
   }
   async asyncGetBytes() {
     const {
@@ -12229,6 +12187,7 @@ class Linearization {
 const BUILT_IN_CMAPS = ["Adobe-GB1-UCS2", "Adobe-CNS1-UCS2", "Adobe-Japan1-UCS2", "Adobe-Korea1-UCS2", "78-EUC-H", "78-EUC-V", "78-H", "78-RKSJ-H", "78-RKSJ-V", "78-V", "78ms-RKSJ-H", "78ms-RKSJ-V", "83pv-RKSJ-H", "90ms-RKSJ-H", "90ms-RKSJ-V", "90msp-RKSJ-H", "90msp-RKSJ-V", "90pv-RKSJ-H", "90pv-RKSJ-V", "Add-H", "Add-RKSJ-H", "Add-RKSJ-V", "Add-V", "Adobe-CNS1-0", "Adobe-CNS1-1", "Adobe-CNS1-2", "Adobe-CNS1-3", "Adobe-CNS1-4", "Adobe-CNS1-5", "Adobe-CNS1-6", "Adobe-GB1-0", "Adobe-GB1-1", "Adobe-GB1-2", "Adobe-GB1-3", "Adobe-GB1-4", "Adobe-GB1-5", "Adobe-Japan1-0", "Adobe-Japan1-1", "Adobe-Japan1-2", "Adobe-Japan1-3", "Adobe-Japan1-4", "Adobe-Japan1-5", "Adobe-Japan1-6", "Adobe-Korea1-0", "Adobe-Korea1-1", "Adobe-Korea1-2", "B5-H", "B5-V", "B5pc-H", "B5pc-V", "CNS-EUC-H", "CNS-EUC-V", "CNS1-H", "CNS1-V", "CNS2-H", "CNS2-V", "ETHK-B5-H", "ETHK-B5-V", "ETen-B5-H", "ETen-B5-V", "ETenms-B5-H", "ETenms-B5-V", "EUC-H", "EUC-V", "Ext-H", "Ext-RKSJ-H", "Ext-RKSJ-V", "Ext-V", "GB-EUC-H", "GB-EUC-V", "GB-H", "GB-V", "GBK-EUC-H", "GBK-EUC-V", "GBK2K-H", "GBK2K-V", "GBKp-EUC-H", "GBKp-EUC-V", "GBT-EUC-H", "GBT-EUC-V", "GBT-H", "GBT-V", "GBTpc-EUC-H", "GBTpc-EUC-V", "GBpc-EUC-H", "GBpc-EUC-V", "H", "HKdla-B5-H", "HKdla-B5-V", "HKdlb-B5-H", "HKdlb-B5-V", "HKgccs-B5-H", "HKgccs-B5-V", "HKm314-B5-H", "HKm314-B5-V", "HKm471-B5-H", "HKm471-B5-V", "HKscs-B5-H", "HKscs-B5-V", "Hankaku", "Hiragana", "KSC-EUC-H", "KSC-EUC-V", "KSC-H", "KSC-Johab-H", "KSC-Johab-V", "KSC-V", "KSCms-UHC-H", "KSCms-UHC-HW-H", "KSCms-UHC-HW-V", "KSCms-UHC-V", "KSCpc-EUC-H", "KSCpc-EUC-V", "Katakana", "NWP-H", "NWP-V", "RKSJ-H", "RKSJ-V", "Roman", "UniCNS-UCS2-H", "UniCNS-UCS2-V", "UniCNS-UTF16-H", "UniCNS-UTF16-V", "UniCNS-UTF32-H", "UniCNS-UTF32-V", "UniCNS-UTF8-H", "UniCNS-UTF8-V", "UniGB-UCS2-H", "UniGB-UCS2-V", "UniGB-UTF16-H", "UniGB-UTF16-V", "UniGB-UTF32-H", "UniGB-UTF32-V", "UniGB-UTF8-H", "UniGB-UTF8-V", "UniJIS-UCS2-H", "UniJIS-UCS2-HW-H", "UniJIS-UCS2-HW-V", "UniJIS-UCS2-V", "UniJIS-UTF16-H", "UniJIS-UTF16-V", "UniJIS-UTF32-H", "UniJIS-UTF32-V", "UniJIS-UTF8-H", "UniJIS-UTF8-V", "UniJIS2004-UTF16-H", "UniJIS2004-UTF16-V", "UniJIS2004-UTF32-H", "UniJIS2004-UTF32-V", "UniJIS2004-UTF8-H", "UniJIS2004-UTF8-V", "UniJISPro-UCS2-HW-V", "UniJISPro-UCS2-V", "UniJISPro-UTF8-V", "UniJISX0213-UTF32-H", "UniJISX0213-UTF32-V", "UniJISX02132004-UTF32-H", "UniJISX02132004-UTF32-V", "UniKS-UCS2-H", "UniKS-UCS2-V", "UniKS-UTF16-H", "UniKS-UTF16-V", "UniKS-UTF32-H", "UniKS-UTF32-V", "UniKS-UTF8-H", "UniKS-UTF8-V", "V", "WP-Symbol"];
 const MAX_MAP_RANGE = 2 ** 24 - 1;
 class CMap {
+  #mappedEntries = 0;
   constructor(builtInCMap = false) {
     this.codespaceRanges = [[], [], [], []];
     this.numCodespaceRanges = 0;
@@ -12242,18 +12201,23 @@ class CMap {
     this.codespaceRanges[n - 1].push(low, high);
     this.numCodespaceRanges++;
   }
-  mapCidRange(low, high, dstLow) {
-    if (high - low > MAX_MAP_RANGE) {
-      throw new Error("mapCidRange - ignoring data above MAX_MAP_RANGE.");
+  #consumeBudget(count, name) {
+    if (count <= 0) {
+      return;
     }
+    if (this.#mappedEntries + count > MAX_MAP_RANGE) {
+      throw new Error(`${name} - ignoring data above MAX_MAP_RANGE.`);
+    }
+    this.#mappedEntries += count;
+  }
+  mapCidRange(low, high, dstLow) {
+    this.#consumeBudget(high - low + 1, "mapCidRange");
     while (low <= high) {
       this._map[low++] = dstLow++;
     }
   }
   mapBfRange(low, high, dstLow) {
-    if (high - low > MAX_MAP_RANGE) {
-      throw new Error("mapBfRange - ignoring data above MAX_MAP_RANGE.");
-    }
+    this.#consumeBudget(high - low + 1, "mapBfRange");
     const lastByte = dstLow.length - 1;
     while (low <= high) {
       this._map[low++] = dstLow;
@@ -12266,10 +12230,8 @@ class CMap {
     }
   }
   mapBfRangeToArray(low, high, array) {
-    if (high - low > MAX_MAP_RANGE) {
-      throw new Error("mapBfRangeToArray - ignoring data above MAX_MAP_RANGE.");
-    }
     const ii = array.length;
+    this.#consumeBudget(Math.min(high - low + 1, ii), "mapBfRangeToArray");
     let i = 0;
     while (low <= high && i < ii) {
       this._map[low] = array[i++];
@@ -12596,10 +12558,7 @@ async function parseCMap(cMap, lexer, fetchBuiltInCMap, useCMap) {
   if (!useCMap && embeddedUseCMap) {
     useCMap = embeddedUseCMap;
   }
-  if (useCMap) {
-    return extendCMap(cMap, fetchBuiltInCMap, useCMap);
-  }
-  return cMap;
+  return useCMap ? extendCMap(cMap, fetchBuiltInCMap, useCMap) : cMap;
 }
 async function extendCMap(cMap, fetchBuiltInCMap, useCMap) {
   cMap.useCMap = await createBuiltInCMap(useCMap, fetchBuiltInCMap);
@@ -12656,10 +12615,7 @@ class CMapFactory {
         }
       }
       const parsedCMap = await parseCMap(new CMap(), new Lexer(encoding), fetchBuiltInCMap, useCMap);
-      if (parsedCMap.isIdentityCMap) {
-        return createBuiltInCMap(parsedCMap.name, fetchBuiltInCMap);
-      }
-      return parsedCMap;
+      return parsedCMap.isIdentityCMap ? createBuiltInCMap(parsedCMap.name, fetchBuiltInCMap) : parsedCMap;
     }
     throw new Error("Encoding required.");
   }
@@ -18589,10 +18545,7 @@ class CFFStrings {
     if (index >= 0 && index <= NUM_STANDARD_CFF_STRINGS - 1) {
       return CFFStandardStrings[index];
     }
-    if (index - NUM_STANDARD_CFF_STRINGS <= this.strings.length) {
-      return this.strings[index - NUM_STANDARD_CFF_STRINGS];
-    }
-    return CFFStandardStrings[0];
+    return index - NUM_STANDARD_CFF_STRINGS <= this.strings.length ? this.strings[index - NUM_STANDARD_CFF_STRINGS] : CFFStandardStrings[0];
   }
   getSID(str) {
     let index = CFFStandardStrings.indexOf(str);
@@ -18600,10 +18553,7 @@ class CFFStrings {
       return index;
     }
     index = this.strings.indexOf(str);
-    if (index !== -1) {
-      return index + NUM_STANDARD_CFF_STRINGS;
-    }
-    return -1;
+    return index !== -1 ? index + NUM_STANDARD_CFF_STRINGS : -1;
   }
   add(value) {
     this.strings.push(value);
@@ -18862,10 +18812,7 @@ class CFFCompiler {
     return output.data;
   }
   encodeNumber(value) {
-    if (Number.isInteger(value)) {
-      return this.encodeInteger(value);
-    }
-    return this.encodeFloat(value);
+    return Number.isInteger(value) ? this.encodeInteger(value) : this.encodeFloat(value);
   }
   static get EncodeFloatRegExp() {
     return shadow(this, "EncodeFloatRegExp", /\.(\d*?)(?:9{5,20}|0{5,20})\d{0,2}(?:e(.+)|$)/);
@@ -29360,10 +29307,7 @@ class lexer_Lexer {
     this.pos = this._identifierPattern.lastIndex;
     const op = match[0];
     const token = lexer_Lexer.#operatorSingletons[op];
-    if (!token) {
-      return new Token(TOKEN.number, 0);
-    }
-    return token;
+    return token ?? new Token(TOKEN.number, 0);
   }
   next() {
     while (this.pos < this.len) {
@@ -31617,10 +31561,7 @@ class PsWasmCompiler {
     if (op === TOKEN.atan) {
       return this._compileAtanNode(first, second);
     }
-    if (op === TOKEN.and || op === TOKEN.or || op === TOKEN.xor) {
-      return this._compileBitwiseNode(op, first, second);
-    }
-    return this._compileStandardBinaryNode(op, first, second);
+    return op === TOKEN.and || op === TOKEN.or || op === TOKEN.xor ? this._compileBitwiseNode(op, first, second) : this._compileStandardBinaryNode(op, first, second);
   }
   _compileNodeAsBoolI32(node) {
     if (node.type === PS_NODE.binary) {
@@ -31850,10 +31791,7 @@ class BaseLocalCache {
       unreachable("Should not call `getByName` method.");
     }
     const ref = this._nameRefMap.get(name);
-    if (ref) {
-      return this.getByRef(ref);
-    }
-    return this._imageMap.get(name) || null;
+    return ref ? this.getByRef(ref) : this._imageMap.get(name) || null;
   }
   getByRef(ref) {
     return this._imageCache.get(ref) || null;
@@ -33789,10 +33727,7 @@ class PDFImage {
             forceRGB: true,
             internal: mustBeResized
           });
-          if (mustBeResized) {
-            return ImageResizer.createImage(imgData);
-          }
-          return imgData;
+          return mustBeResized ? ImageResizer.createImage(imgData) : imgData;
         }
       }
     }
@@ -33848,10 +33783,7 @@ class PDFImage {
       };
     }
     imgData.data = data;
-    if (mustBeResized) {
-      return ImageResizer.createImage(imgData);
-    }
-    return imgData;
+    return mustBeResized ? ImageResizer.createImage(imgData) : imgData;
   }
   async fillGrayBuffer(buffer, {
     destWidth,
@@ -36807,10 +36739,7 @@ class PartialEvaluator {
         fetchBuiltInCMap: this._fetchBuiltInCMapBound,
         useCMap: null
       });
-      if (cmap instanceof IdentityCMap) {
-        return new IdentityToUnicodeMap(0, 0xffff);
-      }
-      return new ToUnicodeMap(cmap.getMap());
+      return cmap instanceof IdentityCMap ? new IdentityToUnicodeMap(0, 0xffff) : new ToUnicodeMap(cmap.getMap());
     }
     if (cmapObj instanceof BaseStream) {
       try {
@@ -38792,10 +38721,7 @@ class FileSpec {
   }
   get description() {
     const desc = this.root?.get("Desc");
-    if (desc && typeof desc === "string") {
-      return stringToPDFString(desc);
-    }
-    return "";
+    return desc && typeof desc === "string" ? stringToPDFString(desc) : "";
   }
   get serializable() {
     const {
@@ -39094,10 +39020,7 @@ class SimpleDOMNode {
       return undefined;
     }
     const index = childNodes.indexOf(this);
-    if (index === -1) {
-      return undefined;
-    }
-    return childNodes[index + 1];
+    return index === -1 ? undefined : childNodes[index + 1];
   }
   get textContent() {
     return !this.childNodes ? this.nodeValue || "" : this.childNodes.map(child => child.textContent).join("");
@@ -39303,10 +39226,7 @@ class MetadataParser {
   }
   _getSequence(entry) {
     const name = entry.nodeName;
-    if (name !== "rdf:bag" && name !== "rdf:seq" && name !== "rdf:alt") {
-      return null;
-    }
-    return entry.childNodes.filter(node => node.nodeName === "rdf:li");
+    return name !== "rdf:bag" && name !== "rdf:seq" && name !== "rdf:alt" ? null : entry.childNodes.filter(node => node.nodeName === "rdf:li");
   }
   _parseArray(entry) {
     if (!entry.hasChildNodes()) {
@@ -39378,10 +39298,7 @@ function getSoundFormat(dict) {
   if (e !== undefined) {
     encoding = e instanceof Name ? e.name : null;
   }
-  if (encoding !== "Raw" && encoding !== "Signed") {
-    return null;
-  }
-  return {
+  return encoding !== "Raw" && encoding !== "Signed" ? null : {
     channels,
     sampleRate,
     bitsPerSample,
@@ -40478,7 +40395,7 @@ class Catalog {
   }
   get needsRendering() {
     const needsRendering = this.#catDict.get("NeedsRendering");
-    return shadow(this, "needsRendering", typeof needsRendering === "boolean" ? needsRendering : false);
+    return shadow(this, "needsRendering", needsRendering === true);
   }
   get collection() {
     let collection = null;
@@ -40556,7 +40473,7 @@ class Catalog {
     const markInfo = new Map();
     for (const key of ["Marked", "UserProperties", "Suspects"]) {
       const val = obj.get(key);
-      markInfo.set(key, typeof val === "boolean" ? val : false);
+      markInfo.set(key, val === true);
     }
     return markInfo;
   }
@@ -40877,10 +40794,7 @@ class Catalog {
         return null;
       }
       const nestedOrder = parseOrder(value.slice(1), nestedLevels);
-      if (!nestedOrder?.length) {
-        return null;
-      }
-      return {
+      return !nestedOrder?.length ? null : {
         name: stringToPDFString(nestedName),
         order: nestedOrder
       };
@@ -41273,10 +41187,7 @@ class Catalog {
       const target = this.xref.fetch(ref);
       if (target instanceof BaseStream) {
         const content = FileSpec.readStreamContent(target);
-        if (this.#soundAttachmentIds.has(id)) {
-          return soundStreamToWav(target, content) ?? content;
-        }
-        return content;
+        return this.#soundAttachmentIds.has(id) ? soundStreamToWav(target, content) ?? content : content;
       }
       return target instanceof Dict ? FileSpec.readContent(target) : null;
     }
@@ -41884,7 +41795,7 @@ class Catalog {
           }
           resultObj.setOCGState = {
             state: stateArr,
-            preserveRB: typeof preserveRB === "boolean" ? preserveRB : true
+            preserveRB: preserveRB !== false
           };
           break;
         case "JavaScript":
@@ -42405,10 +42316,7 @@ const dimConverters = {
 };
 const measurementPattern = /([+-]?\d+\.?\d*)(.*)/;
 function stripQuotes(str) {
-  if (str.startsWith("'") || str.startsWith('"')) {
-    return str.slice(1, -1);
-  }
-  return str;
+  return str.startsWith("'") || str.startsWith('"') ? str.slice(1, -1) : str;
 }
 function getInteger({
   data,
@@ -42420,10 +42328,7 @@ function getInteger({
   }
   data = data.trim();
   const n = parseInt(data, 10);
-  if (!isNaN(n) && validate(n)) {
-    return n;
-  }
-  return defaultValue;
+  return !isNaN(n) && validate(n) ? n : defaultValue;
 }
 function getFloat({
   data,
@@ -42435,10 +42340,7 @@ function getFloat({
   }
   data = data.trim();
   const n = parseFloat(data);
-  if (!isNaN(n) && validate(n)) {
-    return n;
-  }
-  return defaultValue;
+  return !isNaN(n) && validate(n) ? n : defaultValue;
 }
 function getKeyword({
   data,
@@ -42449,10 +42351,7 @@ function getKeyword({
     return defaultValue;
   }
   data = data.trim();
-  if (validate(data)) {
-    return data;
-  }
-  return defaultValue;
+  return validate(data) ? data : defaultValue;
 }
 function getStringOption(data, options) {
   return getKeyword({
@@ -42479,10 +42378,7 @@ function getMeasurement(str, def = "0") {
     return 0;
   }
   const conv = dimConverters[unit];
-  if (conv) {
-    return conv(value);
-  }
-  return value;
+  return conv ? conv(value) : value;
 }
 function getRatio(data) {
   if (!data) {
@@ -42956,10 +42852,7 @@ const shortcuts = new Map([["$data", (root, current) => root.datasets ? root.dat
 const somCache = new WeakMap();
 function parseIndex(index) {
   index = index.trim();
-  if (index === "*") {
-    return Infinity;
-  }
-  return parseInt(index, 10) || 0;
+  return index === "*" ? Infinity : parseInt(index, 10) || 0;
 }
 function parseExpression(expr, dotDotAllowed, noExpr = true) {
   let match = expr.match(namePattern);
@@ -43105,10 +42998,7 @@ function searchNode(root, container, expr, dotDotAllowed = true, useCache = true
     }
     root = isFinite(index) ? nodes.filter(node => index < node.length).map(node => node[index]) : nodes.flat();
   }
-  if (root.length === 0) {
-    return null;
-  }
-  return root;
+  return root.length === 0 ? null : root;
 }
 function createDataNode(root, container, expr) {
   const parsed = parseExpression(expr);
@@ -43584,10 +43474,7 @@ class XFAObject {
     if (Array.isArray(obj)) {
       return obj.map(x => XFAObject[_cloneAttribute](x));
     }
-    if (typeof obj === "object" && obj !== null) {
-      return Object.assign({}, obj);
-    }
-    return obj;
+    return typeof obj === "object" && obj !== null ? Object.assign({}, obj) : obj;
   }
   [$clone]() {
     const clone = Object.create(Object.getPrototypeOf(this));
@@ -43814,10 +43701,7 @@ class XmlObject extends XFAObject {
   }
   [$getChildrenByClass](name) {
     const value = this[_attributes].get(name);
-    if (value !== undefined) {
-      return value;
-    }
-    return this[$getChildren](name);
+    return value !== undefined ? value : this[$getChildren](name);
   }
   *[$getChildrenByNameIt](name, allTransparent) {
     const value = this[_attributes].get(name);
@@ -43863,10 +43747,7 @@ class XmlObject extends XFAObject {
       if (this[_children].length === 0) {
         return this[$content].trim();
       }
-      if (this[_children][0][$namespaceId] === NamespaceIds.xhtml.id) {
-        return this[_children][0][$text]().trim();
-      }
-      return null;
+      return this[_children][0][$namespaceId] === NamespaceIds.xhtml.id ? this[_children][0][$text]().trim() : null;
     }
     return this[$content].trim();
   }
@@ -44494,10 +44375,7 @@ function flushHTML(node) {
       }
     }
   }
-  if (html.children.length === 0) {
-    return null;
-  }
-  return html;
+  return html.children.length === 0 ? null : html;
 }
 function addHTML(node, html, bbox) {
   const extra = node[$extra];
@@ -47802,10 +47680,7 @@ class PageSet extends XFAObject {
       return page;
     }
     page = this.pageArea.children.find(p => p.oddOrEven === "any" && p.pagePosition === "any");
-    if (page) {
-      return page;
-    }
-    return this.pageArea.children[0];
+    return page ?? this.pageArea.children[0];
   }
 }
 class Para extends XFAObject {
@@ -48321,10 +48196,7 @@ class Subform extends XFAObject {
   }
   [$getSubformParent]() {
     const parent = this[$getParent]();
-    if (parent instanceof SubformSet) {
-      return parent[$getSubformParent]();
-    }
-    return parent;
+    return parent instanceof SubformSet ? parent[$getSubformParent]() : parent;
   }
   [$isBindable]() {
     return true;
@@ -49106,10 +48978,7 @@ class Ui extends XFAObject {
   }
   [$toHTML](availableSpace) {
     const obj = this[$getExtra]();
-    if (obj) {
-      return obj[$toHTML](availableSpace);
-    }
-    return HTMLResult.EMPTY;
+    return obj ? obj[$toHTML](availableSpace) : HTMLResult.EMPTY;
   }
 }
 class Validate extends XFAObject {
@@ -49662,10 +49531,7 @@ class Binder {
     }
     generator = this.data[$getAttributeIt](name, true);
     match = generator.next().value;
-    if (match?.[$isDataValue]()) {
-      return match;
-    }
-    return null;
+    return match?.[$isDataValue]() ? match : null;
   }
   _setProperties(formNode, dataNode) {
     if (!Object.hasOwn(formNode, "setProperty")) {
@@ -50355,10 +50221,7 @@ class EquateRange extends XFAObject {
     for (let range of unicodeRange.split(",").map(x => x.trim()).filter(Boolean)) {
       range = range.split("-", 2).map(x => {
         const found = x.match(unicodeRegex);
-        if (!found) {
-          return 0;
-        }
-        return parseInt(found[1], 16);
+        return !found ? 0 : parseInt(found[1], 16);
       });
       if (range.length === 1) {
         range.push(range[0]);
@@ -51052,10 +50915,7 @@ class Zpl extends XFAObject {
 }
 class ConfigNamespace {
   static [$buildXFAObject](name, attributes) {
-    if (Object.hasOwn(ConfigNamespace, name)) {
-      return ConfigNamespace[name](attributes);
-    }
-    return undefined;
+    return Object.hasOwn(ConfigNamespace, name) ? ConfigNamespace[name](attributes) : undefined;
   }
   static acrobat(attrs) {
     return new Acrobat(attrs);
@@ -51594,10 +51454,7 @@ class XsdConnection extends XFAObject {
 }
 class ConnectionSetNamespace {
   static [$buildXFAObject](name, attributes) {
-    if (Object.hasOwn(ConnectionSetNamespace, name)) {
-      return ConnectionSetNamespace[name](attributes);
-    }
-    return undefined;
+    return Object.hasOwn(ConnectionSetNamespace, name) ? ConnectionSetNamespace[name](attributes) : undefined;
   }
   static connectionSet(attrs) {
     return new ConnectionSet(attrs);
@@ -51666,10 +51523,7 @@ class Datasets extends XFAObject {
 }
 class DatasetsNamespace {
   static [$buildXFAObject](name, attributes) {
-    if (Object.hasOwn(DatasetsNamespace, name)) {
-      return DatasetsNamespace[name](attributes);
-    }
-    return undefined;
+    return Object.hasOwn(DatasetsNamespace, name) ? DatasetsNamespace[name](attributes) : undefined;
   }
   static datasets(attributes) {
     return new Datasets(attributes);
@@ -51848,10 +51702,7 @@ class TypeFaces extends XFAObject {
 }
 class LocaleSetNamespace {
   static [$buildXFAObject](name, attributes) {
-    if (Object.hasOwn(LocaleSetNamespace, name)) {
-      return LocaleSetNamespace[name](attributes);
-    }
-    return undefined;
+    return Object.hasOwn(LocaleSetNamespace, name) ? LocaleSetNamespace[name](attributes) : undefined;
   }
   static calendarSymbols(attrs) {
     return new CalendarSymbols(attrs);
@@ -51938,10 +51789,7 @@ class signature_Signature extends XFAObject {
 }
 class SignatureNamespace {
   static [$buildXFAObject](name, attributes) {
-    if (Object.hasOwn(SignatureNamespace, name)) {
-      return SignatureNamespace[name](attributes);
-    }
-    return undefined;
+    return Object.hasOwn(SignatureNamespace, name) ? SignatureNamespace[name](attributes) : undefined;
   }
   static signature(attributes) {
     return new signature_Signature(attributes);
@@ -51959,10 +51807,7 @@ class Stylesheet extends XFAObject {
 }
 class StylesheetNamespace {
   static [$buildXFAObject](name, attributes) {
-    if (Object.hasOwn(StylesheetNamespace, name)) {
-      return StylesheetNamespace[name](attributes);
-    }
-    return undefined;
+    return Object.hasOwn(StylesheetNamespace, name) ? StylesheetNamespace[name](attributes) : undefined;
   }
   static stylesheet(attributes) {
     return new Stylesheet(attributes);
@@ -51993,10 +51838,7 @@ class xdp_Xdp extends XFAObject {
 }
 class XdpNamespace {
   static [$buildXFAObject](name, attributes) {
-    if (Object.hasOwn(XdpNamespace, name)) {
-      return XdpNamespace[name](attributes);
-    }
-    return undefined;
+    return Object.hasOwn(XdpNamespace, name) ? XdpNamespace[name](attributes) : undefined;
   }
   static xdp(attributes) {
     return new xdp_Xdp(attributes);
@@ -52328,10 +52170,7 @@ class P extends XhtmlObject {
   }
   [$text]() {
     const siblings = this[$getParent]()[$getChildren]();
-    if (siblings.at(-1) === this) {
-      return super[$text]();
-    }
-    return super[$text]() + "\n";
+    return siblings.at(-1) === this ? super[$text]() : super[$text]() + "\n";
   }
 }
 class Span extends XhtmlObject {
@@ -52356,10 +52195,7 @@ class Ul extends XhtmlObject {
 }
 class XhtmlNamespace {
   static [$buildXFAObject](name, attributes) {
-    if (Object.hasOwn(XhtmlNamespace, name)) {
-      return XhtmlNamespace[name](attributes);
-    }
-    return undefined;
+    return Object.hasOwn(XhtmlNamespace, name) ? XhtmlNamespace[name](attributes) : undefined;
   }
   static a(attributes) {
     return new A(attributes);
@@ -52802,10 +52638,7 @@ class XFAFactory {
         missingFonts.push(typeface);
       }
     }
-    if (missingFonts.length > 0) {
-      return missingFonts;
-    }
-    return null;
+    return missingFonts.length > 0 ? missingFonts : null;
   }
   appendFonts(fonts, reallyMissingFonts) {
     this.form[$globalData].fontFinder.add(fonts, reallyMissingFonts);
@@ -53371,10 +53204,7 @@ class Annotation {
       if (noPrint === undefined) {
         return undefined;
       }
-      if (noPrint) {
-        return flags & ~AnnotationFlag.PRINT;
-      }
-      return flags & ~AnnotationFlag.HIDDEN | AnnotationFlag.PRINT;
+      return noPrint ? flags & ~AnnotationFlag.PRINT : flags & ~AnnotationFlag.HIDDEN | AnnotationFlag.PRINT;
     }
     if (noView) {
       flags |= AnnotationFlag.PRINT;
@@ -53397,38 +53227,20 @@ class Annotation {
   }
   mustBeViewed(annotationStorage, _renderForms) {
     const noView = annotationStorage?.get(this.data.id)?.noView;
-    if (noView !== undefined) {
-      return !noView;
-    }
-    return this.viewable && !this._hasFlag(this.flags, AnnotationFlag.HIDDEN);
+    return noView !== undefined ? !noView : this.viewable && !this._hasFlag(this.flags, AnnotationFlag.HIDDEN);
   }
   mustBePrinted(annotationStorage) {
     const noPrint = annotationStorage?.get(this.data.id)?.noPrint;
-    if (noPrint !== undefined) {
-      return !noPrint;
-    }
-    return this.printable;
+    return noPrint !== undefined ? !noPrint : this.printable;
   }
   mustBeViewedWhenEditing(isEditing, modifiedIds = null) {
     return isEditing ? !this.data.isEditable : !modifiedIds?.has(this.data.id);
   }
   get viewable() {
-    if (this.data.quadPoints === null) {
-      return false;
-    }
-    if (this.flags === 0) {
-      return true;
-    }
-    return this._isViewable(this.flags);
+    return this.data.quadPoints !== null && (this.flags === 0 || this._isViewable(this.flags));
   }
   get printable() {
-    if (this.data.quadPoints === null) {
-      return false;
-    }
-    if (this.flags === 0) {
-      return false;
-    }
-    return this._isPrintable(this.flags);
+    return this.data.quadPoints !== null && this.flags !== 0 && this._isPrintable(this.flags);
   }
   _parseStringHelper(data) {
     const str = typeof data === "string" ? stringToPDFString(data) : "";
@@ -55152,10 +54964,7 @@ class ButtonWidgetAnnotation extends WidgetAnnotation {
       }
     }
     const index = parseInt(state, 10);
-    if (Number.isInteger(index) && String(index) === state) {
-      return this._getExportValueForOptIndex(index, optInfo.opt, xref) || state;
-    }
-    return state;
+    return Number.isInteger(index) && String(index) === state ? this._getExportValueForOptIndex(index, optInfo.opt, xref) || state : state;
   }
   _processCheckBox(params) {
     const customAppearance = params.dict.get("AP");
@@ -56948,10 +56757,7 @@ class DatasetReader {
       return "";
     }
     const first = node.firstChild;
-    if (first?.nodeName === "value") {
-      return node.children.map(child => decodeString(child.textContent));
-    }
-    return decodeString(node.textContent);
+    return first?.nodeName === "value" ? node.children.map(child => decodeString(child.textContent)) : decodeString(node.textContent);
   }
 }
 
@@ -59192,10 +58998,7 @@ class Page {
     if (!Array.isArray(value)) {
       return value;
     }
-    if (value.length === 1 || !(value[0] instanceof Dict)) {
-      return value[0];
-    }
-    return Dict.merge({
+    return value.length === 1 || !(value[0] instanceof Dict) ? value[0] : Dict.merge({
       xref: this.xref,
       dictArray: value
     });
@@ -60797,10 +60600,7 @@ class LocalPdfManager extends BasePdfManager {
   }
   async ensure(obj, prop, args) {
     const value = obj[prop];
-    if (typeof value === "function") {
-      return value.apply(obj, args);
-    }
-    return value;
+    return typeof value === "function" ? value.apply(obj, args) : value;
   }
   requestLoadedStream(noFetch = false) {
     return this._loadedStreamPromise;
@@ -60821,10 +60621,7 @@ class NetworkPdfManager extends BasePdfManager {
   async ensure(obj, prop, args) {
     try {
       const value = obj[prop];
-      if (typeof value === "function") {
-        return await value.apply(obj, args);
-      }
-      return value;
+      return typeof value === "function" ? await value.apply(obj, args) : value;
     } catch (ex) {
       if (!(ex instanceof MissingDataException)) {
         throw ex;
@@ -63174,10 +62971,7 @@ class PDFEditor {
       const name = documentData.dedupNamedDestinations.get(dest) || dest;
       return this.namedDestinations.has(name);
     }
-    if (Array.isArray(dest) && dest[0] instanceof Ref) {
-      return !!documentData.oldRefMapping.get(dest[0]);
-    }
-    return false;
+    return Array.isArray(dest) && dest[0] instanceof Ref && !!documentData.oldRefMapping.get(dest[0]);
   }
   #filterOutlineItems(items, documentData) {
     const result = [];
@@ -63955,10 +63749,7 @@ class PDFEditor {
       if (keyA < keyB) {
         return -1;
       }
-      if (keyA > keyB) {
-        return 1;
-      }
-      return 0;
+      return keyA > keyB ? 1 : 0;
     } : ([keyA], [keyB]) => keyA - keyB);
     const maxLeaves =  false ? 0 : MAX_IN_NAME_TREE_NODE;
     const [treeRef, treeDict] = this.newDict;
@@ -64457,13 +64248,10 @@ class PDFWorkerStreamRangeReader extends BasePDFStreamRangeReader {
       value,
       done
     } = await this._reader.read();
-    if (done) {
-      return {
-        value: undefined,
-        done: true
-      };
-    }
-    return {
+    return done ? {
+      value: undefined,
+      done: true
+    } : {
       value: value.buffer,
       done: false
     };
@@ -64515,14 +64303,6 @@ class WorkerMessageHandler {
     }
   }
   static setup(handler, port) {
-    let testMessageProcessed = false;
-    handler.on("test", data => {
-      if (testMessageProcessed) {
-        return;
-      }
-      testMessageProcessed = true;
-      handler.send("test", data instanceof Uint8Array);
-    });
     handler.on("configure", data => {
       setVerbosityLevel(data.verbosity);
     });
@@ -65214,7 +64994,8 @@ class WorkerMessageHandler {
   static initializeFromPort(port) {
     const handler = new MessageHandler("worker", "main", port);
     this.setup(handler, port);
-    handler.send("ready", null);
+    const testObj = new Uint8Array();
+    handler.send("ready", testObj, [testObj.buffer]);
   }
 }
 
