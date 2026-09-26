@@ -12,7 +12,7 @@
     "fast_float": {
       "repo": "https://github.com/fastfloat/fast_float.git",
       "ref": "HEAD",
-      "commit": "1dc46a6b8f58a32ca7075253962e0a35951a7abf"
+      "commit": "9498cc361e081f46c85c936a0677e271c1930a45"
     },
     "dragonbox": {
       "repo": "https://github.com/jk-jeon/dragonbox.git",
@@ -20,5 +20,5 @@
       "commit": "beeeef91cf6fef89a4d4ba5e95d47ca64ccb3a44"
     }
   },
-  "fingerprint": "pdfium=8ca5b735df4263f43c830479b78213854a392c22;fast_float=1dc46a6b8f58a32ca7075253962e0a35951a7abf;abseil=583556e932a5ef4bf22d5e32c6a42cbfdde07307;dragonbox=beeeef91cf6fef89a4d4ba5e95d47ca64ccb3a44"
+  "fingerprint": "pdfium=8ca5b735df4263f43c830479b78213854a392c22;fast_float=9498cc361e081f46c85c936a0677e271c1930a45;abseil=583556e932a5ef4bf22d5e32c6a42cbfdde07307;dragonbox=beeeef91cf6fef89a4d4ba5e95d47ca64ccb3a44"
 }
