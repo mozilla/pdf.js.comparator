@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.4.0
- * pdfjsBuild = 25d979c
+ * pdfjsBuild = 91041fb
  */
 
 ;// ./src/shared/util.js
@@ -27078,12 +27078,11 @@ class Font {
           }
         }
         if (cidToGidMap.size !== this.toUnicode.size && properties.hasIncludedToUnicodeMap && this.toUnicode instanceof IdentityToUnicodeMap) {
-          this.toUnicode.forEach((charCode, unicodeCharCode) => {
-            const cid = map.get(charCode);
-            if (!cidToGidMap.has(cid)) {
+          for (const [charCode, cid] of map) {
+            if (!cidToGidMap.has(cid) && this.toUnicode.has(charCode)) {
               map.delete(charCode);
             }
-          });
+          }
         }
       }
       if (!(this.toUnicode instanceof IdentityToUnicodeMap)) {
