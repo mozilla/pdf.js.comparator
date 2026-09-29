@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.4.0
- * pdfjsBuild = 91041fb
+ * pdfjsBuild = c5d4809
  */
 
 ;// ./src/shared/util.js
@@ -20943,75 +20943,66 @@ class InfoUtils {
 ;// ./src/core/obj_bin_transform_core.js
 
 
-function compileCssFontInfo(info) {
+function encodeStrings(strings, obj) {
   const {
     encoder
   } = InfoUtils;
-  const encodedStrings = {};
+  const encodedStrings = new Map();
   let stringsLength = 0;
-  for (const prop of CSS_FONT_INFO.strings) {
-    const encoded = encoder.encode(info[prop]);
-    encodedStrings[prop] = encoded;
-    stringsLength += 4 + encoded.length;
+  for (const prop of strings) {
+    const encoded = encoder.encode(obj[prop]),
+      len = encoded.length;
+    encodedStrings.set(encoded, len);
+    stringsLength += 4 + len;
   }
+  return {
+    encodedStrings,
+    stringsLength
+  };
+}
+function writeStrings(encodedStrings, data, view, offset = 0) {
+  for (const [encoded, len] of encodedStrings) {
+    view.setUint32(offset, len);
+    data.set(encoded, offset + 4);
+    offset += 4 + len;
+  }
+  return offset;
+}
+function compileCssFontInfo(info) {
+  const {
+    encodedStrings,
+    stringsLength
+  } = encodeStrings(CSS_FONT_INFO.strings, info);
   const buffer = new ArrayBuffer(stringsLength);
   const data = new Uint8Array(buffer);
   const view = new DataView(buffer);
-  let offset = 0;
-  for (const prop of CSS_FONT_INFO.strings) {
-    const encoded = encodedStrings[prop];
-    const length = encoded.length;
-    view.setUint32(offset, length);
-    data.set(encoded, offset + 4);
-    offset += 4 + length;
-  }
+  const offset = writeStrings(encodedStrings, data, view);
   assert(offset === buffer.byteLength, "compileCssFontInfo: Buffer overflow");
   return buffer;
 }
 function compileSystemFontInfo(info) {
   const {
-    encoder
-  } = InfoUtils;
-  const encodedStrings = {};
-  let stringsLength = 0;
-  for (const prop of SYSTEM_FONT_INFO.strings) {
-    const encoded = encoder.encode(info[prop]);
-    encodedStrings[prop] = encoded;
-    stringsLength += 4 + encoded.length;
-  }
-  stringsLength += 4;
-  let encodedStyleStyle,
-    encodedStyleWeight,
-    lengthEstimate = 1 + stringsLength;
+    encodedStrings,
+    stringsLength
+  } = encodeStrings(SYSTEM_FONT_INFO.strings, info);
+  let encodedStyleStrings,
+    styleStringsLength = 0;
   if (info.style) {
-    encodedStyleStyle = encoder.encode(info.style.style);
-    encodedStyleWeight = encoder.encode(info.style.weight);
-    lengthEstimate += 4 + encodedStyleStyle.length + 4 + encodedStyleWeight.length;
+    ({
+      encodedStrings: encodedStyleStrings,
+      stringsLength: styleStringsLength
+    } = encodeStrings(["style", "weight"], info.style));
   }
+  const lengthEstimate = 1 + 4 + stringsLength + styleStringsLength;
   const buffer = new ArrayBuffer(lengthEstimate);
   const data = new Uint8Array(buffer);
   const view = new DataView(buffer);
   let offset = 0;
   view.setUint8(offset++, info.guessFallback ? 1 : 0);
-  view.setUint32(offset, 0);
-  offset += 4;
-  stringsLength = 0;
-  for (const prop of SYSTEM_FONT_INFO.strings) {
-    const encoded = encodedStrings[prop];
-    const length = encoded.length;
-    stringsLength += 4 + length;
-    view.setUint32(offset, length);
-    data.set(encoded, offset + 4);
-    offset += 4 + length;
-  }
-  view.setUint32(offset - stringsLength - 4, stringsLength);
-  if (info.style) {
-    view.setUint32(offset, encodedStyleStyle.length);
-    data.set(encodedStyleStyle, offset + 4);
-    offset += 4 + encodedStyleStyle.length;
-    view.setUint32(offset, encodedStyleWeight.length);
-    data.set(encodedStyleWeight, offset + 4);
-    offset += 4 + encodedStyleWeight.length;
+  view.setUint32(offset, stringsLength);
+  offset = writeStrings(encodedStrings, data, view, offset + 4);
+  if (encodedStyleStrings) {
+    offset = writeStrings(encodedStyleStrings, data, view, offset);
   }
   assert(offset <= buffer.byteLength, "compileSystemFontInfo: Buffer overflow");
   return buffer.transferToFixedLength(offset);
@@ -21044,14 +21035,9 @@ function compileFontInfo(font) {
   const systemFontInfoBuffer = font.systemFontInfo ? compileSystemFontInfo(font.systemFontInfo) : null;
   const cssFontInfoBuffer = font.cssFontInfo ? compileCssFontInfo(font.cssFontInfo) : null;
   const {
-    encoder
-  } = InfoUtils;
-  const encodedStrings = {};
-  let stringsLength = 0;
-  for (const prop of FONT_INFO.strings) {
-    encodedStrings[prop] = encoder.encode(font[prop]);
-    stringsLength += 4 + encodedStrings[prop].length;
-  }
+    encodedStrings,
+    stringsLength
+  } = encodeStrings(FONT_INFO.strings, font);
   const lengthEstimate = FONT_INFO.OFFSET_STRINGS + 4 + stringsLength + 4 + (systemFontInfoBuffer?.byteLength ?? 0) + 4 + (cssFontInfoBuffer?.byteLength ?? 0) + 4 + (font.data?.length ?? 0);
   const buffer = new ArrayBuffer(lengthEstimate);
   const data = new Uint8Array(buffer);
@@ -21083,16 +21069,8 @@ function compileFontInfo(font) {
   assert(offset === FONT_INFO.OFFSET_DEFAULT_VMETRICS, "compileFontInfo: FontMatrix properties offset mismatch");
   writeArray(font.defaultVMetrics, 3, "setInt16", 2);
   assert(offset === FONT_INFO.OFFSET_STRINGS, "compileFontInfo: DefaultVMetrics properties offset mismatch");
-  view.setUint32(FONT_INFO.OFFSET_STRINGS, 0);
-  offset += 4;
-  for (const prop of FONT_INFO.strings) {
-    const encoded = encodedStrings[prop];
-    const length = encoded.length;
-    view.setUint32(offset, length);
-    data.set(encoded, offset + 4);
-    offset += 4 + length;
-  }
-  view.setUint32(FONT_INFO.OFFSET_STRINGS, offset - FONT_INFO.OFFSET_STRINGS - 4);
+  view.setUint32(offset, stringsLength);
+  offset = writeStrings(encodedStrings, data, view, offset + 4);
   writeBuffer(systemFontInfoBuffer, "systemFontInfo");
   writeBuffer(cssFontInfoBuffer, "cssFontInfo");
   if (font.data === undefined) {
@@ -64694,23 +64672,19 @@ class WorkerMessageHandler {
           }));
         }
         if (structTreeRoot === null) {
-          promises.push(Promise.all(newAnnotationPromises).then(async () => {
-            await StructTreeRoot.createStructureTree({
-              newAnnotationsByPage,
-              xref,
-              catalogRef,
-              pdfManager,
-              changes
-            });
-          }));
+          promises.push(Promise.all(newAnnotationPromises).then(() => StructTreeRoot.createStructureTree({
+            newAnnotationsByPage,
+            xref,
+            catalogRef,
+            pdfManager,
+            changes
+          })));
         } else if (structTreeRoot) {
-          promises.push(Promise.all(newAnnotationPromises).then(async () => {
-            await structTreeRoot.updateStructureTree({
-              newAnnotationsByPage,
-              pdfManager,
-              changes
-            });
-          }));
+          promises.push(Promise.all(newAnnotationPromises).then(() => structTreeRoot.updateStructureTree({
+            newAnnotationsByPage,
+            pdfManager,
+            changes
+          })));
         }
       }
       if (isPureXfa) {
