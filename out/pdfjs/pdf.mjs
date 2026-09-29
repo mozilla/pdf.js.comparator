@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.4.0
- * pdfjsBuild = c5d4809
+ * pdfjsBuild = 18e8a26
  */
 
 ;// ./src/shared/util.js
@@ -2094,7 +2094,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "602a1ee3-114b-4cdc-bdff-0b7e610cdee8";
+const INTERNAL_EVT = "7d727fb3-cacc-435b-b290-bdd3059f8d51";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -8232,9 +8232,6 @@ class FontFaceObject {
   get ascent() {
     return this.#fontData.ascent;
   }
-  get defaultWidth() {
-    return this.#fontData.defaultWidth;
-  }
   get descent() {
     return this.#fontData.descent;
   }
@@ -8283,7 +8280,7 @@ class SYSTEM_FONT_INFO {
 }
 class FONT_INFO {
   static bools = ["black", "bold", "disableFontFace", "fontExtraProperties", "isInvalidPDFjsFont", "isType3Font", "italic", "missingFile", "remeasure", "vertical"];
-  static numbers = ["ascent", "defaultWidth", "descent"];
+  static numbers = ["ascent", "descent"];
   static strings = ["fallbackName", "loadedName", "mimetype", "name"];
   static OFFSET_NUMBERS = Math.ceil(this.bools.length * 2 / 8);
   static OFFSET_BBOX = this.OFFSET_NUMBERS + this.numbers.length * 8;
@@ -8351,12 +8348,9 @@ class SystemFontInfo {
     this.#buffer = buffer;
     this.#view = new DataView(buffer);
   }
-  get guessFallback() {
-    return this.#view.getUint8(0) !== 0;
-  }
   #readString(index) {
     assert(index < SYSTEM_FONT_INFO.strings.length, "Invalid string index");
-    return readString(this.#buffer, this.#view, index, 5);
+    return readString(this.#buffer, this.#view, index, 4);
   }
   get css() {
     return this.#readString(0);
@@ -8371,7 +8365,7 @@ class SystemFontInfo {
     return this.#readString(3);
   }
   get style() {
-    let offset = 1;
+    let offset = 0;
     offset += 4 + this.#view.getUint32(offset);
     const style = readString(this.#buffer, this.#view, 0, offset),
       weight = readString(this.#buffer, this.#view, 1, offset);
@@ -8438,11 +8432,8 @@ class FontInfo {
   get ascent() {
     return this.#readNumber(0);
   }
-  get defaultWidth() {
-    return this.#readNumber(1);
-  }
   get descent() {
-    return this.#readNumber(2);
+    return this.#readNumber(1);
   }
   #readArray(offset, arrLen, lookupName, increment) {
     const len = this.#view.getUint8(offset);
@@ -17207,7 +17198,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.4.0";
-const build = "c5d4809";
+const build = "18e8a26";
 
 ;// ./src/display/editor/color_picker.js
 
@@ -18570,6 +18561,22 @@ class LinkAnnotationElement extends AnnotationElement {
             id
           } of fields) {
             fieldIds.add(id);
+          }
+        }
+        const kidIdsById = new Map();
+        for (const fields of this._fieldObjects.values()) {
+          for (const {
+            id,
+            kidIds
+          } of fields) {
+            if (kidIds) {
+              kidIdsById.set(id, kidIds);
+            }
+          }
+        }
+        for (const id of fieldIds) {
+          for (const kidId of kidIdsById.get(id) || []) {
+            fieldIds.add(kidId);
           }
         }
         for (const fields of this._fieldObjects.values()) {

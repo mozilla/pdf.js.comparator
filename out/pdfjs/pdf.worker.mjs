@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.4.0
- * pdfjsBuild = c5d4809
+ * pdfjsBuild = 18e8a26
  */
 
 ;// ./src/shared/util.js
@@ -20913,7 +20913,7 @@ class SYSTEM_FONT_INFO {
 }
 class FONT_INFO {
   static bools = ["black", "bold", "disableFontFace", "fontExtraProperties", "isInvalidPDFjsFont", "isType3Font", "italic", "missingFile", "remeasure", "vertical"];
-  static numbers = ["ascent", "defaultWidth", "descent"];
+  static numbers = ["ascent", "descent"];
   static strings = ["fallbackName", "loadedName", "mimetype", "name"];
   static OFFSET_NUMBERS = Math.ceil(this.bools.length * 2 / 8);
   static OFFSET_BBOX = this.OFFSET_NUMBERS + this.numbers.length * 8;
@@ -20993,12 +20993,11 @@ function compileSystemFontInfo(info) {
       stringsLength: styleStringsLength
     } = encodeStrings(["style", "weight"], info.style));
   }
-  const lengthEstimate = 1 + 4 + stringsLength + styleStringsLength;
+  const lengthEstimate = 4 + stringsLength + styleStringsLength;
   const buffer = new ArrayBuffer(lengthEstimate);
   const data = new Uint8Array(buffer);
   const view = new DataView(buffer);
   let offset = 0;
-  view.setUint8(offset++, info.guessFallback ? 1 : 0);
   view.setUint32(offset, stringsLength);
   offset = writeStrings(encodedStrings, data, view, offset + 4);
   if (encodedStyleStrings) {
@@ -26166,8 +26165,8 @@ class Type1Font {
 
 const PRIVATE_USE_AREAS = [[0xe000, 0xf8ff], [0x100000, 0x10fffd]];
 const PDF_GLYPH_SPACE_UNITS = 1000;
-const EXPORT_DATA_PROPERTIES = ["ascent", "bbox", "black", "bold", "cssFontInfo", "data", "defaultVMetrics", "defaultWidth", "descent", "disableFontFace", "fallbackName", "fontExtraProperties", "fontMatrix", "isInvalidPDFjsFont", "isType3Font", "italic", "loadedName", "mimetype", "missingFile", "name", "remeasure", "systemFontInfo", "vertical"];
-const EXPORT_DATA_EXTRA_PROPERTIES = ["composite", "defaultEncoding", "differences", "isMonospace", "isSerifFont", "isSymbolicFont", "seacMap", "subtype", "toFontChar", "type", "vmetrics", "widths"];
+const EXPORT_DATA_PROPERTIES = ["ascent", "bbox", "black", "bold", "cssFontInfo", "data", "defaultVMetrics", "descent", "disableFontFace", "fallbackName", "fontExtraProperties", "fontMatrix", "isInvalidPDFjsFont", "isType3Font", "italic", "loadedName", "mimetype", "missingFile", "name", "remeasure", "systemFontInfo", "vertical"];
+const EXPORT_DATA_EXTRA_PROPERTIES = ["composite", "defaultEncoding", "defaultWidth", "differences", "isMonospace", "isSerifFont", "isSymbolicFont", "seacMap", "subtype", "toFontChar", "type", "vmetrics", "widths"];
 function adjustWidths(properties) {
   if (!properties.fontMatrix || properties.fontMatrix[0] === FONT_IDENTITY_MATRIX[0]) {
     return;
