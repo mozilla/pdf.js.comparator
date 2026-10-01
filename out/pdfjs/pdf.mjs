@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.4.0
- * pdfjsBuild = 18e8a26
+ * pdfjsBuild = 62de7c5
  */
 
 ;// ./src/shared/util.js
@@ -2094,7 +2094,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "7d727fb3-cacc-435b-b290-bdd3059f8d51";
+const INTERNAL_EVT = "572413b9-ad38-43b7-8330-2a26d3103b61";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -8265,9 +8265,6 @@ class FontFaceObject {
   get systemFontInfo() {
     return this.#fontData.systemFontInfo;
   }
-  get defaultVMetrics() {
-    return this.#fontData.defaultVMetrics;
-  }
 }
 
 ;// ./src/shared/obj_bin_transform_utils.js
@@ -8285,8 +8282,7 @@ class FONT_INFO {
   static OFFSET_NUMBERS = Math.ceil(this.bools.length * 2 / 8);
   static OFFSET_BBOX = this.OFFSET_NUMBERS + this.numbers.length * 8;
   static OFFSET_FONT_MATRIX = this.OFFSET_BBOX + 1 + 2 * 4;
-  static OFFSET_DEFAULT_VMETRICS = this.OFFSET_FONT_MATRIX + 1 + 8 * 6;
-  static OFFSET_STRINGS = this.OFFSET_DEFAULT_VMETRICS + 1 + 2 * 3;
+  static OFFSET_STRINGS = this.OFFSET_FONT_MATRIX + 1 + 8 * 6;
 }
 class PATTERN_INFO {
   static KIND = 0;
@@ -8454,9 +8450,6 @@ class FontInfo {
   }
   get fontMatrix() {
     return this.#readArray(FONT_INFO.OFFSET_FONT_MATRIX, 6, "getFloat64", 8);
-  }
-  get defaultVMetrics() {
-    return this.#readArray(FONT_INFO.OFFSET_DEFAULT_VMETRICS, 3, "getInt16", 2);
   }
   #readString(index) {
     assert(index < FONT_INFO.strings.length, "Invalid string index");
@@ -9725,7 +9718,7 @@ function convertRGBToRGBA({
       dest[destPos + 2] = s2 >>> 16 | s3 << 16 | alphaMask;
       dest[destPos + 3] = s3 >>> 8 | alphaMask;
     }
-    for (let j = i * 4, jj = srcPos + len; j < jj; j += 3) {
+    for (let j = srcPos + i * 4, jj = srcPos + len; j < jj; j += 3) {
       dest[destPos++] = src[j] | src[j + 1] << 8 | src[j + 2] << 16 | alphaMask;
     }
   } else {
@@ -9738,7 +9731,7 @@ function convertRGBToRGBA({
       dest[destPos + 2] = s2 << 16 | s3 >>> 16 | alphaMask;
       dest[destPos + 3] = s3 << 8 | alphaMask;
     }
-    for (let j = i * 4, jj = srcPos + len; j < jj; j += 3) {
+    for (let j = srcPos + i * 4, jj = srcPos + len; j < jj; j += 3) {
       dest[destPos++] = src[j] << 24 | src[j + 1] << 16 | src[j + 2] << 8 | alphaMask;
     }
   }
@@ -12235,7 +12228,6 @@ class CanvasGraphics {
     const glyphsLength = glyphs.length;
     const vertical = font.vertical;
     const spacingDir = vertical ? 1 : -1;
-    const defaultVMetrics = font.defaultVMetrics;
     const widthAdvanceScale = fontSize * current.fontMatrix[0];
     const simpleFillText = current.textRenderingMode === TextRenderingMode.FILL && !font.disableFontFace && !current.patternFill;
     ctx.save();
@@ -12314,10 +12306,10 @@ class CanvasGraphics {
       let scaledX, scaledY;
       let width = glyph.width;
       if (vertical) {
-        const vmetric = glyph.vmetric || defaultVMetrics;
-        const vx = -(glyph.vmetric ? vmetric[1] : width * 0.5) * widthAdvanceScale;
+        const vmetric = glyph.vmetric;
+        const vx = -vmetric[1] * widthAdvanceScale;
         const vy = vmetric[2] * widthAdvanceScale;
-        width = vmetric ? -vmetric[0] : width;
+        width = -vmetric[0];
         scaledX = vx / fontSizeScale;
         scaledY = (x + vy) / fontSizeScale;
       } else {
@@ -17198,7 +17190,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.4.0";
-const build = "18e8a26";
+const build = "62de7c5";
 
 ;// ./src/display/editor/color_picker.js
 
