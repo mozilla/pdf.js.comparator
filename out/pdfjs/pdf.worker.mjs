@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.4.0
- * pdfjsBuild = 637ed4c
+ * pdfjsBuild = ef62f31
  */
 
 ;// ./src/shared/util.js
@@ -20897,7 +20897,7 @@ class SYSTEM_FONT_INFO {
 class FONT_INFO {
   static bools = ["black", "bold", "disableFontFace", "fontExtraProperties", "isInvalidPDFjsFont", "isType3Font", "italic", "missingFile", "remeasure", "vertical"];
   static numbers = ["ascent", "descent"];
-  static strings = ["fallbackName", "loadedName", "mimetype", "name"];
+  static strings = ["fallbackName", "loadedName", "name"];
   static OFFSET_NUMBERS = Math.ceil(this.bools.length * 2 / 8);
   static OFFSET_BBOX = this.OFFSET_NUMBERS + this.numbers.length * 8;
   static OFFSET_FONT_MATRIX = this.OFFSET_BBOX + 1 + 2 * 4;
@@ -26145,7 +26145,7 @@ class Type1Font {
 
 const PRIVATE_USE_AREAS = [[0xe000, 0xf8ff], [0x100000, 0x10fffd]];
 const PDF_GLYPH_SPACE_UNITS = 1000;
-const EXPORT_DATA_PROPERTIES = ["ascent", "bbox", "black", "bold", "cssFontInfo", "data", "descent", "disableFontFace", "fallbackName", "fontExtraProperties", "fontMatrix", "isInvalidPDFjsFont", "isType3Font", "italic", "loadedName", "mimetype", "missingFile", "name", "remeasure", "systemFontInfo", "vertical"];
+const EXPORT_DATA_PROPERTIES = ["ascent", "bbox", "black", "bold", "cssFontInfo", "data", "descent", "disableFontFace", "fallbackName", "fontExtraProperties", "fontMatrix", "isInvalidPDFjsFont", "isType3Font", "italic", "loadedName", "missingFile", "name", "remeasure", "systemFontInfo", "vertical"];
 const EXPORT_DATA_EXTRA_PROPERTIES = ["composite", "defaultEncoding", "defaultVMetrics", "defaultWidth", "differences", "isMonospace", "isSerifFont", "isSymbolicFont", "seacMap", "subtype", "toFontChar", "type", "vmetrics", "widths"];
 function adjustWidths(properties) {
   if (!properties.fontMatrix || properties.fontMatrix[0] === FONT_IDENTITY_MATRIX[0]) {
@@ -26840,7 +26840,6 @@ class Font {
   constructor(name, file, properties, evaluatorOptions) {
     this.name = name;
     this.psName = null;
-    this.mimetype = null;
     this.disableFontFace = evaluatorOptions.disableFontFace;
     this.fontExtraProperties = evaluatorOptions.fontExtraProperties;
     this.loadedName = properties.loadedName;
@@ -26930,7 +26929,6 @@ class Font {
           info("MMType1 font (" + name + "), falling back to Type1.");
         case "Type1":
         case "CIDFontType0":
-          this.mimetype = "font/opentype";
           const cff = subtype === "Type1C" || subtype === "CIDFontType0C" ? new CFFFont(file, properties) : new Type1Font(name, file, properties);
           adjustWidths(properties);
           data = this.convert(name, cff, properties);
@@ -26938,7 +26936,6 @@ class Font {
         case "OpenType":
         case "TrueType":
         case "CIDFontType2":
-          this.mimetype = "font/opentype";
           data = this.checkAndRepair(name, file, properties);
           adjustWidths(properties);
           if (this.isOpenType) {
@@ -28321,12 +28318,7 @@ class Font {
         if (cid > 0xffff) {
           throw new FormatError("Max size of CID is 65,535");
         }
-        let glyphId = -1;
-        if (isCidToGidMapEmpty) {
-          glyphId = cid;
-        } else if (cidToGidMap.has(cid)) {
-          glyphId = cidToGidMap.get(cid);
-        }
+        const glyphId = isCidToGidMapEmpty ? cid : cidToGidMap.get(cid) ?? -1;
         if (glyphId >= 0 && glyphId < numGlyphs && hasGlyph(glyphId)) {
           charCodeToGlyphId.set(charCode, glyphId);
         }
