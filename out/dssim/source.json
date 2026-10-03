@@ -2,6 +2,6 @@
   "name": "dssim",
   "crate": "dssim-core",
   "version": "3.5.1",
-  "lock_sha256": "68839956e242f37e0d866c05eac3f046a1d1c9c51403113cfc31efb517eeab3b",
+  "lock_sha256": "14b94be6c38538139e25ca6d4d14874b162d120f2d467e5ac9f5b5fbfd1777f4",
   "fingerprint": "dssim-core=3.5.1"
 }
