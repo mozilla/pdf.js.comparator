@@ -133,6 +133,19 @@ async function publishedFingerprint(name) {
   }
 }
 
+// Parse semicolon-separated key=value pairs for per-dependency fallbacks.
+function fingerprintValues(fingerprint) {
+  return Object.fromEntries(
+    fingerprint
+      .split(";")
+      .filter((part) => part.includes("="))
+      .map((part) => {
+        const i = part.indexOf("=");
+        return [part.slice(0, i), part.slice(i + 1)];
+      }),
+  );
+}
+
 function writeOutputs(target, outputs) {
   const lines = Object.entries(outputs).map(
     ([key, value]) => `${key}=${value}`,
@@ -160,14 +173,9 @@ function writeOutputs(target, outputs) {
 }
 
 async function resolveCairo() {
-  // Track the newest `X.Y.Z` cairo tag and newest `poppler-X.Y.Z` tag.
-  // The poppler 26.x `unique_ptr<Array>` static_assert that previously
-  // forced a pin here is now patched at build time — see
-  // _patch_poppler_object_h in build-deps.sh — so the cairo backend's
-  // CairoOutputDev.cc, CairoFontEngine.cc, CairoRescaleBox.cc all
-  // compile against fresh poppler again. CAIRO_TAG / POPPLER_TAG env
-  // vars still override for manual pinning; the hardcoded fallbacks
-  // fire only if gitlab.freedesktop.org is briefly unreachable.
+  // Use CAIRO_TAG / POPPLER_TAG overrides or the latest matching tags.
+  // On lookup failure, use the corresponding published tag if available,
+  // otherwise the hardcoded default.
   let cairoTag = process.env.CAIRO_TAG;
   if (!cairoTag) {
     try {
@@ -177,7 +185,7 @@ async function resolveCairo() {
         /^\d+\.\d+\.\d+$/,
       );
     } catch (err) {
-      cairoTag = "1.18.2";
+      cairoTag = publishedValues.cairo || "1.18.6";
       console.warn(
         `cairo: tag resolve failed (${err.message}); using ${cairoTag}`,
       );
@@ -193,7 +201,7 @@ async function resolveCairo() {
         (tag) => tag.replace(/^poppler-/, ""),
       );
     } catch (err) {
-      popplerTag = "poppler-24.10.0";
+      popplerTag = publishedValues.poppler || "poppler-26.08.0";
       console.warn(
         `cairo: poppler tag resolve failed (${err.message}); using ${popplerTag}`,
       );
@@ -368,14 +376,8 @@ async function resolvePdfjs() {
 }
 
 async function resolveSplash() {
-  // Track the newest `poppler-X.Y.Z` tag. The splash renderer uses
-  // poppler's in-tree Splash backend and ensure_poppler_nocairo() never
-  // compiles the cairo backend, so this can move ahead of resolveCairo's
-  // poppler-24.10.0 pin (cairo's pin is held back by a libc++/
-  // unique_ptr<Array> regression in CairoOutputDev compilation against
-  // newer poppler). `POPPLER_TAG` still overrides for manual pinning;
-  // the hardcoded fallback only fires if gitlab.freedesktop.org is
-  // briefly unreachable from the runner.
+  // Use POPPLER_TAG or the latest matching tag. On lookup failure, use
+  // Splash's published tag if available, otherwise the hardcoded default.
   let popplerTag = process.env.POPPLER_TAG;
   if (!popplerTag) {
     try {
@@ -386,7 +388,7 @@ async function resolveSplash() {
         (tag) => tag.replace(/^poppler-/, ""),
       );
     } catch (err) {
-      popplerTag = "poppler-24.10.0";
+      popplerTag = publishedValues.splash || "poppler-26.08.0";
       console.warn(
         `splash: poppler tag resolve failed (${err.message}); using ${popplerTag}`,
       );
@@ -412,8 +414,10 @@ async function resolveDssim() {
   };
 }
 
-const resolved = await TARGETS[target]();
+// Load published tags before resolving so they are available as fallbacks.
 const published = await publishedFingerprint(target);
+const publishedValues = fingerprintValues(published);
+const resolved = await TARGETS[target]();
 const changed =
   process.env.GITHUB_EVENT_NAME !== "schedule" ||
   resolved.fingerprint !== published;
