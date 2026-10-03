@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.4.0
- * pdfjsBuild = 87a106c
+ * pdfjsBuild = c1c20f6
  */
 
 ;// ./src/shared/util.js
@@ -2094,7 +2094,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "06f95809-ac2a-483c-b79f-172b22b7b6f4";
+const INTERNAL_EVT = "16776848-0dfb-492d-9d68-4c80a7d290ad";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -8235,12 +8235,6 @@ class FontFaceObject {
   get vertical() {
     return this.#fontData.vertical;
   }
-  get ascent() {
-    return this.#fontData.ascent;
-  }
-  get descent() {
-    return this.#fontData.descent;
-  }
   get bbox() {
     return this.#fontData.bbox;
   }
@@ -8280,10 +8274,8 @@ class SYSTEM_FONT_INFO {
 }
 class FONT_INFO {
   static bools = ["black", "bold", "disableFontFace", "fontExtraProperties", "isInvalidPDFjsFont", "isType3Font", "italic", "missingFile", "remeasure", "vertical"];
-  static numbers = ["ascent", "descent"];
   static strings = ["fallbackName", "loadedName"];
-  static OFFSET_NUMBERS = Math.ceil(this.bools.length * 2 / 8);
-  static OFFSET_BBOX = this.OFFSET_NUMBERS + this.numbers.length * 8;
+  static OFFSET_BBOX = Math.ceil(this.bools.length * 2 / 8);
   static OFFSET_FONT_MATRIX = this.OFFSET_BBOX + 1 + 2 * 4;
   static OFFSET_STRINGS = this.OFFSET_FONT_MATRIX + 1 + 8 * 6;
 }
@@ -8417,16 +8409,6 @@ class FontInfo {
   }
   get vertical() {
     return shadow(this, "vertical", this.#readBoolean(9));
-  }
-  #readNumber(index) {
-    assert(index < FONT_INFO.numbers.length, "Invalid number index");
-    return this.#view.getFloat64(FONT_INFO.OFFSET_NUMBERS + index * 8);
-  }
-  get ascent() {
-    return shadow(this, "ascent", this.#readNumber(0));
-  }
-  get descent() {
-    return shadow(this, "descent", this.#readNumber(1));
   }
   #readArray(offset, arrLen, lookupName, increment) {
     const len = this.#view.getUint8(offset++);
@@ -15364,12 +15346,10 @@ class TextLayer {
       return cachedAscent;
     }
     const ctx = this.#getCtx(lang);
-    ctx.canvas.width = ctx.canvas.height = DEFAULT_FONT_SIZE;
     this.#ensureCtxFont(ctx, DEFAULT_FONT_SIZE, fontFamily);
     const metrics = ctx.measureText("");
     const ascent = metrics.fontBoundingBoxAscent;
     const descent = Math.abs(metrics.fontBoundingBoxDescent);
-    ctx.canvas.width = ctx.canvas.height = 0;
     let ratio = 0.8;
     if (ascent) {
       ratio = ascent / (ascent + descent);
@@ -17186,7 +17166,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.4.0";
-const build = "87a106c";
+const build = "c1c20f6";
 
 ;// ./src/display/editor/color_picker.js
 
