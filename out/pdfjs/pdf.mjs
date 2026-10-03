@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.4.0
- * pdfjsBuild = ef62f31
+ * pdfjsBuild = 87a106c
  */
 
 ;// ./src/shared/util.js
@@ -2094,7 +2094,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "53682c54-a2f8-4d0f-bf1a-533544a5382e";
+const INTERNAL_EVT = "06f95809-ac2a-483c-b79f-172b22b7b6f4";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -8256,9 +8256,6 @@ class FontFaceObject {
   get mimetype() {
     return this.missingFile ? null : "font/opentype";
   }
-  get name() {
-    return this.#fontData.name;
-  }
   get data() {
     return this.#fontData.data;
   }
@@ -8284,7 +8281,7 @@ class SYSTEM_FONT_INFO {
 class FONT_INFO {
   static bools = ["black", "bold", "disableFontFace", "fontExtraProperties", "isInvalidPDFjsFont", "isType3Font", "italic", "missingFile", "remeasure", "vertical"];
   static numbers = ["ascent", "descent"];
-  static strings = ["fallbackName", "loadedName", "name"];
+  static strings = ["fallbackName", "loadedName"];
   static OFFSET_NUMBERS = Math.ceil(this.bools.length * 2 / 8);
   static OFFSET_BBOX = this.OFFSET_NUMBERS + this.numbers.length * 8;
   static OFFSET_FONT_MATRIX = this.OFFSET_BBOX + 1 + 2 * 4;
@@ -8380,15 +8377,9 @@ class SystemFontInfo {
 class FontInfo {
   #buffer;
   #view;
-  constructor({
-    buffer,
-    extra
-  }) {
+  constructor(buffer) {
     this.#buffer = buffer;
     this.#view = new DataView(buffer);
-    if (extra) {
-      Object.assign(this, extra);
-    }
   }
   #readBoolean(index) {
     assert(index < FONT_INFO.bools.length, "Invalid boolean index");
@@ -8465,9 +8456,6 @@ class FontInfo {
   }
   get loadedName() {
     return shadow(this, "loadedName", this.#readString(1));
-  }
-  get name() {
-    return shadow(this, "name", this.#readString(2));
   }
   #getBufferOffset(index) {
     let offset = FONT_INFO.OFFSET_STRINGS;
@@ -16691,7 +16679,7 @@ class WorkerTransport {
             this.commonObjs.resolve(id, exportedError);
             break;
           }
-          const fontData = new FontInfo(exportedData);
+          const fontData = new FontInfo(exportedData.buffer);
           const inspectFont = this._params.pdfBug && globalThis.FontInspector?.enabled ? (font, url) => globalThis.FontInspector.fontAdded(font, url) : null;
           const font = new FontFaceObject(fontData, inspectFont, exportedData.charProcOperatorList, exportedData.extra);
           this.fontLoader.bind(font).catch(() => messageHandler.sendWithPromise("FontFallback", {
@@ -17198,7 +17186,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.4.0";
-const build = "ef62f31";
+const build = "87a106c";
 
 ;// ./src/display/editor/color_picker.js
 
