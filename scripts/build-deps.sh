@@ -2,12 +2,9 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Mozilla Foundation
 
-# Source this from per-renderer build scripts. Each `ensure_*` function:
-# - Skips work when the sentinel artifact in ${WASM_PREFIX}/lib is present
-#   AND its sibling .stamp file matches the currently-pinned tag — i.e.
-#   bumping a *_TAG env var triggers a rebuild on the next run.
-# - Otherwise clones the dep into ${SRC_DIR}/<name> and builds + installs
-#   into ${WASM_PREFIX} via emscripten.
+# Source this from per-renderer build scripts. Dependency builders skip work
+# when their library and matching tag stamp exist. Otherwise they check out
+# the requested tag with clone_pinned, then build and install into ${WASM_PREFIX}.
 #
 # It also exposes a few helpers used by the per-renderer build scripts:
 #   clone_pinned <dir> <repo> <ref>      shallow-fetch any ref (branch, tag,
@@ -115,10 +112,9 @@ EOF
 ensure_zlib() {
     local lib="${WASM_PREFIX}/lib/libz.a"
     stamp_is_fresh "${lib}" "${ZLIB_TAG}" && return 0
-    cd "${SRC_DIR}"
-    [ -d zlib ] || git clone --depth 1 --branch "${ZLIB_TAG}" \
-        https://github.com/madler/zlib.git
-    cd zlib
+    clone_pinned "${SRC_DIR}/zlib" \
+        https://github.com/madler/zlib.git "${ZLIB_TAG}"
+    cd "${SRC_DIR}/zlib"
     make distclean 2>/dev/null || true
     emconfigure ./configure --static --prefix="${WASM_PREFIX}"
     emmake make -j"$(_nproc)" install
@@ -129,10 +125,9 @@ ensure_libpng() {
     local lib="${WASM_PREFIX}/lib/libpng.a"
     stamp_is_fresh "${lib}" "${LIBPNG_TAG}" && return 0
     ensure_zlib
-    cd "${SRC_DIR}"
-    [ -d libpng ] || git clone --depth 1 --branch "${LIBPNG_TAG}" \
-        https://github.com/pnggroup/libpng.git
-    cd libpng
+    clone_pinned "${SRC_DIR}/libpng" \
+        https://github.com/pnggroup/libpng.git "${LIBPNG_TAG}"
+    cd "${SRC_DIR}/libpng"
     rm -rf build
     emcmake cmake -G Ninja -B build \
         -DCMAKE_INSTALL_PREFIX="${WASM_PREFIX}" \
@@ -149,10 +144,9 @@ ensure_freetype() {
     stamp_is_fresh "${lib}" "${FREETYPE_TAG}" && return 0
     ensure_zlib
     ensure_libpng
-    cd "${SRC_DIR}"
-    [ -d freetype ] || git clone --depth 1 --branch "${FREETYPE_TAG}" \
-        https://gitlab.freedesktop.org/freetype/freetype.git
-    cd freetype
+    clone_pinned "${SRC_DIR}/freetype" \
+        https://gitlab.freedesktop.org/freetype/freetype.git "${FREETYPE_TAG}"
+    cd "${SRC_DIR}/freetype"
     rm -rf build
     emcmake cmake -G Ninja -B build \
         -DCMAKE_INSTALL_PREFIX="${WASM_PREFIX}" \
@@ -170,10 +164,9 @@ ensure_freetype() {
 ensure_libjpeg() {
     local lib="${WASM_PREFIX}/lib/libjpeg.a"
     stamp_is_fresh "${lib}" "${LIBJPEG_TURBO_TAG}" && return 0
-    cd "${SRC_DIR}"
-    [ -d libjpeg-turbo ] || git clone --depth 1 --branch "${LIBJPEG_TURBO_TAG}" \
-        https://github.com/libjpeg-turbo/libjpeg-turbo.git
-    cd libjpeg-turbo
+    clone_pinned "${SRC_DIR}/libjpeg-turbo" \
+        https://github.com/libjpeg-turbo/libjpeg-turbo.git "${LIBJPEG_TURBO_TAG}"
+    cd "${SRC_DIR}/libjpeg-turbo"
     rm -rf build
     emcmake cmake -G Ninja -B build \
         -DCMAKE_INSTALL_PREFIX="${WASM_PREFIX}" \
@@ -187,10 +180,9 @@ ensure_libjpeg() {
 ensure_openjpeg() {
     local lib="${WASM_PREFIX}/lib/libopenjp2.a"
     stamp_is_fresh "${lib}" "${OPENJPEG_TAG}" && return 0
-    cd "${SRC_DIR}"
-    [ -d openjpeg ] || git clone --depth 1 --branch "${OPENJPEG_TAG}" \
-        https://github.com/uclouvain/openjpeg.git
-    cd openjpeg
+    clone_pinned "${SRC_DIR}/openjpeg" \
+        https://github.com/uclouvain/openjpeg.git "${OPENJPEG_TAG}"
+    cd "${SRC_DIR}/openjpeg"
     rm -rf build
     emcmake cmake -G Ninja -B build \
         -DCMAKE_INSTALL_PREFIX="${WASM_PREFIX}" \
@@ -205,10 +197,9 @@ ensure_openjpeg() {
 ensure_lcms2() {
     local lib="${WASM_PREFIX}/lib/liblcms2.a"
     stamp_is_fresh "${lib}" "${LCMS2_TAG}" && return 0
-    cd "${SRC_DIR}"
-    [ -d lcms2 ] || git clone --depth 1 --branch "${LCMS2_TAG}" \
-        https://github.com/mm2/Little-CMS.git lcms2
-    cd lcms2
+    clone_pinned "${SRC_DIR}/lcms2" \
+        https://github.com/mm2/Little-CMS.git "${LCMS2_TAG}"
+    cd "${SRC_DIR}/lcms2"
     make distclean 2>/dev/null || true
     ./autogen.sh
     emconfigure ./configure --prefix="${WASM_PREFIX}" \
@@ -222,10 +213,9 @@ ensure_lcms2() {
 ensure_brotli() {
     local lib="${WASM_PREFIX}/lib/libbrotlidec.a"
     stamp_is_fresh "${lib}" "${BROTLI_TAG}" && return 0
-    cd "${SRC_DIR}"
-    [ -d brotli ] || git clone --depth 1 --branch "${BROTLI_TAG}" \
-        https://github.com/google/brotli.git
-    cd brotli
+    clone_pinned "${SRC_DIR}/brotli" \
+        https://github.com/google/brotli.git "${BROTLI_TAG}"
+    cd "${SRC_DIR}/brotli"
     rm -rf build
     emcmake cmake -G Ninja -B build \
         -DCMAKE_INSTALL_PREFIX="${WASM_PREFIX}" \
@@ -241,10 +231,9 @@ ensure_pixman() {
     local lib="${WASM_PREFIX}/lib/libpixman-1.a"
     stamp_is_fresh "${lib}" "${PIXMAN_TAG}" && return 0
     ensure_meson_cross_file
-    cd "${SRC_DIR}"
-    [ -d pixman ] || git clone --depth 1 --branch "${PIXMAN_TAG}" \
-        https://gitlab.freedesktop.org/pixman/pixman.git
-    cd pixman
+    clone_pinned "${SRC_DIR}/pixman" \
+        https://gitlab.freedesktop.org/pixman/pixman.git "${PIXMAN_TAG}"
+    cd "${SRC_DIR}/pixman"
     rm -rf build
     meson setup build \
         --cross-file=/opt/emscripten-cross.ini \
@@ -268,10 +257,9 @@ ensure_cairo() {
     ensure_libpng
     ensure_freetype
     ensure_pixman
-    cd "${SRC_DIR}"
-    [ -d cairo ] || git clone --depth 1 --branch "${CAIRO_TAG}" \
-        https://gitlab.freedesktop.org/cairo/cairo.git
-    cd cairo
+    clone_pinned "${SRC_DIR}/cairo" \
+        https://gitlab.freedesktop.org/cairo/cairo.git "${CAIRO_TAG}"
+    cd "${SRC_DIR}/cairo"
     # util/cairo-script builds csi-* test execs that meson links with
     # -pthread, which forces emscripten into shared-memory mode and
     # conflicts with our single-threaded libpng/zlib. Skip the whole subdir.
@@ -331,10 +319,9 @@ EOF
 }
 
 _run_poppler_cmake() {
-    cd "${SRC_DIR}"
-    [ -d poppler ] || git clone --depth 1 --branch "${POPPLER_TAG}" \
-        https://gitlab.freedesktop.org/poppler/poppler.git
-    cd poppler
+    clone_pinned "${SRC_DIR}/poppler" \
+        https://gitlab.freedesktop.org/poppler/poppler.git "${POPPLER_TAG}"
+    cd "${SRC_DIR}/poppler"
     _patch_poppler_object_h
     rm -rf build
     emcmake cmake -G Ninja -B build \
