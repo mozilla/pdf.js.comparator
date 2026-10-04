@@ -53,7 +53,7 @@ COPY scripts/build-deps.sh /code/scripts/
 RUN CAIRO_TAG="${CAIRO_TAG}" POPPLER_TAG="${POPPLER_TAG}" \
     bash -c '. /code/scripts/build-deps.sh && \
     ensure_zlib && ensure_libpng && ensure_freetype && \
-    ensure_libjpeg && ensure_openjpeg && ensure_lcms2 && \
+    ensure_libjpeg && ensure_openjpeg && ensure_lcms2 && ensure_brotli && \
     ensure_pixman && ensure_cairo && ensure_poppler'
 
 # ---- Rust toolchain (only the dssim stage needs it) -----------------------

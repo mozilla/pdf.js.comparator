@@ -47,6 +47,7 @@ LIBJPEG_TURBO_TAG="${LIBJPEG_TURBO_TAG:-3.0.4}"
 OPENJPEG_TAG="${OPENJPEG_TAG:-v2.5.2}"
 LCMS2_TAG="${LCMS2_TAG:-lcms2.16}"
 PIXMAN_TAG="${PIXMAN_TAG:-pixman-0.44.0}"
+BROTLI_TAG="${BROTLI_TAG:-v1.2.0}"
 # Fallbacks for local docker builds. CI sets these via resolve-upstream.mjs
 # in $GITHUB_ENV; locally we don't run the resolver, so the values here are
 # what `docker build` sees. Keep them roughly in sync with current upstream
@@ -217,6 +218,25 @@ ensure_lcms2() {
     stamp_write "${lib}" "${LCMS2_TAG}"
 }
 
+# Poppler 26.10.0 requires libbrotlidec >= 1.1 unless ENABLE_BROTLI=OFF.
+ensure_brotli() {
+    local lib="${WASM_PREFIX}/lib/libbrotlidec.a"
+    stamp_is_fresh "${lib}" "${BROTLI_TAG}" && return 0
+    cd "${SRC_DIR}"
+    [ -d brotli ] || git clone --depth 1 --branch "${BROTLI_TAG}" \
+        https://github.com/google/brotli.git
+    cd brotli
+    rm -rf build
+    emcmake cmake -G Ninja -B build \
+        -DCMAKE_INSTALL_PREFIX="${WASM_PREFIX}" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DBUILD_SHARED_LIBS=OFF \
+        -DBROTLI_BUILD_TOOLS=OFF \
+        -DBROTLI_DISABLE_TESTS=ON
+    cmake --build build --target install
+    stamp_write "${lib}" "${BROTLI_TAG}"
+}
+
 ensure_pixman() {
     local lib="${WASM_PREFIX}/lib/libpixman-1.a"
     stamp_is_fresh "${lib}" "${PIXMAN_TAG}" && return 0
@@ -352,6 +372,7 @@ ensure_poppler() {
     ensure_libjpeg
     ensure_openjpeg
     ensure_lcms2
+    ensure_brotli
     ensure_pixman
     ensure_cairo
     _run_poppler_cmake
@@ -375,6 +396,7 @@ ensure_poppler_nocairo() {
     ensure_libjpeg
     ensure_openjpeg
     ensure_lcms2
+    ensure_brotli
     _run_poppler_cmake -DCMAKE_DISABLE_FIND_PACKAGE_Cairo=ON
     stamp_write "${lib}" "${stamp}"
 }
