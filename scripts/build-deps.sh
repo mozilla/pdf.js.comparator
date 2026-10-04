@@ -73,7 +73,9 @@ stamp_write() {
 }
 
 # Reusable git fetch idiom: works for branches, tags, and bare commits, and
-# recovers from a half-cloned tree.
+# recovers from a half-cloned tree. The fetch is retried with backoff because
+# upstream forges (gitlab.freedesktop.org in particular) intermittently answer
+# with 5xx errors.
 clone_pinned() {
     local dir="$1" repo="$2" ref="$3"
     if [ ! -d "${dir}/.git" ]; then
@@ -81,7 +83,17 @@ clone_pinned() {
         git -C "${dir}" init -q
         git -C "${dir}" remote add origin "${repo}"
     fi
-    git -C "${dir}" fetch --depth 1 origin "${ref}"
+    local attempt=1 max_attempts=5 delay=10
+    until git -C "${dir}" fetch --depth 1 origin "${ref}"; do
+        if [ "${attempt}" -ge "${max_attempts}" ]; then
+            echo "error: fetching ${ref} from ${repo} failed after ${attempt} attempts" >&2
+            return 1
+        fi
+        echo "Fetch of ${repo} failed (attempt ${attempt}/${max_attempts}); retrying in ${delay}s." >&2
+        sleep "${delay}"
+        attempt=$((attempt + 1))
+        delay=$((delay * 2))
+    done
     git -C "${dir}" checkout --force --detach FETCH_HEAD
     git -C "${dir}" clean -ffd
 }
