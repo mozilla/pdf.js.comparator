@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.4.0
- * pdfjsBuild = 2581d8f
+ * pdfjsBuild = 6594515
  */
 
 ;// ./src/shared/util.js
@@ -41365,7 +41365,8 @@ class Catalog {
           obj = await xref.fetchAsync(kidObj);
         } catch (ex) {
           addPageError(ex);
-          break;
+          queueItem.posInKids++;
+          continue;
         }
       } else {
         obj = kidObj;
