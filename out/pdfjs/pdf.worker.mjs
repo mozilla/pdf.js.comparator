@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = 17bb244
+ * pdfjsBuild = c1be1c9
  */
 
 ;// ./src/shared/util.js
@@ -17236,7 +17236,7 @@ function getUnicodeRangeFor(value, lastPosition = -1) {
   }
   return -1;
 }
-const SpecialCharRegExp = /^(\s)|(\p{Mn})|(\p{Cf})$/u;
+const SpecialCharRegExp = /^(?:(\s+)|(\p{Mn}+)|(\p{Cf}+))$/u;
 const CategoryCache = new Map();
 function getCharUnicodeCategory(char) {
   const cachedCategory = CategoryCache.get(char);
