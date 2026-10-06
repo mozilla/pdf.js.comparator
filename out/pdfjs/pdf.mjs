@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = 5915a9d
+ * pdfjsBuild = f46f647
  */
 
 ;// ./src/shared/util.js
@@ -2094,7 +2094,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "1d430baa-6a64-4d3a-b1b5-dbb64d6e47d6";
+const INTERNAL_EVT = "672bc1f9-cdf7-42b8-a74f-e79800ac3e90";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -7163,6 +7163,12 @@ class BBoxReader {
     this.#bboxes = bboxes;
     this.#coords = coords;
   }
+  static fromBuffer(buffer) {
+    return new BBoxReader(new Uint32Array(buffer), new Uint8ClampedArray(buffer));
+  }
+  get buffer() {
+    return this.#bboxes.buffer;
+  }
   get length() {
     return this.#bboxes.length;
   }
@@ -7869,1741 +7875,6 @@ class CanvasImagesTracker {
   }
   take() {
     return this.#coords.subarray(0, this.#count * 6);
-  }
-}
-
-;// ./src/shared/css_utils.js
-const CONTROL_CHAR_REGEXP = /\p{Cc}/u;
-function isCSSString(str) {
-  const quote = str[0];
-  if (str.length < 2 || quote !== `"` && quote !== `'` || str.at(-1) !== quote) {
-    return false;
-  }
-  const end = str.length - 1;
-  for (let i = 1; i < end; i++) {
-    const char = str[i];
-    if (char === quote || CONTROL_CHAR_REGEXP.test(char)) {
-      return false;
-    }
-    if (char === "\\") {
-      if (++i >= end || CONTROL_CHAR_REGEXP.test(str[i])) {
-        return false;
-      }
-    }
-  }
-  return true;
-}
-function serializeFontFamily(fontFamily) {
-  if (isCSSString(fontFamily)) {
-    return fontFamily;
-  }
-  const escaped = fontFamily.replaceAll(/["\\\p{Cc}]/gu, char => char === `"` || char === "\\" ? `\\${char}` : `\\${char.codePointAt(0).toString(16)} `);
-  return `"${escaped}"`;
-}
-
-;// ./src/display/font_loader.js
-
-
-
-class FontLoader {
-  #nativeFontFaces = new Set();
-  #systemFonts = new Set();
-  #styleSheet = null;
-  constructor({
-    ownerDocument = globalThis.document,
-    styleElement = null
-  }) {
-    this._document = ownerDocument;
-    this.styleElement = null;
-    this.loadingRequests = [];
-    this.loadTestFontId = 0;
-  }
-  addNativeFontFace(nativeFontFace) {
-    this.#nativeFontFaces.add(nativeFontFace);
-    this._document.fonts.add(nativeFontFace);
-  }
-  removeNativeFontFace(nativeFontFace) {
-    this.#nativeFontFaces.delete(nativeFontFace);
-    this._document.fonts.delete(nativeFontFace);
-  }
-  insertRule(rule) {
-    const styleSheet = this.#getStyleSheet();
-    styleSheet.insertRule(rule, styleSheet.cssRules.length);
-  }
-  #getStyleSheet() {
-    if (this.#styleSheet) {
-      return this.#styleSheet;
-    }
-    const StyleSheet = this._document.defaultView?.CSSStyleSheet || globalThis.CSSStyleSheet;
-    if (!this.styleElement && StyleSheet) {
-      const {
-        adoptedStyleSheets
-      } = this._document;
-      if (adoptedStyleSheets) {
-        const styleSheet = new StyleSheet();
-        adoptedStyleSheets.push(styleSheet);
-        return this.#styleSheet = styleSheet;
-      }
-    }
-    if (!this.styleElement) {
-      this.styleElement = this._document.createElement("style");
-      this._document.documentElement.getElementsByTagName("head")[0].append(this.styleElement);
-    }
-    return this.#styleSheet = this.styleElement.sheet;
-  }
-  clear() {
-    for (const nativeFontFace of this.#nativeFontFaces) {
-      this._document.fonts.delete(nativeFontFace);
-    }
-    this.#nativeFontFaces.clear();
-    this.#systemFonts.clear();
-    if (this.#styleSheet) {
-      const {
-        adoptedStyleSheets
-      } = this._document;
-      if (adoptedStyleSheets?.includes(this.#styleSheet)) {
-        this._document.adoptedStyleSheets = adoptedStyleSheets.filter(styleSheet => styleSheet !== this.#styleSheet);
-      }
-      this.#styleSheet = null;
-    }
-    this.styleElement?.remove();
-    this.styleElement = null;
-  }
-  async loadSystemFont({
-    systemFontInfo: info,
-    disableFontFace,
-    _inspectFont
-  }) {
-    if (!info || this.#systemFonts.has(info.loadedName)) {
-      return;
-    }
-    assert(!disableFontFace, "loadSystemFont shouldn't be called when `disableFontFace` is set.");
-    if (this.isFontLoadingAPISupported) {
-      const {
-        loadedName,
-        src,
-        style
-      } = info;
-      const fontFace = new FontFace(loadedName, src, style);
-      this.addNativeFontFace(fontFace);
-      try {
-        await fontFace.load();
-        this.#systemFonts.add(loadedName);
-        _inspectFont?.(info);
-      } catch {
-        warn(`Cannot load system font: ${info.baseFontName}, installing it could help to improve PDF rendering.`);
-        this.removeNativeFontFace(fontFace);
-      }
-      return;
-    }
-    unreachable("Not implemented: loadSystemFont without the Font Loading API.");
-  }
-  async bind(font) {
-    if (font.attached || font.missingFile && !font.systemFontInfo) {
-      return;
-    }
-    font.attached = true;
-    if (font.systemFontInfo) {
-      await this.loadSystemFont(font);
-      return;
-    }
-    if (this.isFontLoadingAPISupported) {
-      const nativeFontFace = font.createNativeFontFace();
-      if (nativeFontFace) {
-        this.addNativeFontFace(nativeFontFace);
-        try {
-          await nativeFontFace.loaded;
-        } catch (ex) {
-          warn(`Failed to load font '${nativeFontFace.family}': '${ex}'.`);
-          font.disableFontFace = true;
-          throw ex;
-        }
-      }
-      return;
-    }
-    const rule = font.createFontFaceRule();
-    if (rule) {
-      this.insertRule(rule);
-      if (this.isSyncFontLoadingSupported) {
-        return;
-      }
-      await this.#testFontLoaded(font);
-    }
-  }
-  get isFontLoadingAPISupported() {
-    return shadow(this, "isFontLoadingAPISupported", !!this._document?.fonts);
-  }
-  get isSyncFontLoadingSupported() {
-    return shadow(this, "isSyncFontLoadingSupported", isNodeJS || FeatureTest.platform.isFirefox);
-  }
-  #testFontLoaded(font) {
-    function completeRequest() {
-      assert(!request.done, "completeRequest() cannot be called twice.");
-      request.done = true;
-      while (loadingRequests.length > 0 && loadingRequests[0].done) {
-        const otherRequest = loadingRequests.shift();
-        setTimeout(otherRequest.resolve, 0);
-      }
-    }
-    const {
-      loadingRequests
-    } = this;
-    const {
-      promise,
-      resolve
-    } = Promise.withResolvers();
-    const request = {
-      done: false,
-      resolve
-    };
-    loadingRequests.push(request);
-    this._loadTestFont ??= atob("T1RUTwALAIAAAwAwQ0ZGIDHtZg4AAAOYAAAAgUZGVE1lkzZwAAAEHAAAABxHREVGABQA" + "FQAABDgAAAAeT1MvMlYNYwkAAAEgAAAAYGNtYXABDQLUAAACNAAAAUJoZWFk/xVFDQAA" + "ALwAAAA2aGhlYQdkA+oAAAD0AAAAJGhtdHgD6AAAAAAEWAAAAAZtYXhwAAJQAAAAARgA" + "AAAGbmFtZVjmdH4AAAGAAAAAsXBvc3T/hgAzAAADeAAAACAAAQAAAAEAALZRFsRfDzz1" + "AAsD6AAAAADOBOTLAAAAAM4KHDwAAAAAA+gDIQAAAAgAAgAAAAAAAAABAAADIQAAAFoD" + "6AAAAAAD6AABAAAAAAAAAAAAAAAAAAAAAQAAUAAAAgAAAAQD6AH0AAUAAAKKArwAAACM" + "AooCvAAAAeAAMQECAAACAAYJAAAAAAAAAAAAAQAAAAAAAAAAAAAAAFBmRWQAwAAuAC4D" + "IP84AFoDIQAAAAAAAQAAAAAAAAAAACAAIAABAAAADgCuAAEAAAAAAAAAAQAAAAEAAAAA" + "AAEAAQAAAAEAAAAAAAIAAQAAAAEAAAAAAAMAAQAAAAEAAAAAAAQAAQAAAAEAAAAAAAUA" + "AQAAAAEAAAAAAAYAAQAAAAMAAQQJAAAAAgABAAMAAQQJAAEAAgABAAMAAQQJAAIAAgAB" + "AAMAAQQJAAMAAgABAAMAAQQJAAQAAgABAAMAAQQJAAUAAgABAAMAAQQJAAYAAgABWABY" + "AAAAAAAAAwAAAAMAAAAcAAEAAAAAADwAAwABAAAAHAAEACAAAAAEAAQAAQAAAC7//wAA" + "AC7////TAAEAAAAAAAABBgAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" + "AAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" + "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" + "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" + "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" + "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMAAAAAAAD/gwAyAAAAAQAAAAAAAAAAAAAAAAAA" + "AAABAAQEAAEBAQJYAAEBASH4DwD4GwHEAvgcA/gXBIwMAYuL+nz5tQXkD5j3CBLnEQAC" + "AQEBIVhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYAAABAQAADwACAQEEE/t3" + "Dov6fAH6fAT+fPp8+nwHDosMCvm1Cvm1DAz6fBQAAAAAAAABAAAAAMmJbzEAAAAAzgTj" + "FQAAAADOBOQpAAEAAAAAAAAADAAUAAQAAAABAAAAAgABAAAAAAAAAAAD6AAAAAAAAA==");
-    function int32(data, offset) {
-      return data.charCodeAt(offset) << 24 | data.charCodeAt(offset + 1) << 16 | data.charCodeAt(offset + 2) << 8 | data.charCodeAt(offset + 3) & 0xff;
-    }
-    function string32(value) {
-      return String.fromCharCode(value >> 24 & 0xff, value >> 16 & 0xff, value >> 8 & 0xff, value & 0xff);
-    }
-    function spliceString(s, offset, remove, insert) {
-      const chunk1 = s.substring(0, offset);
-      const chunk2 = s.substring(offset + remove);
-      return chunk1 + insert + chunk2;
-    }
-    let i, ii;
-    const canvas = this._document.createElement("canvas");
-    canvas.width = 1;
-    canvas.height = 1;
-    const ctx = canvas.getContext("2d");
-    let called = 0;
-    function isFontReady(name, callback) {
-      if (++called > 30) {
-        warn("Load test font never loaded.");
-        callback();
-        return;
-      }
-      ctx.font = "30px " + name;
-      ctx.fillText(".", 0, 20);
-      const imageData = ctx.getImageData(0, 0, 1, 1);
-      if (imageData.data[3] > 0) {
-        callback();
-        return;
-      }
-      setTimeout(isFontReady.bind(null, name, callback));
-    }
-    const loadTestFontId = `lt${Date.now()}${this.loadTestFontId++}`;
-    let data = this._loadTestFont;
-    const COMMENT_OFFSET = 976;
-    data = spliceString(data, COMMENT_OFFSET, loadTestFontId.length, loadTestFontId);
-    const CFF_CHECKSUM_OFFSET = 16;
-    const XXXX_VALUE = 0x58585858;
-    let checksum = int32(data, CFF_CHECKSUM_OFFSET);
-    for (i = 0, ii = loadTestFontId.length - 3; i < ii; i += 4) {
-      checksum = checksum - XXXX_VALUE + int32(loadTestFontId, i) | 0;
-    }
-    if (i < loadTestFontId.length) {
-      checksum = checksum - XXXX_VALUE + int32(loadTestFontId + "XXX", i) | 0;
-    }
-    data = spliceString(data, CFF_CHECKSUM_OFFSET, 4, string32(checksum));
-    const url = `url(data:font/opentype;base64,${btoa(data)});`;
-    const rule = `@font-face {font-family:"${loadTestFontId}";src:${url}}`;
-    this.insertRule(rule);
-    const div = this._document.createElement("div");
-    div.style.visibility = "hidden";
-    div.style.width = div.style.height = "10px";
-    div.style.position = "absolute";
-    div.style.top = div.style.left = "0px";
-    for (const name of [font.loadedName, loadTestFontId]) {
-      const span = this._document.createElement("span");
-      span.textContent = "Hi";
-      span.style.fontFamily = name;
-      div.append(span);
-    }
-    this._document.body.append(div);
-    isFontReady(loadTestFontId, () => {
-      div.remove();
-      completeRequest();
-    });
-    return promise;
-  }
-}
-class FontFaceObject {
-  #compiledPaths = new Map();
-  #fontData;
-  constructor(translatedData, inspectFont = null, charProcOperatorList, extra) {
-    this.#fontData = translatedData;
-    this._inspectFont = inspectFont;
-    if (charProcOperatorList) {
-      this.charProcOperatorList = charProcOperatorList;
-    }
-    if (extra) {
-      Object.assign(this, extra);
-    }
-  }
-  createNativeFontFace() {
-    const {
-      data
-    } = this;
-    if (!data || this.disableFontFace) {
-      return null;
-    }
-    let nativeFontFace;
-    if (!this.cssFontInfo) {
-      nativeFontFace = new FontFace(this.loadedName, data, {});
-    } else {
-      const css = {
-        weight: this.cssFontInfo.fontWeight
-      };
-      if (this.cssFontInfo.italicAngle) {
-        css.style = `oblique ${this.cssFontInfo.italicAngle}deg`;
-      }
-      nativeFontFace = new FontFace(serializeFontFamily(this.cssFontInfo.fontFamily), data, css);
-    }
-    this._inspectFont?.(this);
-    return nativeFontFace;
-  }
-  createFontFaceRule() {
-    const {
-      data
-    } = this;
-    if (!data || this.disableFontFace) {
-      return null;
-    }
-    const url = `url(data:${this.mimetype};base64,${data.toBase64()});`;
-    let rule;
-    if (!this.cssFontInfo) {
-      rule = `@font-face {font-family:"${this.loadedName}";src:${url}}`;
-    } else {
-      let css = `font-weight: ${this.cssFontInfo.fontWeight};`;
-      if (this.cssFontInfo.italicAngle) {
-        css += `font-style: oblique ${this.cssFontInfo.italicAngle}deg;`;
-      }
-      const fontFamily = serializeFontFamily(this.cssFontInfo.fontFamily);
-      rule = `@font-face {font-family:${fontFamily};${css}src:${url}}`;
-    }
-    this._inspectFont?.(this, url);
-    return rule;
-  }
-  getPathGenerator(objs, character) {
-    let path = this.#compiledPaths.get(character);
-    if (path) {
-      return path;
-    }
-    const objId = `${this.loadedName}_path_${character}`;
-    let cmds;
-    try {
-      cmds = objs.get(objId);
-    } catch (ex) {
-      warn(`getPathGenerator - ignoring character: "${ex}".`);
-    }
-    path = makePathFromDrawOPS(cmds?.path);
-    if (!this.fontExtraProperties) {
-      objs.delete(objId);
-    }
-    this.#compiledPaths.set(character, path);
-    return path;
-  }
-  get black() {
-    return this.#fontData.black;
-  }
-  get bold() {
-    return this.#fontData.bold;
-  }
-  get disableFontFace() {
-    return this.#fontData.disableFontFace;
-  }
-  set disableFontFace(value) {
-    shadow(this, "disableFontFace", !!value);
-  }
-  get fontExtraProperties() {
-    return this.#fontData.fontExtraProperties;
-  }
-  get isInvalidPDFjsFont() {
-    return this.#fontData.isInvalidPDFjsFont;
-  }
-  get isType3Font() {
-    return this.#fontData.isType3Font;
-  }
-  get italic() {
-    return this.#fontData.italic;
-  }
-  get missingFile() {
-    return this.#fontData.missingFile;
-  }
-  get remeasure() {
-    return this.#fontData.remeasure;
-  }
-  get vertical() {
-    return this.#fontData.vertical;
-  }
-  get bbox() {
-    return this.#fontData.bbox;
-  }
-  get fontMatrix() {
-    return this.#fontData.fontMatrix;
-  }
-  get fallbackName() {
-    return this.#fontData.fallbackName;
-  }
-  get loadedName() {
-    return this.#fontData.loadedName;
-  }
-  get mimetype() {
-    return this.missingFile ? null : "font/opentype";
-  }
-  get data() {
-    return this.#fontData.data;
-  }
-  clearData() {
-    this.#fontData.clearData();
-  }
-  get cssFontInfo() {
-    return this.#fontData.cssFontInfo;
-  }
-  get systemFontInfo() {
-    return this.#fontData.systemFontInfo;
-  }
-}
-
-;// ./src/shared/obj_bin_transform_utils.js
-
-class CSS_FONT_INFO {
-  static strings = ["fontFamily", "fontWeight", "italicAngle"];
-}
-class SYSTEM_FONT_INFO {
-  static strings = ["css", "loadedName", "baseFontName", "src"];
-}
-class FONT_INFO {
-  static bools = ["black", "bold", "disableFontFace", "fontExtraProperties", "isInvalidPDFjsFont", "isType3Font", "italic", "missingFile", "remeasure", "vertical"];
-  static strings = ["fallbackName", "loadedName"];
-  static OFFSET_BBOX = Math.ceil(this.bools.length * 2 / 8);
-  static OFFSET_FONT_MATRIX = this.OFFSET_BBOX + 1 + 2 * 4;
-  static OFFSET_STRINGS = this.OFFSET_FONT_MATRIX + 1 + 8 * 6;
-}
-class PATTERN_INFO {
-  static KIND = 0;
-  static HAS_BBOX = 1;
-  static HAS_BACKGROUND = 2;
-  static SHADING_TYPE = 3;
-  static N_COORD = 4;
-  static N_COLOR = 8;
-  static N_STOP = 12;
-  static N_FIGURES = 16;
-}
-class InfoUtils {
-  static get decoder() {
-    return shadow(this, "decoder", new TextDecoder());
-  }
-  static get encoder() {
-    return shadow(this, "encoder", new TextEncoder());
-  }
-}
-
-;// ./src/display/obj_bin_transform_display.js
-
-
-function readString(buffer, view, index, offset = 0) {
-  const {
-    decoder
-  } = InfoUtils;
-  for (let i = 0; i < index; i++) {
-    offset += view.getUint32(offset) + 4;
-  }
-  const length = view.getUint32(offset);
-  return decoder.decode(new Uint8Array(buffer, offset + 4, length));
-}
-class CssFontInfo {
-  #buffer;
-  #view;
-  constructor(buffer) {
-    this.#buffer = buffer;
-    this.#view = new DataView(buffer);
-  }
-  #readString(index) {
-    assert(index < CSS_FONT_INFO.strings.length, "Invalid string index");
-    return readString(this.#buffer, this.#view, index);
-  }
-  get fontFamily() {
-    return shadow(this, "fontFamily", this.#readString(0));
-  }
-  get fontWeight() {
-    return shadow(this, "fontWeight", this.#readString(1));
-  }
-  get italicAngle() {
-    return shadow(this, "italicAngle", this.#readString(2));
-  }
-}
-class SystemFontInfo {
-  #buffer;
-  #view;
-  constructor(buffer) {
-    this.#buffer = buffer;
-    this.#view = new DataView(buffer);
-  }
-  #readString(index) {
-    assert(index < SYSTEM_FONT_INFO.strings.length, "Invalid string index");
-    return readString(this.#buffer, this.#view, index, 4);
-  }
-  get css() {
-    return shadow(this, "css", this.#readString(0));
-  }
-  get loadedName() {
-    return shadow(this, "loadedName", this.#readString(1));
-  }
-  get baseFontName() {
-    return shadow(this, "baseFontName", this.#readString(2));
-  }
-  get src() {
-    return shadow(this, "src", this.#readString(3));
-  }
-  get style() {
-    let offset = 0;
-    offset += 4 + this.#view.getUint32(offset);
-    const style = readString(this.#buffer, this.#view, 0, offset),
-      weight = readString(this.#buffer, this.#view, 1, offset);
-    return shadow(this, "style", {
-      style,
-      weight
-    });
-  }
-}
-class FontInfo {
-  #buffer;
-  #view;
-  constructor(buffer) {
-    this.#buffer = buffer;
-    this.#view = new DataView(buffer);
-  }
-  #readBoolean(index) {
-    assert(index < FONT_INFO.bools.length, "Invalid boolean index");
-    const byteOffset = Math.floor(index / 4);
-    const bitOffset = index * 2 % 8;
-    const value = this.#view.getUint8(byteOffset) >> bitOffset & 0x03;
-    return value === 0x00 ? undefined : value === 0x02;
-  }
-  get black() {
-    return shadow(this, "black", this.#readBoolean(0));
-  }
-  get bold() {
-    return shadow(this, "bold", this.#readBoolean(1));
-  }
-  get disableFontFace() {
-    return shadow(this, "disableFontFace", this.#readBoolean(2));
-  }
-  get fontExtraProperties() {
-    return shadow(this, "fontExtraProperties", this.#readBoolean(3));
-  }
-  get isInvalidPDFjsFont() {
-    return shadow(this, "isInvalidPDFjsFont", this.#readBoolean(4));
-  }
-  get isType3Font() {
-    return shadow(this, "isType3Font", this.#readBoolean(5));
-  }
-  get italic() {
-    return shadow(this, "italic", this.#readBoolean(6));
-  }
-  get missingFile() {
-    return shadow(this, "missingFile", this.#readBoolean(7));
-  }
-  get remeasure() {
-    return shadow(this, "remeasure", this.#readBoolean(8));
-  }
-  get vertical() {
-    return shadow(this, "vertical", this.#readBoolean(9));
-  }
-  #readArray(offset, arrLen, lookupName, increment) {
-    const len = this.#view.getUint8(offset++);
-    if (len === 0) {
-      return undefined;
-    }
-    assert(len === arrLen, "Invalid array length.");
-    const arr = new Array(len);
-    for (let i = 0; i < len; i++) {
-      arr[i] = this.#view[lookupName](offset, true);
-      offset += increment;
-    }
-    return arr;
-  }
-  get bbox() {
-    return shadow(this, "bbox", this.#readArray(FONT_INFO.OFFSET_BBOX, 4, "getInt16", 2));
-  }
-  get fontMatrix() {
-    return shadow(this, "fontMatrix", this.#readArray(FONT_INFO.OFFSET_FONT_MATRIX, 6, "getFloat64", 8));
-  }
-  #readString(index) {
-    assert(index < FONT_INFO.strings.length, "Invalid string index");
-    return readString(this.#buffer, this.#view, index, FONT_INFO.OFFSET_STRINGS + 4);
-  }
-  get fallbackName() {
-    return shadow(this, "fallbackName", this.#readString(0));
-  }
-  get loadedName() {
-    return shadow(this, "loadedName", this.#readString(1));
-  }
-  #getBufferOffset(index) {
-    let offset = FONT_INFO.OFFSET_STRINGS;
-    for (let i = 0; i <= index; i++) {
-      offset += 4 + this.#view.getUint32(offset);
-    }
-    const length = this.#view.getUint32(offset);
-    return {
-      offset,
-      length
-    };
-  }
-  get data() {
-    const {
-      offset,
-      length
-    } = this.#getBufferOffset(2);
-    return !length ? undefined : new Uint8Array(this.#buffer, offset + 4, length);
-  }
-  clearData() {
-    const {
-      offset,
-      length
-    } = this.#getBufferOffset(2);
-    if (!length) {
-      return;
-    }
-    this.#view.setUint32(offset, 0);
-    this.#buffer = new Uint8Array(this.#buffer, 0, offset + 4).slice().buffer;
-    this.#view = new DataView(this.#buffer);
-  }
-  get cssFontInfo() {
-    const {
-      offset,
-      length
-    } = this.#getBufferOffset(1);
-    let info = null;
-    if (length) {
-      const data = new Uint8Array(this.#buffer, offset + 4, length).slice();
-      info = new CssFontInfo(data.buffer);
-    }
-    return shadow(this, "cssFontInfo", info);
-  }
-  get systemFontInfo() {
-    const {
-      offset,
-      length
-    } = this.#getBufferOffset(0);
-    let info = null;
-    if (length) {
-      const data = new Uint8Array(this.#buffer, offset + 4, length).slice();
-      info = new SystemFontInfo(data.buffer);
-    }
-    return shadow(this, "systemFontInfo", info);
-  }
-}
-class PatternInfo {
-  constructor(buffer) {
-    this.buffer = buffer;
-    this.view = new DataView(buffer);
-    this.data = new Uint8Array(buffer);
-  }
-  getIR() {
-    const dataView = this.view;
-    const kind = this.data[PATTERN_INFO.KIND];
-    const hasBBox = !!this.data[PATTERN_INFO.HAS_BBOX];
-    const hasBackground = !!this.data[PATTERN_INFO.HAS_BACKGROUND];
-    const nCoord = dataView.getUint32(PATTERN_INFO.N_COORD, true);
-    const nColor = dataView.getUint32(PATTERN_INFO.N_COLOR, true);
-    const nStop = dataView.getUint32(PATTERN_INFO.N_STOP, true);
-    let offset = 20;
-    const coords = new Float32Array(this.buffer, offset, nCoord * 2);
-    offset += nCoord * 8;
-    const colors = new Uint8Array(this.buffer, offset, nColor * 4);
-    offset += nColor * 4;
-    const stops = [];
-    for (let i = 0; i < nStop; ++i) {
-      const p = dataView.getFloat32(offset, true);
-      offset += 4;
-      const rgb = dataView.getUint32(offset, true);
-      offset += 4;
-      stops.push([p, `#${rgb.toString(16).padStart(6, "0")}`]);
-    }
-    let bbox = null;
-    if (hasBBox) {
-      bbox = [];
-      for (let i = 0; i < 4; ++i) {
-        bbox.push(dataView.getFloat32(offset, true));
-        offset += 4;
-      }
-    }
-    let background = null;
-    if (hasBackground) {
-      background = new Uint8Array(this.buffer, offset, 3);
-      offset += 3;
-    }
-    if (kind === 1) {
-      return ["RadialAxial", "axial", bbox, stops, [coords[0], coords[1]], [coords[2], coords[3]], null, null];
-    }
-    if (kind === 2) {
-      return ["RadialAxial", "radial", bbox, stops, [coords[0], coords[1]], [coords[3], coords[4]], coords[2], coords[5]];
-    }
-    if (kind === 3) {
-      const shadingType = this.data[PATTERN_INFO.SHADING_TYPE];
-      let bounds = null;
-      if (coords.length > 0) {
-        bounds = BBOX_INIT.slice();
-        for (let i = 0, ii = coords.length; i < ii; i += 2) {
-          Util.pointBoundingBox(coords[i], coords[i + 1], bounds);
-        }
-      }
-      return ["Mesh", shadingType, coords, colors, nCoord, bounds, bbox, background];
-    }
-    throw new Error(`Unsupported pattern kind: ${kind}`);
-  }
-}
-class FontPathInfo {
-  #buffer;
-  constructor(buffer) {
-    this.#buffer = buffer;
-  }
-  get path() {
-    if (FeatureTest.isFloat16ArraySupported) {
-      return new Float16Array(this.#buffer);
-    }
-    return new Float32Array(this.#buffer);
-  }
-}
-
-;// ./src/display/api_utils.js
-
-function getUrlProp(val) {
-  if (val instanceof URL) {
-    return val;
-  }
-  if (typeof val === "string") {
-    if (isNodeJS) {
-      if (/^[a-z][a-z0-9\-+.]+:/i.test(val)) {
-        return new URL(val);
-      }
-      const url = process.getBuiltinModule("url");
-      return new URL(url.pathToFileURL(val));
-    }
-    const url = URL.parse(val, window.location);
-    if (url) {
-      return url;
-    }
-  }
-  throw new Error("Invalid PDF url data: " + "either string or URL-object is expected in the url property.");
-}
-function getDataProp(val) {
-  if (isNodeJS && typeof Buffer !== "undefined" && val instanceof Buffer) {
-    throw new Error("Please provide binary data as `Uint8Array`, rather than `Buffer`.");
-  }
-  if (val instanceof Uint8Array && val.byteLength === val.buffer.byteLength) {
-    return val;
-  }
-  if (typeof val === "string") {
-    return stringToBytes(val);
-  }
-  if (val instanceof ArrayBuffer || ArrayBuffer.isView(val) || typeof val === "object" && !isNaN(val?.length)) {
-    return new Uint8Array(val);
-  }
-  throw new Error("Invalid PDF binary data: either TypedArray, " + "string, or array-like object is expected in the data property.");
-}
-function getFactoryUrlProp(val) {
-  if (typeof val !== "string") {
-    return null;
-  }
-  if (val.endsWith("/")) {
-    return val;
-  }
-  throw new Error(`Invalid factory url: "${val}" must include trailing slash.`);
-}
-const isRefProxy = v => typeof v === "object" && Number.isInteger(v?.num) && v.num >= 0 && Number.isInteger(v?.gen) && v.gen >= 0;
-const isNameProxy = v => typeof v === "object" && typeof v?.name === "string";
-const isValidExplicitDest = _isValidExplicitDest.bind(null, isRefProxy, isNameProxy);
-class LoopbackPort {
-  #listeners = new Map();
-  #deferred = Promise.resolve();
-  postMessage(obj, transfer) {
-    const event = {
-      data: structuredClone(obj, transfer ? {
-        transfer
-      } : null)
-    };
-    this.#deferred.then(() => {
-      for (const [listener] of this.#listeners) {
-        listener.call(this, event);
-      }
-    });
-  }
-  addEventListener(name, listener, options = null) {
-    let rmAbort = null;
-    if (options?.signal instanceof AbortSignal) {
-      const {
-        signal
-      } = options;
-      if (signal.aborted) {
-        warn("LoopbackPort - cannot use an `aborted` signal.");
-        return;
-      }
-      const onAbort = () => this.removeEventListener(name, listener);
-      rmAbort = () => signal.removeEventListener("abort", onAbort);
-      signal.addEventListener("abort", onAbort);
-    }
-    this.#listeners.set(listener, rmAbort);
-  }
-  removeEventListener(name, listener) {
-    const rmAbort = this.#listeners.get(listener);
-    rmAbort?.();
-    this.#listeners.delete(listener);
-  }
-  terminate() {
-    for (const [, rmAbort] of this.#listeners) {
-      rmAbort?.();
-    }
-    this.#listeners.clear();
-  }
-}
-
-;// ./src/shared/message_handler.js
-
-const CallbackKind = {
-  DATA: 1,
-  ERROR: 2
-};
-const StreamKind = {
-  CANCEL: 1,
-  CANCEL_COMPLETE: 2,
-  CLOSE: 3,
-  ENQUEUE: 4,
-  ERROR: 5,
-  PULL: 6,
-  PULL_COMPLETE: 7,
-  START_COMPLETE: 8
-};
-function onFn() {}
-function wrapReason(ex) {
-  if (ex instanceof AbortException || ex instanceof InvalidPDFException || ex instanceof PasswordException || ex instanceof ResponseException || ex instanceof UnknownErrorException) {
-    return ex;
-  }
-  if (!(ex instanceof Error || typeof ex === "object" && ex !== null)) {
-    unreachable('wrapReason: Expected "reason" to be a (possibly cloned) Error.');
-  }
-  switch (ex.name) {
-    case "AbortException":
-      return new AbortException(ex.message);
-    case "InvalidPDFException":
-      return new InvalidPDFException(ex.message);
-    case "PasswordException":
-      return new PasswordException(ex.message, ex.code);
-    case "ResponseException":
-      return new ResponseException(ex.message, ex.status, ex.missing);
-    case "UnknownErrorException":
-      return new UnknownErrorException(ex.message, ex.details);
-  }
-  return new UnknownErrorException(ex.message, ex.toString());
-}
-class MessageHandler {
-  #actions = new Map();
-  #callbackCapabilities = new Map();
-  #callbackId = 1;
-  #comObj;
-  #messageAC = new AbortController();
-  #sourceName;
-  #streamControllers = new Map();
-  #streamId = 1;
-  #streamSinks = new Map();
-  #targetName;
-  constructor(sourceName, targetName, comObj) {
-    this.#sourceName = sourceName;
-    this.#targetName = targetName;
-    this.#comObj = comObj;
-    comObj.addEventListener("message", this.#onMessage.bind(this), {
-      signal: this.#messageAC.signal
-    });
-  }
-  #onMessage({
-    data
-  }) {
-    if (data.targetName !== this.#sourceName) {
-      return;
-    }
-    if (data.stream) {
-      this.#processStreamMessage(data);
-      return;
-    }
-    if (data.callback) {
-      const {
-        callbackId,
-        callback
-      } = data;
-      const capability = this.#callbackCapabilities.get(callbackId);
-      if (!capability) {
-        throw new Error(`Cannot resolve callback ${callbackId}`);
-      }
-      this.#callbackCapabilities.delete(callbackId);
-      if (callback === CallbackKind.DATA) {
-        capability.resolve(data.data);
-      } else if (callback === CallbackKind.ERROR) {
-        capability.reject(wrapReason(data.reason));
-      } else {
-        throw new Error("Unexpected callback case");
-      }
-      return;
-    }
-    const action = this.#actions.get(data.action);
-    if (!action) {
-      throw new Error(`Unknown action from worker: ${data.action}`);
-    }
-    if (data.callbackId) {
-      const sourceName = this.#sourceName,
-        targetName = data.sourceName,
-        comObj = this.#comObj;
-      Promise.try(action, data.data).then(result => {
-        comObj.postMessage({
-          sourceName,
-          targetName,
-          callback: CallbackKind.DATA,
-          callbackId: data.callbackId,
-          data: result
-        });
-      }, reason => {
-        comObj.postMessage({
-          sourceName,
-          targetName,
-          callback: CallbackKind.ERROR,
-          callbackId: data.callbackId,
-          reason: wrapReason(reason)
-        });
-      });
-      return;
-    }
-    if (data.streamId) {
-      this.#createStreamSink(data);
-      return;
-    }
-    action(data.data);
-  }
-  on(actionName, handler) {
-    const ah = this.#actions;
-    if (ah.has(actionName)) {
-      throw new Error(`There is already a "${actionName}" handler.`);
-    }
-    ah.set(actionName, handler);
-  }
-  send(actionName, data, transfers) {
-    this.#comObj.postMessage({
-      sourceName: this.#sourceName,
-      targetName: this.#targetName,
-      action: actionName,
-      data
-    }, transfers);
-  }
-  sendWithPromise(actionName, data, transfers) {
-    const callbackId = this.#callbackId++,
-      capability = Promise.withResolvers();
-    this.#callbackCapabilities.set(callbackId, capability);
-    try {
-      this.#comObj.postMessage({
-        sourceName: this.#sourceName,
-        targetName: this.#targetName,
-        action: actionName,
-        callbackId,
-        data
-      }, transfers);
-    } catch (ex) {
-      capability.reject(ex);
-    }
-    return capability.promise;
-  }
-  sendWithStream(actionName, data, queueingStrategy, transfers) {
-    const streamId = this.#streamId++,
-      sourceName = this.#sourceName,
-      targetName = this.#targetName,
-      comObj = this.#comObj;
-    return new ReadableStream({
-      start: controller => {
-        const startCapability = Promise.withResolvers();
-        this.#streamControllers.set(streamId, {
-          controller,
-          startCall: startCapability,
-          pullCall: null,
-          cancelCall: null,
-          isClosed: false
-        });
-        comObj.postMessage({
-          sourceName,
-          targetName,
-          action: actionName,
-          streamId,
-          data,
-          desiredSize: controller.desiredSize
-        }, transfers);
-        return startCapability.promise;
-      },
-      pull: controller => {
-        const pullCapability = Promise.withResolvers();
-        this.#streamControllers.get(streamId).pullCall = pullCapability;
-        comObj.postMessage({
-          sourceName,
-          targetName,
-          stream: StreamKind.PULL,
-          streamId,
-          desiredSize: controller.desiredSize
-        });
-        return pullCapability.promise;
-      },
-      cancel: reason => {
-        assert(reason instanceof Error, "cancel must have a valid reason");
-        const cancelCapability = Promise.withResolvers();
-        this.#streamControllers.get(streamId).cancelCall = cancelCapability;
-        this.#streamControllers.get(streamId).isClosed = true;
-        comObj.postMessage({
-          sourceName,
-          targetName,
-          stream: StreamKind.CANCEL,
-          streamId,
-          reason: wrapReason(reason)
-        });
-        return cancelCapability.promise;
-      }
-    }, queueingStrategy);
-  }
-  #createStreamSink(data) {
-    const streamId = data.streamId,
-      sourceName = this.#sourceName,
-      targetName = data.sourceName,
-      comObj = this.#comObj;
-    const streamSinks = this.#streamSinks,
-      action = this.#actions.get(data.action);
-    const streamSink = {
-      enqueue(chunk, size = 1, transfers) {
-        if (this.isCancelled) {
-          return;
-        }
-        const lastDesiredSize = this.desiredSize;
-        this.desiredSize -= size;
-        if (lastDesiredSize > 0 && this.desiredSize <= 0) {
-          this.sinkCapability = Promise.withResolvers();
-          this.ready = this.sinkCapability.promise;
-        }
-        comObj.postMessage({
-          sourceName,
-          targetName,
-          stream: StreamKind.ENQUEUE,
-          streamId,
-          chunk
-        }, transfers);
-      },
-      close() {
-        if (this.isCancelled) {
-          return;
-        }
-        this.isCancelled = true;
-        comObj.postMessage({
-          sourceName,
-          targetName,
-          stream: StreamKind.CLOSE,
-          streamId
-        });
-        streamSinks.delete(streamId);
-      },
-      error(reason) {
-        assert(reason instanceof Error, "error must have a valid reason");
-        if (this.isCancelled) {
-          return;
-        }
-        this.isCancelled = true;
-        comObj.postMessage({
-          sourceName,
-          targetName,
-          stream: StreamKind.ERROR,
-          streamId,
-          reason: wrapReason(reason)
-        });
-      },
-      sinkCapability: Promise.withResolvers(),
-      onPull: null,
-      onCancel: null,
-      isCancelled: false,
-      desiredSize: data.desiredSize,
-      ready: null
-    };
-    streamSink.sinkCapability.resolve();
-    streamSink.ready = streamSink.sinkCapability.promise;
-    streamSinks.set(streamId, streamSink);
-    Promise.try(action, data.data, streamSink).then(() => {
-      comObj.postMessage({
-        sourceName,
-        targetName,
-        stream: StreamKind.START_COMPLETE,
-        streamId,
-        success: true
-      });
-    }, reason => {
-      comObj.postMessage({
-        sourceName,
-        targetName,
-        stream: StreamKind.START_COMPLETE,
-        streamId,
-        reason: wrapReason(reason)
-      });
-    });
-  }
-  #processStreamMessage(data) {
-    const streamId = data.streamId,
-      sourceName = this.#sourceName,
-      targetName = data.sourceName,
-      comObj = this.#comObj;
-    const streamController = this.#streamControllers.get(streamId),
-      streamSink = this.#streamSinks.get(streamId);
-    switch (data.stream) {
-      case StreamKind.START_COMPLETE:
-        if (data.success) {
-          streamController.startCall.resolve();
-        } else {
-          streamController.startCall.reject(wrapReason(data.reason));
-        }
-        break;
-      case StreamKind.PULL_COMPLETE:
-        if (data.success) {
-          streamController.pullCall.resolve();
-        } else {
-          streamController.pullCall.reject(wrapReason(data.reason));
-        }
-        break;
-      case StreamKind.PULL:
-        if (!streamSink) {
-          comObj.postMessage({
-            sourceName,
-            targetName,
-            stream: StreamKind.PULL_COMPLETE,
-            streamId,
-            success: true
-          });
-          break;
-        }
-        if (streamSink.desiredSize <= 0 && data.desiredSize > 0) {
-          streamSink.sinkCapability.resolve();
-        }
-        streamSink.desiredSize = data.desiredSize;
-        Promise.try(streamSink.onPull || onFn).then(() => {
-          comObj.postMessage({
-            sourceName,
-            targetName,
-            stream: StreamKind.PULL_COMPLETE,
-            streamId,
-            success: true
-          });
-        }, reason => {
-          comObj.postMessage({
-            sourceName,
-            targetName,
-            stream: StreamKind.PULL_COMPLETE,
-            streamId,
-            reason: wrapReason(reason)
-          });
-        });
-        break;
-      case StreamKind.ENQUEUE:
-        assert(streamController, "enqueue should have stream controller");
-        if (streamController.isClosed) {
-          break;
-        }
-        streamController.controller.enqueue(data.chunk);
-        break;
-      case StreamKind.CLOSE:
-        assert(streamController, "close should have stream controller");
-        if (streamController.isClosed) {
-          break;
-        }
-        streamController.isClosed = true;
-        streamController.controller.close();
-        this.#deleteStreamController(streamController, streamId);
-        break;
-      case StreamKind.ERROR:
-        assert(streamController, "error should have stream controller");
-        streamController.controller.error(wrapReason(data.reason));
-        this.#deleteStreamController(streamController, streamId);
-        break;
-      case StreamKind.CANCEL_COMPLETE:
-        if (data.success) {
-          streamController.cancelCall.resolve();
-        } else {
-          streamController.cancelCall.reject(wrapReason(data.reason));
-        }
-        this.#deleteStreamController(streamController, streamId);
-        break;
-      case StreamKind.CANCEL:
-        if (!streamSink) {
-          break;
-        }
-        const dataReason = wrapReason(data.reason);
-        Promise.try(streamSink.onCancel || onFn, dataReason).then(() => {
-          comObj.postMessage({
-            sourceName,
-            targetName,
-            stream: StreamKind.CANCEL_COMPLETE,
-            streamId,
-            success: true
-          });
-        }, reason => {
-          comObj.postMessage({
-            sourceName,
-            targetName,
-            stream: StreamKind.CANCEL_COMPLETE,
-            streamId,
-            reason: wrapReason(reason)
-          });
-        });
-        streamSink.sinkCapability.reject(dataReason);
-        streamSink.isCancelled = true;
-        this.#streamSinks.delete(streamId);
-        break;
-      default:
-        throw new Error("Unexpected stream case");
-    }
-  }
-  async #deleteStreamController(streamController, streamId) {
-    await Promise.allSettled([streamController.startCall?.promise, streamController.pullCall?.promise, streamController.cancelCall?.promise]);
-    this.#streamControllers.delete(streamId);
-  }
-  destroy() {
-    this.#messageAC?.abort();
-    this.#messageAC = null;
-  }
-}
-
-;// ./src/display/binary_data_factory.js
-
-
-class BaseBinaryDataFactory {
-  #errorStr = Object.freeze({
-    cMapUrl: "CMap",
-    standardFontDataUrl: "font",
-    wasmUrl: "wasm"
-  });
-  constructor({
-    cMapUrl = null,
-    standardFontDataUrl = null,
-    wasmUrl = null
-  }) {
-    this.cMapUrl = cMapUrl;
-    this.standardFontDataUrl = standardFontDataUrl;
-    this.wasmUrl = wasmUrl;
-  }
-  async fetch({
-    kind,
-    filename
-  }) {
-    switch (kind) {
-      case "cMapUrl":
-      case "standardFontDataUrl":
-      case "wasmUrl":
-        break;
-      default:
-        unreachable(`Not implemented: ${kind}`);
-    }
-    const baseUrl = this[kind];
-    if (!baseUrl) {
-      throw new Error(`Ensure that the \`${kind}\` API parameter is provided.`);
-    }
-    const url = `${baseUrl}${filename}`;
-    return this._fetch(url, kind).catch(reason => {
-      throw new Error(`Unable to load ${this.#errorStr[kind]} data at: ${url}`);
-    });
-  }
-  async _fetch(url, kind) {
-    unreachable("Abstract method `_fetch` called.");
-  }
-}
-class DOMBinaryDataFactory extends BaseBinaryDataFactory {
-  async _fetch(url, kind) {
-    const type = kind === "cMapUrl" && !url.endsWith(".bcmap") ? "text" : "bytes";
-    const data = await fetchData(url, type);
-    return data instanceof Uint8Array ? data : stringToBytes(data);
-  }
-}
-
-;// ./src/display/canvas_factory.js
-
-class BaseCanvasFactory {
-  #enableHWA = false;
-  constructor({
-    enableHWA = false
-  }) {
-    this.#enableHWA = enableHWA;
-  }
-  create(width, height) {
-    if (width <= 0 || height <= 0) {
-      throw new Error("Invalid canvas size");
-    }
-    const canvas = this._createCanvas(width, height);
-    return {
-      canvas,
-      context: canvas.getContext("2d", {
-        willReadFrequently: !this.#enableHWA
-      })
-    };
-  }
-  reset({
-    canvas
-  }, width, height) {
-    if (!canvas) {
-      throw new Error("Canvas is not specified");
-    }
-    if (width <= 0 || height <= 0) {
-      throw new Error("Invalid canvas size");
-    }
-    canvas.width = width;
-    canvas.height = height;
-  }
-  destroy(canvasAndContext) {
-    const {
-      canvas
-    } = canvasAndContext;
-    if (!canvas) {
-      throw new Error("Canvas is not specified");
-    }
-    canvas.width = canvas.height = 0;
-    canvasAndContext.canvas = null;
-    canvasAndContext.context = null;
-  }
-  _createCanvas(width, height) {
-    unreachable("Abstract method `_createCanvas` called.");
-  }
-}
-class DOMCanvasFactory extends BaseCanvasFactory {
-  constructor({
-    ownerDocument = globalThis.document,
-    enableHWA = false
-  }) {
-    super({
-      enableHWA
-    });
-    this._document = ownerDocument;
-  }
-  _createCanvas(width, height) {
-    const canvas = this._document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    return canvas;
-  }
-}
-
-;// ./src/display/filter_factory.js
-
-
-class BaseFilterFactory {
-  addFilter(maps) {
-    return "none";
-  }
-  addHCMFilter(fgColor, bgColor) {
-    return "none";
-  }
-  addAlphaFilter(map) {
-    return "none";
-  }
-  addLuminosityFilter(map) {
-    return "none";
-  }
-  addKnockoutFilter(alpha = 0) {
-    return "none";
-  }
-  addHighlightHCMFilter(filterName, fgColor, bgColor, newFgColor, newBgColor) {
-    return "none";
-  }
-  addSelectionHCMFilter(fgColor, bgColor) {
-    return "none";
-  }
-  addSelectionFilter() {
-    return "none";
-  }
-  createSelectionStyle(pageColors = null) {
-    return null;
-  }
-  destroy(keepHCM = false) {}
-}
-class DOMFilterFactory extends BaseFilterFactory {
-  #baseUrl;
-  #_cache;
-  #_defs;
-  #docId;
-  #document;
-  #_hcmCache;
-  #id = 0;
-  constructor({
-    docId,
-    ownerDocument = globalThis.document
-  }) {
-    super();
-    this.#docId = docId;
-    this.#document = ownerDocument;
-  }
-  get #cache() {
-    return this.#_cache ||= new Map();
-  }
-  get #hcmCache() {
-    return this.#_hcmCache ||= new Map();
-  }
-  get #defs() {
-    if (!this.#_defs) {
-      const div = this.#document.createElement("div");
-      const {
-        style
-      } = div;
-      style.colorScheme = "only light";
-      style.visibility = "hidden";
-      style.contain = "strict";
-      style.width = style.height = 0;
-      style.position = "absolute";
-      style.top = style.left = 0;
-      style.zIndex = -1;
-      const svg = this.#document.createElementNS(SVG_NS, "svg");
-      svg.setAttribute("width", 0);
-      svg.setAttribute("height", 0);
-      this.#_defs = this.#document.createElementNS(SVG_NS, "defs");
-      div.append(svg);
-      svg.append(this.#_defs);
-      this.#document.body.append(div);
-    }
-    return this.#_defs;
-  }
-  #createTables(maps) {
-    const toTable = map => map && Array.from(map, v => v / 255).join(",");
-    if (maps.length === 1) {
-      const table = toTable(maps[0]);
-      return [table, table, table];
-    }
-    const [mapR, mapG, mapB] = maps;
-    return [toTable(mapR), toTable(mapG), toTable(mapB)];
-  }
-  #createUrl(id) {
-    if (this.#baseUrl === undefined) {
-      this.#baseUrl = "";
-      const url = this.#document.URL;
-      if (url !== this.#document.baseURI) {
-        if (isDataScheme(url)) {
-          warn('#createUrl: ignore "data:"-URL for performance reasons.');
-        } else {
-          this.#baseUrl = updateUrlHash(url, "");
-        }
-      }
-    }
-    return `url(${this.#baseUrl}#${id})`;
-  }
-  addFilter(maps) {
-    if (!maps) {
-      return "none";
-    }
-    let value = this.#cache.get(maps);
-    if (value) {
-      return value;
-    }
-    const [tableR, tableG, tableB] = this.#createTables(maps);
-    const key = maps.length === 1 ? tableR : `${tableR}${tableG}${tableB}`;
-    value = this.#cache.get(key);
-    if (value) {
-      this.#cache.set(maps, value);
-      return value;
-    }
-    const id = `g_${this.#docId}_transfer_map_${this.#id++}`;
-    const url = this.#createUrl(id);
-    this.#cache.set(maps, url);
-    this.#cache.set(key, url);
-    const filter = this.#createFilter(id);
-    this.#addTransferMapConversion(tableR, tableG, tableB, filter);
-    return url;
-  }
-  addHCMFilter(fgColor, bgColor) {
-    const key = `${fgColor}-${bgColor}`;
-    const filterName = "base";
-    let info = this.#hcmCache.get(filterName);
-    if (info?.key === key) {
-      return info.url;
-    }
-    if (info) {
-      info.filter?.remove();
-      info.key = key;
-      info.url = "none";
-      info.filter = null;
-    } else {
-      info = {
-        key,
-        url: "none",
-        filter: null
-      };
-      this.#hcmCache.set(filterName, info);
-    }
-    if (!fgColor || !bgColor) {
-      return info.url;
-    }
-    const fgRGB = this.#getRGB(fgColor);
-    fgColor = Util.makeHexColor(...fgRGB);
-    const bgRGB = this.#getRGB(bgColor);
-    bgColor = Util.makeHexColor(...bgRGB);
-    this.#resetDefsColor();
-    if (fgColor === "#000000" && bgColor === "#ffffff" || fgColor === bgColor) {
-      return info.url;
-    }
-    const map = Array.from({
-      length: 256
-    }, (_, i) => computeLuminance(i / 255));
-    const table = map.join(",");
-    const id = `g_${this.#docId}_hcm_filter`;
-    const filter = info.filter = this.#createFilter(id);
-    this.#addTransferMapConversion(table, table, table, filter);
-    this.#addGrayConversion(filter);
-    const getSteps = (c, n) => {
-      const start = fgRGB[c] / 255;
-      const end = bgRGB[c] / 255;
-      const arr = new Array(n + 1);
-      for (let i = 0; i <= n; i++) {
-        arr[i] = start + i / n * (end - start);
-      }
-      return arr.join(",");
-    };
-    this.#addTransferMapConversion(getSteps(0, 5), getSteps(1, 5), getSteps(2, 5), filter);
-    info.url = this.#createUrl(id);
-    return info.url;
-  }
-  addSelectionHCMFilter(fgColor, bgColor) {
-    return this.addHighlightHCMFilter("selection", fgColor, bgColor, "HighlightText", "Highlight");
-  }
-  addSelectionFilter() {
-    return this.addHighlightHCMFilter("selection_default", "black", "white", "HighlightText", "Highlight");
-  }
-  createSelectionStyle(pageColors = null) {
-    const filter = pageColors ? this.addSelectionHCMFilter(pageColors.foreground, pageColors.background) : this.addSelectionFilter();
-    if (filter === "none" || !FeatureTest.platform.isFirefox) {
-      return null;
-    }
-    return {
-      "backdrop-filter": filter,
-      "background-color": "transparent"
-    };
-  }
-  addAlphaFilter(map) {
-    let value = this.#cache.get(map);
-    if (value) {
-      return value;
-    }
-    const [tableA] = this.#createTables([map]);
-    const key = `alpha_${tableA}`;
-    value = this.#cache.get(key);
-    if (value) {
-      this.#cache.set(map, value);
-      return value;
-    }
-    const id = `g_${this.#docId}_alpha_map_${this.#id++}`;
-    const url = this.#createUrl(id);
-    this.#cache.set(map, url);
-    this.#cache.set(key, url);
-    const filter = this.#createFilter(id);
-    this.#addTransferMapAlphaConversion(tableA, filter);
-    return url;
-  }
-  addLuminosityFilter(map) {
-    let value = this.#cache.get(map || "luminosity");
-    if (value) {
-      return value;
-    }
-    let tableA, key;
-    if (map) {
-      [tableA] = this.#createTables([map]);
-      key = `luminosity_${tableA}`;
-    } else {
-      key = "luminosity";
-    }
-    value = this.#cache.get(key);
-    if (value) {
-      this.#cache.set(map, value);
-      return value;
-    }
-    const id = `g_${this.#docId}_luminosity_map_${this.#id++}`;
-    const url = this.#createUrl(id);
-    this.#cache.set(map, url);
-    this.#cache.set(key, url);
-    const filter = this.#createFilter(id);
-    this.#addLuminosityConversion(filter);
-    if (map) {
-      this.#addTransferMapAlphaConversion(tableA, filter);
-    }
-    return url;
-  }
-  addKnockoutFilter(alpha = 0) {
-    const slope = alpha > 0 ? Math.min(1 / alpha, 1e6) : 1e6;
-    const key = `knockout_${slope}`;
-    const value = this.#cache.get(key);
-    if (value) {
-      return value;
-    }
-    const id = `g_${this.#docId}_knockout_filter_${this.#id++}`;
-    const url = this.#createUrl(id);
-    this.#cache.set(key, url);
-    const filter = this.#createFilter(id);
-    const feComponentTransfer = this.#document.createElementNS(SVG_NS, "feComponentTransfer");
-    filter.append(feComponentTransfer);
-    const feFuncA = this.#document.createElementNS(SVG_NS, "feFuncA");
-    feFuncA.setAttribute("type", "linear");
-    feFuncA.setAttribute("slope", `${slope}`);
-    feFuncA.setAttribute("intercept", "0");
-    feComponentTransfer.append(feFuncA);
-    return url;
-  }
-  addHighlightHCMFilter(filterName, fgColor, bgColor, newFgColor, newBgColor) {
-    const key = `${fgColor}-${bgColor}-${newFgColor}-${newBgColor}`;
-    let info = this.#hcmCache.get(filterName);
-    if (info?.key === key) {
-      return info.url;
-    }
-    if (info) {
-      info.filter?.remove();
-      info.key = key;
-      info.url = "none";
-      info.filter = null;
-    } else {
-      info = {
-        key,
-        url: "none",
-        filter: null
-      };
-      this.#hcmCache.set(filterName, info);
-    }
-    if (!fgColor || !bgColor) {
-      return info.url;
-    }
-    const [fgRGB, bgRGB] = [fgColor, bgColor].map(this.#getRGB.bind(this));
-    let fgGray = Math.round(0.2126 * fgRGB[0] + 0.7152 * fgRGB[1] + 0.0722 * fgRGB[2]);
-    let bgGray = Math.round(0.2126 * bgRGB[0] + 0.7152 * bgRGB[1] + 0.0722 * bgRGB[2]);
-    let [newFgRGB, newBgRGB] = [newFgColor, newBgColor].map(this.#getOpaqueTextColor.bind(this));
-    if (bgGray < fgGray) {
-      [fgGray, bgGray, newFgRGB, newBgRGB] = [bgGray, fgGray, newBgRGB, newFgRGB];
-    }
-    this.#resetDefsColor();
-    const getSteps = (fg, bg, n) => {
-      const arr = new Array(256);
-      const step = (bgGray - fgGray) / n;
-      const newStart = fg / 255;
-      const newStep = (bg - fg) / (255 * n);
-      let prev = 0;
-      for (let i = 0; i <= n; i++) {
-        const k = Math.round(fgGray + i * step);
-        const value = newStart + i * newStep;
-        for (let j = prev; j <= k; j++) {
-          arr[j] = value;
-        }
-        prev = k + 1;
-      }
-      for (let i = prev; i < 256; i++) {
-        arr[i] = arr[prev - 1];
-      }
-      return arr.join(",");
-    };
-    const id = `g_${this.#docId}_hcm_${filterName}_filter`;
-    const filter = info.filter = this.#createFilter(id);
-    this.#addGrayConversion(filter);
-    this.#addTransferMapConversion(getSteps(newFgRGB[0], newBgRGB[0], 5), getSteps(newFgRGB[1], newBgRGB[1], 5), getSteps(newFgRGB[2], newBgRGB[2], 5), filter);
-    info.url = this.#createUrl(id);
-    return info.url;
-  }
-  destroy(keepHCM = false) {
-    if (keepHCM && this.#_hcmCache?.size) {
-      return;
-    }
-    this.#_defs?.parentNode.parentNode.remove();
-    this.#_defs = null;
-    this.#_cache?.clear();
-    this.#_cache = null;
-    this.#_hcmCache?.clear();
-    this.#_hcmCache = null;
-    this.#id = 0;
-  }
-  #addLuminosityConversion(filter) {
-    const feColorMatrix = this.#document.createElementNS(SVG_NS, "feColorMatrix");
-    feColorMatrix.setAttribute("type", "matrix");
-    feColorMatrix.setAttribute("values", "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.3 0.59 0.11 0 0");
-    filter.append(feColorMatrix);
-  }
-  #addGrayConversion(filter) {
-    const feColorMatrix = this.#document.createElementNS(SVG_NS, "feColorMatrix");
-    feColorMatrix.setAttribute("type", "matrix");
-    feColorMatrix.setAttribute("values", "0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0 0 0 1 0");
-    filter.append(feColorMatrix);
-  }
-  #createFilter(id) {
-    const filter = this.#document.createElementNS(SVG_NS, "filter");
-    filter.setAttribute("color-interpolation-filters", "sRGB");
-    filter.setAttribute("id", id);
-    this.#defs.append(filter);
-    return filter;
-  }
-  #appendFeFunc(feComponentTransfer, func, table) {
-    if (!table) {
-      return;
-    }
-    const feFunc = this.#document.createElementNS(SVG_NS, func);
-    feFunc.setAttribute("type", "discrete");
-    feFunc.setAttribute("tableValues", table);
-    feComponentTransfer.append(feFunc);
-  }
-  #addTransferMapConversion(rTable, gTable, bTable, filter) {
-    const feComponentTransfer = this.#document.createElementNS(SVG_NS, "feComponentTransfer");
-    filter.append(feComponentTransfer);
-    this.#appendFeFunc(feComponentTransfer, "feFuncR", rTable);
-    this.#appendFeFunc(feComponentTransfer, "feFuncG", gTable);
-    this.#appendFeFunc(feComponentTransfer, "feFuncB", bTable);
-  }
-  #addTransferMapAlphaConversion(aTable, filter) {
-    const feComponentTransfer = this.#document.createElementNS(SVG_NS, "feComponentTransfer");
-    filter.append(feComponentTransfer);
-    this.#appendFeFunc(feComponentTransfer, "feFuncA", aTable);
-  }
-  #getRGB(color) {
-    this.#defs.style.color = "CanvasText";
-    this.#defs.style.backgroundColor = color;
-    return getRGB(getComputedStyle(this.#defs).getPropertyValue("background-color"));
-  }
-  #getRGBA(color) {
-    this.#defs.style.color = "CanvasText";
-    this.#defs.style.backgroundColor = color;
-    return getRGBA(getComputedStyle(this.#defs).getPropertyValue("background-color"));
-  }
-  #resetDefsColor() {
-    this.#defs.style.color = "";
-    this.#defs.style.backgroundColor = "";
-  }
-  #getOpaqueTextColor(color) {
-    const [r, g, b, alpha] = this.#getRGBA(color);
-    if (alpha === 1) {
-      return [r, g, b];
-    }
-    const [canvasR, canvasG, canvasB] = this.#getRGB("Canvas");
-    return [blend(r, canvasR, alpha), blend(g, canvasG, alpha), blend(b, canvasB, alpha)];
-  }
-}
-function blend(fg, bg, alpha) {
-  return Math.round(alpha * fg + (1 - alpha) * bg);
-}
-
-;// ./src/display/node_utils.js
-
-
-
-
-if (isNodeJS) {
-  warn("Please use the `legacy` build in Node.js environments.");
-}
-async function node_utils_fetchData(url) {
-  const fs = process.getBuiltinModule("fs/promises");
-  const data = await fs.readFile(url);
-  return new Uint8Array(data);
-}
-class NodeFilterFactory extends BaseFilterFactory {}
-class NodeCanvasFactory extends BaseCanvasFactory {
-  _createCanvas(width, height) {
-    const require = process.getBuiltinModule("module").createRequire(import.meta.url);
-    const canvas = require("@napi-rs/canvas");
-    return canvas.createCanvas(width, height);
-  }
-}
-class NodeBinaryDataFactory extends BaseBinaryDataFactory {
-  async _fetch(url, kind) {
-    return node_utils_fetchData(url);
   }
 }
 
@@ -10786,6 +9057,13 @@ function copyCtxState(sourceCtx, destCtx) {
     destCtx.lineDashOffset = sourceCtx.lineDashOffset;
   }
 }
+function setAnnotationCanvasName(canvas, canvasName) {
+  canvas.setAttribute?.("data-canvas-name", canvasName);
+  canvas._pdfjsCanvasName = canvasName;
+}
+function getAnnotationCanvasName(canvas) {
+  return canvas._pdfjsCanvasName ?? null;
+}
 function resetCtxToDefault(ctx) {
   ctx.strokeStyle = ctx.fillStyle = "#000000";
   ctx.fillRule = "nonzero";
@@ -10953,64 +9231,70 @@ class CanvasGraphics {
     this.viewportScale = viewport.scale;
     this.baseTransform = getCurrentTransform(this.ctx);
   }
-  executeOperatorList(operatorList, executionStartIdx, continueCallback, stepper, operationsFilter) {
+  executeOperatorList(operatorList, executionStartIdx, continueCallback, errorCallback, stepper, operationsFilter) {
     const argsArray = operatorList.argsArray;
     const fnArray = operatorList.fnArray;
-    let i = executionStartIdx || 0;
-    const argsArrayLen = argsArray.length;
-    if (argsArrayLen === i) {
-      return i;
-    }
-    const chunkOperations = argsArrayLen - i > EXECUTION_STEPS && typeof continueCallback === "function";
-    const endTime = chunkOperations ? Date.now() + EXECUTION_TIME : 0;
-    let steps = 0;
-    const commonObjs = this.commonObjs;
-    const objs = this.objs;
-    let fnId, fnArgs;
-    while (true) {
-      if (stepper !== undefined) {
-        if (i === stepper.nextBreakPoint) {
-          stepper.breakIt(i, continueCallback);
-          return i;
-        }
-        if (stepper.shouldSkip(i)) {
-          if (++i === argsArrayLen) {
+    const prevPathCache = this._pathCache;
+    this._pathCache = operatorList.pathCache ||= new Map();
+    try {
+      let i = executionStartIdx || 0;
+      const argsArrayLen = argsArray.length;
+      if (argsArrayLen === i) {
+        return i;
+      }
+      const chunkOperations = argsArrayLen - i > EXECUTION_STEPS && typeof continueCallback === "function";
+      const endTime = chunkOperations ? Date.now() + EXECUTION_TIME : 0;
+      let steps = 0;
+      const commonObjs = this.commonObjs;
+      const objs = this.objs;
+      let fnId, fnArgs;
+      while (true) {
+        if (stepper !== undefined) {
+          if (i === stepper.nextBreakPoint) {
+            stepper.breakIt(i, continueCallback);
             return i;
           }
-          continue;
-        }
-      }
-      if (!operationsFilter || operationsFilter(i, operatorList)) {
-        fnId = fnArray[i];
-        fnArgs = argsArray[i] ?? null;
-        if (fnId !== OPS.dependency) {
-          if (fnArgs === null) {
-            this[fnId](i);
-          } else {
-            this[fnId](i, ...fnArgs);
-          }
-        } else {
-          for (const depObjId of fnArgs) {
-            this.dependencyTracker?.recordNamedData(depObjId, i);
-            const objsPool = depObjId.startsWith("g_") ? commonObjs : objs;
-            if (!objsPool.has(depObjId)) {
-              objsPool.get(depObjId, continueCallback);
+          if (stepper.shouldSkip(i)) {
+            if (++i === argsArrayLen) {
               return i;
+            }
+            continue;
+          }
+        }
+        if (!operationsFilter || operationsFilter(i, operatorList)) {
+          fnId = fnArray[i];
+          fnArgs = argsArray[i] ?? null;
+          if (fnId !== OPS.dependency) {
+            if (fnArgs === null) {
+              this[fnId](i);
+            } else {
+              this[fnId](i, ...fnArgs);
+            }
+          } else {
+            for (const depObjId of fnArgs) {
+              this.dependencyTracker?.recordNamedData(depObjId, i);
+              const objsPool = depObjId.startsWith("g_") ? commonObjs : objs;
+              if (!objsPool.has(depObjId)) {
+                objsPool.get(depObjId, continueCallback, errorCallback);
+                return i;
+              }
             }
           }
         }
-      }
-      i++;
-      if (i === argsArrayLen) {
-        return i;
-      }
-      if (chunkOperations && ++steps > EXECUTION_STEPS) {
-        if (Date.now() > endTime) {
-          continueCallback();
+        i++;
+        if (i === argsArrayLen) {
           return i;
         }
-        steps = 0;
+        if (chunkOperations && ++steps > EXECUTION_STEPS) {
+          if (Date.now() > endTime) {
+            continueCallback();
+            return i;
+          }
+          steps = 0;
+        }
       }
+    } finally {
+      this._pathCache = prevPathCache;
     }
   }
   #restoreInitialState() {
@@ -11809,9 +10093,12 @@ class CanvasGraphics {
     this._cachedScaleForStroking[0] = -1;
   }
   constructPath(opIdx, op, data, minMax) {
-    let [path] = data;
+    let path = this._pathCache.get(opIdx);
     if (!minMax) {
-      path ||= data[0] = new Path2D();
+      if (!path) {
+        path = new Path2D();
+        this._pathCache.set(opIdx, path);
+      }
       if (op !== OPS.stroke && op !== OPS.closeStroke) {
         this.current.tilingPatternDims = null;
       }
@@ -11822,8 +10109,9 @@ class CanvasGraphics {
       const outerExtraSize = op === OPS.stroke ? this.current.lineWidth / 2 : 0;
       this.dependencyTracker.resetBBox(opIdx).recordBBox(opIdx, this.ctx, minMax[0] - outerExtraSize, minMax[2] + outerExtraSize, minMax[1] - outerExtraSize, minMax[3] + outerExtraSize).recordDependencies(opIdx, ["transform"]);
     }
-    if (!(path instanceof Path2D)) {
-      path = data[0] = makePathFromDrawOPS(path);
+    if (!path) {
+      path = makePathFromDrawOPS(data[0]);
+      this._pathCache.set(opIdx, path);
     }
     Util.axialAlignedBoundingBox(minMax, getCurrentTransform(this.ctx), this.current.minMax);
     const tilingDims = this.current.tilingPatternDims;
@@ -12825,8 +11113,8 @@ class CanvasGraphics {
         } = this.annotationCanvas;
         if (canvasName) {
           const canvases = this.annotationCanvasMap.getOrInsertComputed(id, makeArr);
-          canvas.setAttribute("data-canvas-name", canvasName);
-          const index = canvases.findIndex(c => c.getAttribute("data-canvas-name") === canvasName);
+          setAnnotationCanvasName(canvas, canvasName);
+          const index = canvases.findIndex(c => getAnnotationCanvasName(c) === canvasName);
           if (index === -1) {
             canvases.push(canvas);
           } else {
@@ -13271,6 +11559,1444 @@ class CanvasGraphics {
 for (const op in OPS) {
   if (CanvasGraphics.prototype[op] !== undefined) {
     CanvasGraphics.prototype[OPS[op]] = CanvasGraphics.prototype[op];
+  }
+}
+
+;// ./src/display/api_utils.js
+
+function getUrlProp(val) {
+  if (val instanceof URL) {
+    return val;
+  }
+  if (typeof val === "string") {
+    if (isNodeJS) {
+      if (/^[a-z][a-z0-9\-+.]+:/i.test(val)) {
+        return new URL(val);
+      }
+      const url = process.getBuiltinModule("url");
+      return new URL(url.pathToFileURL(val));
+    }
+    const url = URL.parse(val, window.location);
+    if (url) {
+      return url;
+    }
+  }
+  throw new Error("Invalid PDF url data: " + "either string or URL-object is expected in the url property.");
+}
+function getDataProp(val) {
+  if (isNodeJS && typeof Buffer !== "undefined" && val instanceof Buffer) {
+    throw new Error("Please provide binary data as `Uint8Array`, rather than `Buffer`.");
+  }
+  if (val instanceof Uint8Array && val.byteLength === val.buffer.byteLength) {
+    return val;
+  }
+  if (typeof val === "string") {
+    return stringToBytes(val);
+  }
+  if (val instanceof ArrayBuffer || ArrayBuffer.isView(val) || typeof val === "object" && !isNaN(val?.length)) {
+    return new Uint8Array(val);
+  }
+  throw new Error("Invalid PDF binary data: either TypedArray, " + "string, or array-like object is expected in the data property.");
+}
+function getFactoryUrlProp(val) {
+  if (typeof val !== "string") {
+    return null;
+  }
+  if (val.endsWith("/")) {
+    return val;
+  }
+  throw new Error(`Invalid factory url: "${val}" must include trailing slash.`);
+}
+const isRefProxy = v => typeof v === "object" && Number.isInteger(v?.num) && v.num >= 0 && Number.isInteger(v?.gen) && v.gen >= 0;
+const isNameProxy = v => typeof v === "object" && typeof v?.name === "string";
+const isValidExplicitDest = _isValidExplicitDest.bind(null, isRefProxy, isNameProxy);
+class LoopbackPort {
+  #listeners = new Map();
+  #deferred = Promise.resolve();
+  postMessage(obj, transfer) {
+    const event = {
+      data: structuredClone(obj, transfer ? {
+        transfer
+      } : null)
+    };
+    this.#deferred.then(() => {
+      for (const [listener] of this.#listeners) {
+        listener.call(this, event);
+      }
+    });
+  }
+  addEventListener(name, listener, options = null) {
+    let rmAbort = null;
+    if (options?.signal instanceof AbortSignal) {
+      const {
+        signal
+      } = options;
+      if (signal.aborted) {
+        warn("LoopbackPort - cannot use an `aborted` signal.");
+        return;
+      }
+      const onAbort = () => this.removeEventListener(name, listener);
+      rmAbort = () => signal.removeEventListener("abort", onAbort);
+      signal.addEventListener("abort", onAbort);
+    }
+    this.#listeners.set(listener, rmAbort);
+  }
+  removeEventListener(name, listener) {
+    const rmAbort = this.#listeners.get(listener);
+    rmAbort?.();
+    this.#listeners.delete(listener);
+  }
+  terminate() {
+    for (const [, rmAbort] of this.#listeners) {
+      rmAbort?.();
+    }
+    this.#listeners.clear();
+  }
+}
+
+;// ./src/shared/message_handler.js
+
+const CallbackKind = {
+  DATA: 1,
+  ERROR: 2
+};
+const StreamKind = {
+  CANCEL: 1,
+  CANCEL_COMPLETE: 2,
+  CLOSE: 3,
+  ENQUEUE: 4,
+  ERROR: 5,
+  PULL: 6,
+  PULL_COMPLETE: 7,
+  START_COMPLETE: 8
+};
+function onFn() {}
+function wrapReason(ex) {
+  if (ex instanceof AbortException || ex instanceof InvalidPDFException || ex instanceof PasswordException || ex instanceof ResponseException || ex instanceof UnknownErrorException) {
+    return ex;
+  }
+  if (!(ex instanceof Error || typeof ex === "object" && ex !== null)) {
+    unreachable('wrapReason: Expected "reason" to be a (possibly cloned) Error.');
+  }
+  switch (ex.name) {
+    case "AbortException":
+      return new AbortException(ex.message);
+    case "InvalidPDFException":
+      return new InvalidPDFException(ex.message);
+    case "PasswordException":
+      return new PasswordException(ex.message, ex.code);
+    case "ResponseException":
+      return new ResponseException(ex.message, ex.status, ex.missing);
+    case "UnknownErrorException":
+      return new UnknownErrorException(ex.message, ex.details);
+  }
+  return new UnknownErrorException(ex.message, ex.toString());
+}
+class MessageHandler {
+  #actions = new Map();
+  #callbackCapabilities = new Map();
+  #callbackId = 1;
+  #comObj;
+  #messageAC = new AbortController();
+  #sourceName;
+  #streamControllers = new Map();
+  #streamId = 1;
+  #streamSinks = new Map();
+  #targetName;
+  constructor(sourceName, targetName, comObj) {
+    this.#sourceName = sourceName;
+    this.#targetName = targetName;
+    this.#comObj = comObj;
+    comObj.addEventListener("message", this.#onMessage.bind(this), {
+      signal: this.#messageAC.signal
+    });
+  }
+  #onMessage({
+    data
+  }) {
+    if (data.targetName !== this.#sourceName) {
+      return;
+    }
+    if (data.stream) {
+      this.#processStreamMessage(data);
+      return;
+    }
+    if (data.callback) {
+      const {
+        callbackId,
+        callback
+      } = data;
+      const capability = this.#callbackCapabilities.get(callbackId);
+      if (!capability) {
+        throw new Error(`Cannot resolve callback ${callbackId}`);
+      }
+      this.#callbackCapabilities.delete(callbackId);
+      if (callback === CallbackKind.DATA) {
+        capability.resolve(data.data);
+      } else if (callback === CallbackKind.ERROR) {
+        capability.reject(wrapReason(data.reason));
+      } else {
+        throw new Error("Unexpected callback case");
+      }
+      return;
+    }
+    const action = this.#actions.get(data.action);
+    if (!action) {
+      throw new Error(`Unknown action from worker: ${data.action}`);
+    }
+    if (data.callbackId) {
+      const sourceName = this.#sourceName,
+        targetName = data.sourceName,
+        comObj = this.#comObj;
+      Promise.try(action, data.data).then(result => {
+        comObj.postMessage({
+          sourceName,
+          targetName,
+          callback: CallbackKind.DATA,
+          callbackId: data.callbackId,
+          data: result
+        });
+      }).catch(reason => {
+        comObj.postMessage({
+          sourceName,
+          targetName,
+          callback: CallbackKind.ERROR,
+          callbackId: data.callbackId,
+          reason: wrapReason(reason)
+        });
+      });
+      return;
+    }
+    if (data.streamId) {
+      this.#createStreamSink(data);
+      return;
+    }
+    action(data.data);
+  }
+  on(actionName, handler) {
+    const ah = this.#actions;
+    if (ah.has(actionName)) {
+      throw new Error(`There is already a "${actionName}" handler.`);
+    }
+    ah.set(actionName, handler);
+  }
+  send(actionName, data, transfers) {
+    this.#comObj.postMessage({
+      sourceName: this.#sourceName,
+      targetName: this.#targetName,
+      action: actionName,
+      data
+    }, transfers);
+  }
+  sendWithPromise(actionName, data, transfers) {
+    const callbackId = this.#callbackId++,
+      capability = Promise.withResolvers();
+    this.#callbackCapabilities.set(callbackId, capability);
+    try {
+      this.#comObj.postMessage({
+        sourceName: this.#sourceName,
+        targetName: this.#targetName,
+        action: actionName,
+        callbackId,
+        data
+      }, transfers);
+    } catch (ex) {
+      capability.reject(ex);
+    }
+    return capability.promise;
+  }
+  sendWithStream(actionName, data, queueingStrategy, transfers) {
+    const streamId = this.#streamId++,
+      sourceName = this.#sourceName,
+      targetName = this.#targetName,
+      comObj = this.#comObj;
+    return new ReadableStream({
+      start: controller => {
+        const startCapability = Promise.withResolvers();
+        this.#streamControllers.set(streamId, {
+          controller,
+          startCall: startCapability,
+          pullCall: null,
+          cancelCall: null,
+          isClosed: false
+        });
+        comObj.postMessage({
+          sourceName,
+          targetName,
+          action: actionName,
+          streamId,
+          data,
+          desiredSize: controller.desiredSize
+        }, transfers);
+        return startCapability.promise;
+      },
+      pull: controller => {
+        const pullCapability = Promise.withResolvers();
+        this.#streamControllers.get(streamId).pullCall = pullCapability;
+        comObj.postMessage({
+          sourceName,
+          targetName,
+          stream: StreamKind.PULL,
+          streamId,
+          desiredSize: controller.desiredSize
+        });
+        return pullCapability.promise;
+      },
+      cancel: reason => {
+        assert(reason instanceof Error, "cancel must have a valid reason");
+        const cancelCapability = Promise.withResolvers();
+        this.#streamControllers.get(streamId).cancelCall = cancelCapability;
+        this.#streamControllers.get(streamId).isClosed = true;
+        comObj.postMessage({
+          sourceName,
+          targetName,
+          stream: StreamKind.CANCEL,
+          streamId,
+          reason: wrapReason(reason)
+        });
+        return cancelCapability.promise;
+      }
+    }, queueingStrategy);
+  }
+  #createStreamSink(data) {
+    const streamId = data.streamId,
+      sourceName = this.#sourceName,
+      targetName = data.sourceName,
+      comObj = this.#comObj;
+    const streamSinks = this.#streamSinks,
+      action = this.#actions.get(data.action);
+    const streamSink = {
+      enqueue(chunk, size = 1, transfers) {
+        if (this.isCancelled) {
+          return;
+        }
+        const lastDesiredSize = this.desiredSize;
+        this.desiredSize -= size;
+        if (lastDesiredSize > 0 && this.desiredSize <= 0) {
+          this.sinkCapability = Promise.withResolvers();
+          this.ready = this.sinkCapability.promise;
+        }
+        comObj.postMessage({
+          sourceName,
+          targetName,
+          stream: StreamKind.ENQUEUE,
+          streamId,
+          chunk
+        }, transfers);
+      },
+      close() {
+        if (this.isCancelled) {
+          return;
+        }
+        this.isCancelled = true;
+        comObj.postMessage({
+          sourceName,
+          targetName,
+          stream: StreamKind.CLOSE,
+          streamId
+        });
+        streamSinks.delete(streamId);
+      },
+      error(reason) {
+        assert(reason instanceof Error, "error must have a valid reason");
+        if (this.isCancelled) {
+          return;
+        }
+        this.isCancelled = true;
+        comObj.postMessage({
+          sourceName,
+          targetName,
+          stream: StreamKind.ERROR,
+          streamId,
+          reason: wrapReason(reason)
+        });
+      },
+      sinkCapability: Promise.withResolvers(),
+      onPull: null,
+      onCancel: null,
+      isCancelled: false,
+      desiredSize: data.desiredSize,
+      ready: null
+    };
+    streamSink.sinkCapability.resolve();
+    streamSink.ready = streamSink.sinkCapability.promise;
+    streamSinks.set(streamId, streamSink);
+    Promise.try(action, data.data, streamSink).then(() => {
+      comObj.postMessage({
+        sourceName,
+        targetName,
+        stream: StreamKind.START_COMPLETE,
+        streamId,
+        success: true
+      });
+    }, reason => {
+      comObj.postMessage({
+        sourceName,
+        targetName,
+        stream: StreamKind.START_COMPLETE,
+        streamId,
+        reason: wrapReason(reason)
+      });
+    });
+  }
+  #processStreamMessage(data) {
+    const streamId = data.streamId,
+      sourceName = this.#sourceName,
+      targetName = data.sourceName,
+      comObj = this.#comObj;
+    const streamController = this.#streamControllers.get(streamId),
+      streamSink = this.#streamSinks.get(streamId);
+    switch (data.stream) {
+      case StreamKind.START_COMPLETE:
+        if (data.success) {
+          streamController.startCall.resolve();
+        } else {
+          streamController.startCall.reject(wrapReason(data.reason));
+        }
+        break;
+      case StreamKind.PULL_COMPLETE:
+        if (data.success) {
+          streamController.pullCall.resolve();
+        } else {
+          streamController.pullCall.reject(wrapReason(data.reason));
+        }
+        break;
+      case StreamKind.PULL:
+        if (!streamSink) {
+          comObj.postMessage({
+            sourceName,
+            targetName,
+            stream: StreamKind.PULL_COMPLETE,
+            streamId,
+            success: true
+          });
+          break;
+        }
+        if (streamSink.desiredSize <= 0 && data.desiredSize > 0) {
+          streamSink.sinkCapability.resolve();
+        }
+        streamSink.desiredSize = data.desiredSize;
+        Promise.try(streamSink.onPull || onFn).then(() => {
+          comObj.postMessage({
+            sourceName,
+            targetName,
+            stream: StreamKind.PULL_COMPLETE,
+            streamId,
+            success: true
+          });
+        }, reason => {
+          comObj.postMessage({
+            sourceName,
+            targetName,
+            stream: StreamKind.PULL_COMPLETE,
+            streamId,
+            reason: wrapReason(reason)
+          });
+        });
+        break;
+      case StreamKind.ENQUEUE:
+        assert(streamController, "enqueue should have stream controller");
+        if (streamController.isClosed) {
+          break;
+        }
+        streamController.controller.enqueue(data.chunk);
+        break;
+      case StreamKind.CLOSE:
+        assert(streamController, "close should have stream controller");
+        if (streamController.isClosed) {
+          break;
+        }
+        streamController.isClosed = true;
+        streamController.controller.close();
+        this.#deleteStreamController(streamController, streamId);
+        break;
+      case StreamKind.ERROR:
+        assert(streamController, "error should have stream controller");
+        streamController.controller.error(wrapReason(data.reason));
+        this.#deleteStreamController(streamController, streamId);
+        break;
+      case StreamKind.CANCEL_COMPLETE:
+        if (data.success) {
+          streamController.cancelCall.resolve();
+        } else {
+          streamController.cancelCall.reject(wrapReason(data.reason));
+        }
+        this.#deleteStreamController(streamController, streamId);
+        break;
+      case StreamKind.CANCEL:
+        if (!streamSink) {
+          break;
+        }
+        const dataReason = wrapReason(data.reason);
+        Promise.try(streamSink.onCancel || onFn, dataReason).then(() => {
+          comObj.postMessage({
+            sourceName,
+            targetName,
+            stream: StreamKind.CANCEL_COMPLETE,
+            streamId,
+            success: true
+          });
+        }, reason => {
+          comObj.postMessage({
+            sourceName,
+            targetName,
+            stream: StreamKind.CANCEL_COMPLETE,
+            streamId,
+            reason: wrapReason(reason)
+          });
+        });
+        streamSink.sinkCapability.reject(dataReason);
+        streamSink.isCancelled = true;
+        this.#streamSinks.delete(streamId);
+        break;
+      default:
+        throw new Error("Unexpected stream case");
+    }
+  }
+  async #deleteStreamController(streamController, streamId) {
+    await Promise.allSettled([streamController.startCall?.promise, streamController.pullCall?.promise, streamController.cancelCall?.promise]);
+    this.#streamControllers.delete(streamId);
+  }
+  destroy() {
+    this.#messageAC?.abort();
+    this.#messageAC = null;
+  }
+}
+
+;// ./src/display/binary_data_factory.js
+
+
+class BaseBinaryDataFactory {
+  #errorStr = Object.freeze({
+    cMapUrl: "CMap",
+    standardFontDataUrl: "font",
+    wasmUrl: "wasm"
+  });
+  constructor({
+    cMapUrl = null,
+    standardFontDataUrl = null,
+    wasmUrl = null
+  }) {
+    this.cMapUrl = cMapUrl;
+    this.standardFontDataUrl = standardFontDataUrl;
+    this.wasmUrl = wasmUrl;
+  }
+  async fetch({
+    kind,
+    filename
+  }) {
+    switch (kind) {
+      case "cMapUrl":
+      case "standardFontDataUrl":
+      case "wasmUrl":
+        break;
+      default:
+        unreachable(`Not implemented: ${kind}`);
+    }
+    const baseUrl = this[kind];
+    if (!baseUrl) {
+      throw new Error(`Ensure that the \`${kind}\` API parameter is provided.`);
+    }
+    const url = `${baseUrl}${filename}`;
+    return this._fetch(url, kind).catch(reason => {
+      throw new Error(`Unable to load ${this.#errorStr[kind]} data at: ${url}`);
+    });
+  }
+  async _fetch(url, kind) {
+    unreachable("Abstract method `_fetch` called.");
+  }
+}
+class DOMBinaryDataFactory extends BaseBinaryDataFactory {
+  async _fetch(url, kind) {
+    const type = kind === "cMapUrl" && !url.endsWith(".bcmap") ? "text" : "bytes";
+    const data = await fetchData(url, type);
+    return data instanceof Uint8Array ? data : stringToBytes(data);
+  }
+}
+
+;// ./src/display/canvas_factory.js
+
+class BaseCanvasFactory {
+  #enableHWA = false;
+  constructor({
+    enableHWA = false
+  }) {
+    this.#enableHWA = enableHWA;
+  }
+  create(width, height) {
+    if (width <= 0 || height <= 0) {
+      throw new Error("Invalid canvas size");
+    }
+    const canvas = this._createCanvas(width, height);
+    return {
+      canvas,
+      context: canvas.getContext("2d", {
+        willReadFrequently: !this.#enableHWA
+      })
+    };
+  }
+  reset({
+    canvas
+  }, width, height) {
+    if (!canvas) {
+      throw new Error("Canvas is not specified");
+    }
+    if (width <= 0 || height <= 0) {
+      throw new Error("Invalid canvas size");
+    }
+    canvas.width = width;
+    canvas.height = height;
+  }
+  destroy(canvasAndContext) {
+    const {
+      canvas
+    } = canvasAndContext;
+    if (!canvas) {
+      throw new Error("Canvas is not specified");
+    }
+    canvas.width = canvas.height = 0;
+    canvasAndContext.canvas = null;
+    canvasAndContext.context = null;
+  }
+  _createCanvas(width, height) {
+    unreachable("Abstract method `_createCanvas` called.");
+  }
+}
+class DOMCanvasFactory extends BaseCanvasFactory {
+  constructor({
+    ownerDocument = globalThis.document,
+    enableHWA = false
+  }) {
+    super({
+      enableHWA
+    });
+    this._document = ownerDocument;
+  }
+  _createCanvas(width, height) {
+    const canvas = this._document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    return canvas;
+  }
+}
+class OffscreenCanvasFactory extends (/* unused pure expression or super */ null && (BaseCanvasFactory)) {
+  _createCanvas(width, height) {
+    return new OffscreenCanvas(width, height);
+  }
+}
+
+;// ./src/display/filter_factory.js
+
+
+class BaseFilterFactory {
+  addFilter(maps) {
+    return "none";
+  }
+  addHCMFilter(fgColor, bgColor) {
+    return "none";
+  }
+  addAlphaFilter(map) {
+    return "none";
+  }
+  addLuminosityFilter(map) {
+    return "none";
+  }
+  addKnockoutFilter(alpha = 0) {
+    return "none";
+  }
+  addHighlightHCMFilter(filterName, fgColor, bgColor, newFgColor, newBgColor) {
+    return "none";
+  }
+  addSelectionHCMFilter(fgColor, bgColor) {
+    return "none";
+  }
+  addSelectionFilter() {
+    return "none";
+  }
+  createSelectionStyle(pageColors = null) {
+    return null;
+  }
+  destroy(keepHCM = false) {}
+}
+class DOMFilterFactory extends BaseFilterFactory {
+  #baseUrl;
+  #_cache;
+  #_defs;
+  #docId;
+  #document;
+  #_hcmCache;
+  #id = 0;
+  constructor({
+    docId,
+    ownerDocument = globalThis.document
+  }) {
+    super();
+    this.#docId = docId;
+    this.#document = ownerDocument;
+  }
+  get #cache() {
+    return this.#_cache ||= new Map();
+  }
+  get #hcmCache() {
+    return this.#_hcmCache ||= new Map();
+  }
+  get #defs() {
+    if (!this.#_defs) {
+      const div = this.#document.createElement("div");
+      const {
+        style
+      } = div;
+      style.colorScheme = "only light";
+      style.visibility = "hidden";
+      style.contain = "strict";
+      style.width = style.height = 0;
+      style.position = "absolute";
+      style.top = style.left = 0;
+      style.zIndex = -1;
+      const svg = this.#document.createElementNS(SVG_NS, "svg");
+      svg.setAttribute("width", 0);
+      svg.setAttribute("height", 0);
+      this.#_defs = this.#document.createElementNS(SVG_NS, "defs");
+      div.append(svg);
+      svg.append(this.#_defs);
+      this.#document.body.append(div);
+    }
+    return this.#_defs;
+  }
+  #createTables(maps) {
+    const toTable = map => map && Array.from(map, v => v / 255).join(",");
+    if (maps.length === 1) {
+      const table = toTable(maps[0]);
+      return [table, table, table];
+    }
+    const [mapR, mapG, mapB] = maps;
+    return [toTable(mapR), toTable(mapG), toTable(mapB)];
+  }
+  #createUrl(id) {
+    if (this.#baseUrl === undefined) {
+      this.#baseUrl = "";
+      const url = this.#document.URL;
+      if (url !== this.#document.baseURI) {
+        if (isDataScheme(url)) {
+          warn('#createUrl: ignore "data:"-URL for performance reasons.');
+        } else {
+          this.#baseUrl = updateUrlHash(url, "");
+        }
+      }
+    }
+    return `url(${this.#baseUrl}#${id})`;
+  }
+  addFilter(maps) {
+    if (!maps) {
+      return "none";
+    }
+    let value = this.#cache.get(maps);
+    if (value) {
+      return value;
+    }
+    const [tableR, tableG, tableB] = this.#createTables(maps);
+    const key = maps.length === 1 ? tableR : `${tableR}${tableG}${tableB}`;
+    value = this.#cache.get(key);
+    if (value) {
+      this.#cache.set(maps, value);
+      return value;
+    }
+    const id = `g_${this.#docId}_transfer_map_${this.#id++}`;
+    const url = this.#createUrl(id);
+    this.#cache.set(maps, url);
+    this.#cache.set(key, url);
+    const filter = this.#createFilter(id);
+    this.#addTransferMapConversion(tableR, tableG, tableB, filter);
+    return url;
+  }
+  addHCMFilter(fgColor, bgColor) {
+    const key = `${fgColor}-${bgColor}`;
+    const filterName = "base";
+    let info = this.#hcmCache.get(filterName);
+    if (info?.key === key) {
+      return info.url;
+    }
+    if (info) {
+      info.filter?.remove();
+      info.key = key;
+      info.url = "none";
+      info.filter = null;
+    } else {
+      info = {
+        key,
+        url: "none",
+        filter: null
+      };
+      this.#hcmCache.set(filterName, info);
+    }
+    if (!fgColor || !bgColor) {
+      return info.url;
+    }
+    const fgRGB = this.#getRGB(fgColor);
+    fgColor = Util.makeHexColor(...fgRGB);
+    const bgRGB = this.#getRGB(bgColor);
+    bgColor = Util.makeHexColor(...bgRGB);
+    this.#resetDefsColor();
+    if (fgColor === "#000000" && bgColor === "#ffffff" || fgColor === bgColor) {
+      return info.url;
+    }
+    const map = Array.from({
+      length: 256
+    }, (_, i) => computeLuminance(i / 255));
+    const table = map.join(",");
+    const id = `g_${this.#docId}_hcm_filter`;
+    const filter = info.filter = this.#createFilter(id);
+    this.#addTransferMapConversion(table, table, table, filter);
+    this.#addGrayConversion(filter);
+    const getSteps = (c, n) => {
+      const start = fgRGB[c] / 255;
+      const end = bgRGB[c] / 255;
+      const arr = new Array(n + 1);
+      for (let i = 0; i <= n; i++) {
+        arr[i] = start + i / n * (end - start);
+      }
+      return arr.join(",");
+    };
+    this.#addTransferMapConversion(getSteps(0, 5), getSteps(1, 5), getSteps(2, 5), filter);
+    info.url = this.#createUrl(id);
+    return info.url;
+  }
+  addSelectionHCMFilter(fgColor, bgColor) {
+    return this.addHighlightHCMFilter("selection", fgColor, bgColor, "HighlightText", "Highlight");
+  }
+  addSelectionFilter() {
+    return this.addHighlightHCMFilter("selection_default", "black", "white", "HighlightText", "Highlight");
+  }
+  createSelectionStyle(pageColors = null) {
+    const filter = pageColors ? this.addSelectionHCMFilter(pageColors.foreground, pageColors.background) : this.addSelectionFilter();
+    if (filter === "none" || !FeatureTest.platform.isFirefox) {
+      return null;
+    }
+    return {
+      "backdrop-filter": filter,
+      "background-color": "transparent"
+    };
+  }
+  addAlphaFilter(map) {
+    let value = this.#cache.get(map);
+    if (value) {
+      return value;
+    }
+    const [tableA] = this.#createTables([map]);
+    const key = `alpha_${tableA}`;
+    value = this.#cache.get(key);
+    if (value) {
+      this.#cache.set(map, value);
+      return value;
+    }
+    const id = `g_${this.#docId}_alpha_map_${this.#id++}`;
+    const url = this.#createUrl(id);
+    this.#cache.set(map, url);
+    this.#cache.set(key, url);
+    const filter = this.#createFilter(id);
+    this.#addTransferMapAlphaConversion(tableA, filter);
+    return url;
+  }
+  addLuminosityFilter(map) {
+    let value = this.#cache.get(map || "luminosity");
+    if (value) {
+      return value;
+    }
+    let tableA, key;
+    if (map) {
+      [tableA] = this.#createTables([map]);
+      key = `luminosity_${tableA}`;
+    } else {
+      key = "luminosity";
+    }
+    value = this.#cache.get(key);
+    if (value) {
+      this.#cache.set(map, value);
+      return value;
+    }
+    const id = `g_${this.#docId}_luminosity_map_${this.#id++}`;
+    const url = this.#createUrl(id);
+    this.#cache.set(map, url);
+    this.#cache.set(key, url);
+    const filter = this.#createFilter(id);
+    this.#addLuminosityConversion(filter);
+    if (map) {
+      this.#addTransferMapAlphaConversion(tableA, filter);
+    }
+    return url;
+  }
+  addKnockoutFilter(alpha = 0) {
+    const slope = alpha > 0 ? Math.min(1 / alpha, 1e6) : 1e6;
+    const key = `knockout_${slope}`;
+    const value = this.#cache.get(key);
+    if (value) {
+      return value;
+    }
+    const id = `g_${this.#docId}_knockout_filter_${this.#id++}`;
+    const url = this.#createUrl(id);
+    this.#cache.set(key, url);
+    const filter = this.#createFilter(id);
+    const feComponentTransfer = this.#document.createElementNS(SVG_NS, "feComponentTransfer");
+    filter.append(feComponentTransfer);
+    const feFuncA = this.#document.createElementNS(SVG_NS, "feFuncA");
+    feFuncA.setAttribute("type", "linear");
+    feFuncA.setAttribute("slope", `${slope}`);
+    feFuncA.setAttribute("intercept", "0");
+    feComponentTransfer.append(feFuncA);
+    return url;
+  }
+  addHighlightHCMFilter(filterName, fgColor, bgColor, newFgColor, newBgColor) {
+    const key = `${fgColor}-${bgColor}-${newFgColor}-${newBgColor}`;
+    let info = this.#hcmCache.get(filterName);
+    if (info?.key === key) {
+      return info.url;
+    }
+    if (info) {
+      info.filter?.remove();
+      info.key = key;
+      info.url = "none";
+      info.filter = null;
+    } else {
+      info = {
+        key,
+        url: "none",
+        filter: null
+      };
+      this.#hcmCache.set(filterName, info);
+    }
+    if (!fgColor || !bgColor) {
+      return info.url;
+    }
+    const [fgRGB, bgRGB] = [fgColor, bgColor].map(this.#getRGB.bind(this));
+    let fgGray = Math.round(0.2126 * fgRGB[0] + 0.7152 * fgRGB[1] + 0.0722 * fgRGB[2]);
+    let bgGray = Math.round(0.2126 * bgRGB[0] + 0.7152 * bgRGB[1] + 0.0722 * bgRGB[2]);
+    let [newFgRGB, newBgRGB] = [newFgColor, newBgColor].map(this.#getOpaqueTextColor.bind(this));
+    if (bgGray < fgGray) {
+      [fgGray, bgGray, newFgRGB, newBgRGB] = [bgGray, fgGray, newBgRGB, newFgRGB];
+    }
+    this.#resetDefsColor();
+    const getSteps = (fg, bg, n) => {
+      const arr = new Array(256);
+      const step = (bgGray - fgGray) / n;
+      const newStart = fg / 255;
+      const newStep = (bg - fg) / (255 * n);
+      let prev = 0;
+      for (let i = 0; i <= n; i++) {
+        const k = Math.round(fgGray + i * step);
+        const value = newStart + i * newStep;
+        for (let j = prev; j <= k; j++) {
+          arr[j] = value;
+        }
+        prev = k + 1;
+      }
+      for (let i = prev; i < 256; i++) {
+        arr[i] = arr[prev - 1];
+      }
+      return arr.join(",");
+    };
+    const id = `g_${this.#docId}_hcm_${filterName}_filter`;
+    const filter = info.filter = this.#createFilter(id);
+    this.#addGrayConversion(filter);
+    this.#addTransferMapConversion(getSteps(newFgRGB[0], newBgRGB[0], 5), getSteps(newFgRGB[1], newBgRGB[1], 5), getSteps(newFgRGB[2], newBgRGB[2], 5), filter);
+    info.url = this.#createUrl(id);
+    return info.url;
+  }
+  destroy(keepHCM = false) {
+    if (keepHCM && this.#_hcmCache?.size) {
+      return;
+    }
+    this.#_defs?.parentNode.parentNode.remove();
+    this.#_defs = null;
+    this.#_cache?.clear();
+    this.#_cache = null;
+    this.#_hcmCache?.clear();
+    this.#_hcmCache = null;
+    this.#id = 0;
+  }
+  #addLuminosityConversion(filter) {
+    const feColorMatrix = this.#document.createElementNS(SVG_NS, "feColorMatrix");
+    feColorMatrix.setAttribute("type", "matrix");
+    feColorMatrix.setAttribute("values", "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.3 0.59 0.11 0 0");
+    filter.append(feColorMatrix);
+  }
+  #addGrayConversion(filter) {
+    const feColorMatrix = this.#document.createElementNS(SVG_NS, "feColorMatrix");
+    feColorMatrix.setAttribute("type", "matrix");
+    feColorMatrix.setAttribute("values", "0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0 0 0 1 0");
+    filter.append(feColorMatrix);
+  }
+  #createFilter(id) {
+    const filter = this.#document.createElementNS(SVG_NS, "filter");
+    filter.setAttribute("color-interpolation-filters", "sRGB");
+    filter.setAttribute("id", id);
+    this.#defs.append(filter);
+    return filter;
+  }
+  #appendFeFunc(feComponentTransfer, func, table) {
+    if (!table) {
+      return;
+    }
+    const feFunc = this.#document.createElementNS(SVG_NS, func);
+    feFunc.setAttribute("type", "discrete");
+    feFunc.setAttribute("tableValues", table);
+    feComponentTransfer.append(feFunc);
+  }
+  #addTransferMapConversion(rTable, gTable, bTable, filter) {
+    const feComponentTransfer = this.#document.createElementNS(SVG_NS, "feComponentTransfer");
+    filter.append(feComponentTransfer);
+    this.#appendFeFunc(feComponentTransfer, "feFuncR", rTable);
+    this.#appendFeFunc(feComponentTransfer, "feFuncG", gTable);
+    this.#appendFeFunc(feComponentTransfer, "feFuncB", bTable);
+  }
+  #addTransferMapAlphaConversion(aTable, filter) {
+    const feComponentTransfer = this.#document.createElementNS(SVG_NS, "feComponentTransfer");
+    filter.append(feComponentTransfer);
+    this.#appendFeFunc(feComponentTransfer, "feFuncA", aTable);
+  }
+  #getRGB(color) {
+    this.#defs.style.color = "CanvasText";
+    this.#defs.style.backgroundColor = color;
+    return getRGB(getComputedStyle(this.#defs).getPropertyValue("background-color"));
+  }
+  #getRGBA(color) {
+    this.#defs.style.color = "CanvasText";
+    this.#defs.style.backgroundColor = color;
+    return getRGBA(getComputedStyle(this.#defs).getPropertyValue("background-color"));
+  }
+  #resetDefsColor() {
+    this.#defs.style.color = "";
+    this.#defs.style.backgroundColor = "";
+  }
+  #getOpaqueTextColor(color) {
+    const [r, g, b, alpha] = this.#getRGBA(color);
+    if (alpha === 1) {
+      return [r, g, b];
+    }
+    const [canvasR, canvasG, canvasB] = this.#getRGB("Canvas");
+    return [blend(r, canvasR, alpha), blend(g, canvasG, alpha), blend(b, canvasB, alpha)];
+  }
+}
+class WorkerFilterFactory extends (/* unused pure expression or super */ null && (BaseFilterFactory)) {}
+function blend(fg, bg, alpha) {
+  return Math.round(alpha * fg + (1 - alpha) * bg);
+}
+
+;// ./src/display/node_utils.js
+
+
+
+
+if (isNodeJS) {
+  warn("Please use the `legacy` build in Node.js environments.");
+}
+async function node_utils_fetchData(url) {
+  const fs = process.getBuiltinModule("fs/promises");
+  const data = await fs.readFile(url);
+  return new Uint8Array(data);
+}
+class NodeFilterFactory extends BaseFilterFactory {}
+class NodeCanvasFactory extends BaseCanvasFactory {
+  _createCanvas(width, height) {
+    const require = process.getBuiltinModule("module").createRequire(import.meta.url);
+    const canvas = require("@napi-rs/canvas");
+    return canvas.createCanvas(width, height);
+  }
+}
+class NodeBinaryDataFactory extends BaseBinaryDataFactory {
+  async _fetch(url, kind) {
+    return node_utils_fetchData(url);
+  }
+}
+
+;// ./src/shared/css_utils.js
+const CONTROL_CHAR_REGEXP = /\p{Cc}/u;
+function isCSSString(str) {
+  const quote = str[0];
+  if (str.length < 2 || quote !== `"` && quote !== `'` || str.at(-1) !== quote) {
+    return false;
+  }
+  const end = str.length - 1;
+  for (let i = 1; i < end; i++) {
+    const char = str[i];
+    if (char === quote || CONTROL_CHAR_REGEXP.test(char)) {
+      return false;
+    }
+    if (char === "\\") {
+      if (++i >= end || CONTROL_CHAR_REGEXP.test(str[i])) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+function serializeFontFamily(fontFamily) {
+  if (isCSSString(fontFamily)) {
+    return fontFamily;
+  }
+  const escaped = fontFamily.replaceAll(/["\\\p{Cc}]/gu, char => char === `"` || char === "\\" ? `\\${char}` : `\\${char.codePointAt(0).toString(16)} `);
+  return `"${escaped}"`;
+}
+
+;// ./src/display/font_loader.js
+
+
+
+class FontLoader {
+  #nativeFontFaces = new Set();
+  #systemFonts = new Set();
+  #styleSheet = null;
+  constructor({
+    ownerDocument = globalThis.document,
+    styleElement = null
+  }) {
+    this._document = ownerDocument;
+    this.styleElement = null;
+    this.loadingRequests = [];
+    this.loadTestFontId = 0;
+  }
+  addNativeFontFace(nativeFontFace) {
+    this.#nativeFontFaces.add(nativeFontFace);
+    this._document.fonts.add(nativeFontFace);
+  }
+  removeNativeFontFace(nativeFontFace) {
+    this.#nativeFontFaces.delete(nativeFontFace);
+    this._document.fonts.delete(nativeFontFace);
+  }
+  insertRule(rule) {
+    const styleSheet = this.#getStyleSheet();
+    styleSheet.insertRule(rule, styleSheet.cssRules.length);
+  }
+  #getStyleSheet() {
+    if (this.#styleSheet) {
+      return this.#styleSheet;
+    }
+    const StyleSheet = this._document.defaultView?.CSSStyleSheet || globalThis.CSSStyleSheet;
+    if (!this.styleElement && StyleSheet) {
+      const {
+        adoptedStyleSheets
+      } = this._document;
+      if (adoptedStyleSheets) {
+        const styleSheet = new StyleSheet();
+        adoptedStyleSheets.push(styleSheet);
+        return this.#styleSheet = styleSheet;
+      }
+    }
+    if (!this.styleElement) {
+      this.styleElement = this._document.createElement("style");
+      this._document.documentElement.getElementsByTagName("head")[0].append(this.styleElement);
+    }
+    return this.#styleSheet = this.styleElement.sheet;
+  }
+  clear() {
+    for (const nativeFontFace of this.#nativeFontFaces) {
+      this._document.fonts.delete(nativeFontFace);
+    }
+    this.#nativeFontFaces.clear();
+    this.#systemFonts.clear();
+    if (this.#styleSheet) {
+      const {
+        adoptedStyleSheets
+      } = this._document;
+      if (adoptedStyleSheets?.includes(this.#styleSheet)) {
+        this._document.adoptedStyleSheets = adoptedStyleSheets.filter(styleSheet => styleSheet !== this.#styleSheet);
+      }
+      this.#styleSheet = null;
+    }
+    this.styleElement?.remove();
+    this.styleElement = null;
+  }
+  async loadSystemFont({
+    systemFontInfo: info,
+    disableFontFace,
+    _inspectFont
+  }) {
+    if (!info || this.#systemFonts.has(info.loadedName)) {
+      return;
+    }
+    assert(!disableFontFace, "loadSystemFont shouldn't be called when `disableFontFace` is set.");
+    if (this.isFontLoadingAPISupported) {
+      const {
+        loadedName,
+        src,
+        style
+      } = info;
+      const fontFace = new FontFace(loadedName, src, style);
+      this.addNativeFontFace(fontFace);
+      try {
+        await fontFace.load();
+        this.#systemFonts.add(loadedName);
+        _inspectFont?.(info);
+      } catch {
+        warn(`Cannot load system font: ${info.baseFontName}, installing it could help to improve PDF rendering.`);
+        this.removeNativeFontFace(fontFace);
+      }
+      return;
+    }
+    unreachable("Not implemented: loadSystemFont without the Font Loading API.");
+  }
+  async bind(font) {
+    if (font.attached || font.missingFile && !font.systemFontInfo) {
+      return;
+    }
+    font.attached = true;
+    if (font.systemFontInfo) {
+      await this.loadSystemFont(font);
+      return;
+    }
+    if (this.isFontLoadingAPISupported) {
+      const nativeFontFace = font.createNativeFontFace();
+      if (nativeFontFace) {
+        this.addNativeFontFace(nativeFontFace);
+        try {
+          await nativeFontFace.loaded;
+        } catch (ex) {
+          warn(`Failed to load font '${nativeFontFace.family}': '${ex}'.`);
+          font.disableFontFace = true;
+          throw ex;
+        }
+      }
+      return;
+    }
+    const rule = font.createFontFaceRule();
+    if (rule) {
+      this.insertRule(rule);
+      if (this.isSyncFontLoadingSupported) {
+        return;
+      }
+      await this.#testFontLoaded(font);
+    }
+  }
+  get isFontLoadingAPISupported() {
+    return shadow(this, "isFontLoadingAPISupported", !!this._document?.fonts);
+  }
+  get isSyncFontLoadingSupported() {
+    return shadow(this, "isSyncFontLoadingSupported", isNodeJS || FeatureTest.platform.isFirefox);
+  }
+  #testFontLoaded(font) {
+    function completeRequest() {
+      assert(!request.done, "completeRequest() cannot be called twice.");
+      request.done = true;
+      while (loadingRequests.length > 0 && loadingRequests[0].done) {
+        const otherRequest = loadingRequests.shift();
+        setTimeout(otherRequest.resolve, 0);
+      }
+    }
+    const {
+      loadingRequests
+    } = this;
+    const {
+      promise,
+      resolve
+    } = Promise.withResolvers();
+    const request = {
+      done: false,
+      resolve
+    };
+    loadingRequests.push(request);
+    this._loadTestFont ??= atob("T1RUTwALAIAAAwAwQ0ZGIDHtZg4AAAOYAAAAgUZGVE1lkzZwAAAEHAAAABxHREVGABQA" + "FQAABDgAAAAeT1MvMlYNYwkAAAEgAAAAYGNtYXABDQLUAAACNAAAAUJoZWFk/xVFDQAA" + "ALwAAAA2aGhlYQdkA+oAAAD0AAAAJGhtdHgD6AAAAAAEWAAAAAZtYXhwAAJQAAAAARgA" + "AAAGbmFtZVjmdH4AAAGAAAAAsXBvc3T/hgAzAAADeAAAACAAAQAAAAEAALZRFsRfDzz1" + "AAsD6AAAAADOBOTLAAAAAM4KHDwAAAAAA+gDIQAAAAgAAgAAAAAAAAABAAADIQAAAFoD" + "6AAAAAAD6AABAAAAAAAAAAAAAAAAAAAAAQAAUAAAAgAAAAQD6AH0AAUAAAKKArwAAACM" + "AooCvAAAAeAAMQECAAACAAYJAAAAAAAAAAAAAQAAAAAAAAAAAAAAAFBmRWQAwAAuAC4D" + "IP84AFoDIQAAAAAAAQAAAAAAAAAAACAAIAABAAAADgCuAAEAAAAAAAAAAQAAAAEAAAAA" + "AAEAAQAAAAEAAAAAAAIAAQAAAAEAAAAAAAMAAQAAAAEAAAAAAAQAAQAAAAEAAAAAAAUA" + "AQAAAAEAAAAAAAYAAQAAAAMAAQQJAAAAAgABAAMAAQQJAAEAAgABAAMAAQQJAAIAAgAB" + "AAMAAQQJAAMAAgABAAMAAQQJAAQAAgABAAMAAQQJAAUAAgABAAMAAQQJAAYAAgABWABY" + "AAAAAAAAAwAAAAMAAAAcAAEAAAAAADwAAwABAAAAHAAEACAAAAAEAAQAAQAAAC7//wAA" + "AC7////TAAEAAAAAAAABBgAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" + "AAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" + "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" + "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" + "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" + "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMAAAAAAAD/gwAyAAAAAQAAAAAAAAAAAAAAAAAA" + "AAABAAQEAAEBAQJYAAEBASH4DwD4GwHEAvgcA/gXBIwMAYuL+nz5tQXkD5j3CBLnEQAC" + "AQEBIVhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYAAABAQAADwACAQEEE/t3" + "Dov6fAH6fAT+fPp8+nwHDosMCvm1Cvm1DAz6fBQAAAAAAAABAAAAAMmJbzEAAAAAzgTj" + "FQAAAADOBOQpAAEAAAAAAAAADAAUAAQAAAABAAAAAgABAAAAAAAAAAAD6AAAAAAAAA==");
+    function int32(data, offset) {
+      return data.charCodeAt(offset) << 24 | data.charCodeAt(offset + 1) << 16 | data.charCodeAt(offset + 2) << 8 | data.charCodeAt(offset + 3) & 0xff;
+    }
+    function string32(value) {
+      return String.fromCharCode(value >> 24 & 0xff, value >> 16 & 0xff, value >> 8 & 0xff, value & 0xff);
+    }
+    function spliceString(s, offset, remove, insert) {
+      const chunk1 = s.substring(0, offset);
+      const chunk2 = s.substring(offset + remove);
+      return chunk1 + insert + chunk2;
+    }
+    let i, ii;
+    const canvas = this._document.createElement("canvas");
+    canvas.width = 1;
+    canvas.height = 1;
+    const ctx = canvas.getContext("2d");
+    let called = 0;
+    function isFontReady(name, callback) {
+      if (++called > 30) {
+        warn("Load test font never loaded.");
+        callback();
+        return;
+      }
+      ctx.font = "30px " + name;
+      ctx.fillText(".", 0, 20);
+      const imageData = ctx.getImageData(0, 0, 1, 1);
+      if (imageData.data[3] > 0) {
+        callback();
+        return;
+      }
+      setTimeout(isFontReady.bind(null, name, callback));
+    }
+    const loadTestFontId = `lt${Date.now()}${this.loadTestFontId++}`;
+    let data = this._loadTestFont;
+    const COMMENT_OFFSET = 976;
+    data = spliceString(data, COMMENT_OFFSET, loadTestFontId.length, loadTestFontId);
+    const CFF_CHECKSUM_OFFSET = 16;
+    const XXXX_VALUE = 0x58585858;
+    let checksum = int32(data, CFF_CHECKSUM_OFFSET);
+    for (i = 0, ii = loadTestFontId.length - 3; i < ii; i += 4) {
+      checksum = checksum - XXXX_VALUE + int32(loadTestFontId, i) | 0;
+    }
+    if (i < loadTestFontId.length) {
+      checksum = checksum - XXXX_VALUE + int32(loadTestFontId + "XXX", i) | 0;
+    }
+    data = spliceString(data, CFF_CHECKSUM_OFFSET, 4, string32(checksum));
+    const url = `url(data:font/opentype;base64,${btoa(data)});`;
+    const rule = `@font-face {font-family:"${loadTestFontId}";src:${url}}`;
+    this.insertRule(rule);
+    const div = this._document.createElement("div");
+    div.style.visibility = "hidden";
+    div.style.width = div.style.height = "10px";
+    div.style.position = "absolute";
+    div.style.top = div.style.left = "0px";
+    for (const name of [font.loadedName, loadTestFontId]) {
+      const span = this._document.createElement("span");
+      span.textContent = "Hi";
+      span.style.fontFamily = name;
+      div.append(span);
+    }
+    this._document.body.append(div);
+    isFontReady(loadTestFontId, () => {
+      div.remove();
+      completeRequest();
+    });
+    return promise;
+  }
+}
+class FontFaceObject {
+  #compiledPaths = new Map();
+  #fontData;
+  constructor(translatedData, inspectFont = null, charProcOperatorList, extra) {
+    this.#fontData = translatedData;
+    this._inspectFont = inspectFont;
+    if (charProcOperatorList) {
+      this.charProcOperatorList = charProcOperatorList;
+    }
+    if (extra) {
+      Object.assign(this, extra);
+    }
+  }
+  createNativeFontFace() {
+    const {
+      data
+    } = this;
+    if (!data || this.disableFontFace) {
+      return null;
+    }
+    let nativeFontFace;
+    if (!this.cssFontInfo) {
+      nativeFontFace = new FontFace(this.loadedName, data, {});
+    } else {
+      const css = {
+        weight: this.cssFontInfo.fontWeight
+      };
+      if (this.cssFontInfo.italicAngle) {
+        css.style = `oblique ${this.cssFontInfo.italicAngle}deg`;
+      }
+      nativeFontFace = new FontFace(serializeFontFamily(this.cssFontInfo.fontFamily), data, css);
+    }
+    this._inspectFont?.(this);
+    return nativeFontFace;
+  }
+  createFontFaceRule() {
+    const {
+      data
+    } = this;
+    if (!data || this.disableFontFace) {
+      return null;
+    }
+    const url = `url(data:${this.mimetype};base64,${data.toBase64()});`;
+    let rule;
+    if (!this.cssFontInfo) {
+      rule = `@font-face {font-family:"${this.loadedName}";src:${url}}`;
+    } else {
+      let css = `font-weight: ${this.cssFontInfo.fontWeight};`;
+      if (this.cssFontInfo.italicAngle) {
+        css += `font-style: oblique ${this.cssFontInfo.italicAngle}deg;`;
+      }
+      const fontFamily = serializeFontFamily(this.cssFontInfo.fontFamily);
+      rule = `@font-face {font-family:${fontFamily};${css}src:${url}}`;
+    }
+    this._inspectFont?.(this, url);
+    return rule;
+  }
+  getPathGenerator(objs, character) {
+    let path = this.#compiledPaths.get(character);
+    if (path) {
+      return path;
+    }
+    const objId = `${this.loadedName}_path_${character}`;
+    let cmds;
+    try {
+      cmds = objs.get(objId);
+    } catch (ex) {
+      warn(`getPathGenerator - ignoring character: "${ex}".`);
+    }
+    path = makePathFromDrawOPS(cmds?.path);
+    if (!this.fontExtraProperties) {
+      objs.delete(objId);
+    }
+    this.#compiledPaths.set(character, path);
+    return path;
+  }
+  get black() {
+    return this.#fontData.black;
+  }
+  get bold() {
+    return this.#fontData.bold;
+  }
+  get disableFontFace() {
+    return this.#fontData.disableFontFace;
+  }
+  set disableFontFace(value) {
+    shadow(this, "disableFontFace", !!value);
+  }
+  get fontExtraProperties() {
+    return this.#fontData.fontExtraProperties;
+  }
+  get isInvalidPDFjsFont() {
+    return this.#fontData.isInvalidPDFjsFont;
+  }
+  get isType3Font() {
+    return this.#fontData.isType3Font;
+  }
+  get italic() {
+    return this.#fontData.italic;
+  }
+  get missingFile() {
+    return this.#fontData.missingFile;
+  }
+  get remeasure() {
+    return this.#fontData.remeasure;
+  }
+  get vertical() {
+    return this.#fontData.vertical;
+  }
+  get bbox() {
+    return this.#fontData.bbox;
+  }
+  get fontMatrix() {
+    return this.#fontData.fontMatrix;
+  }
+  get fallbackName() {
+    return this.#fontData.fallbackName;
+  }
+  get loadedName() {
+    return this.#fontData.loadedName;
+  }
+  get mimetype() {
+    return this.missingFile ? null : "font/opentype";
+  }
+  get data() {
+    return this.#fontData.data;
+  }
+  clearData() {
+    this.#fontData.clearData();
+  }
+  get cssFontInfo() {
+    return this.#fontData.cssFontInfo;
+  }
+  get systemFontInfo() {
+    return this.#fontData.systemFontInfo;
   }
 }
 
@@ -14343,7 +14069,17 @@ function getNetworkStream(url) {
 ;// ./src/display/worker_options.js
 class GlobalWorkerOptions {
   static #port = null;
+  static #rendererSrc = "";
   static #src = "";
+  static get rendererSrc() {
+    return this.#rendererSrc;
+  }
+  static set rendererSrc(val) {
+    if (typeof val !== "string") {
+      throw new Error("Invalid `rendererSrc` type.");
+    }
+    this.#rendererSrc = val;
+  }
   static get workerPort() {
     return this.#port;
   }
@@ -14383,6 +14119,483 @@ class Metadata {
   }
   [Symbol.iterator]() {
     return this.#map.entries();
+  }
+}
+
+;// ./src/shared/obj_bin_transform_utils.js
+
+class CSS_FONT_INFO {
+  static strings = ["fontFamily", "fontWeight", "italicAngle"];
+}
+class SYSTEM_FONT_INFO {
+  static strings = ["css", "loadedName", "baseFontName", "src"];
+}
+class FONT_INFO {
+  static bools = ["black", "bold", "disableFontFace", "fontExtraProperties", "isInvalidPDFjsFont", "isType3Font", "italic", "missingFile", "remeasure", "vertical"];
+  static strings = ["fallbackName", "loadedName"];
+  static OFFSET_BBOX = Math.ceil(this.bools.length * 2 / 8);
+  static OFFSET_FONT_MATRIX = this.OFFSET_BBOX + 1 + 2 * 4;
+  static OFFSET_STRINGS = this.OFFSET_FONT_MATRIX + 1 + 8 * 6;
+}
+class PATTERN_INFO {
+  static KIND = 0;
+  static HAS_BBOX = 1;
+  static HAS_BACKGROUND = 2;
+  static SHADING_TYPE = 3;
+  static N_COORD = 4;
+  static N_COLOR = 8;
+  static N_STOP = 12;
+  static N_FIGURES = 16;
+}
+class InfoUtils {
+  static get decoder() {
+    return shadow(this, "decoder", new TextDecoder());
+  }
+  static get encoder() {
+    return shadow(this, "encoder", new TextEncoder());
+  }
+}
+
+;// ./src/display/obj_bin_transform_display.js
+
+
+function readString(buffer, view, index, offset = 0) {
+  const {
+    decoder
+  } = InfoUtils;
+  for (let i = 0; i < index; i++) {
+    offset += view.getUint32(offset) + 4;
+  }
+  const length = view.getUint32(offset);
+  return decoder.decode(new Uint8Array(buffer, offset + 4, length));
+}
+class CssFontInfo {
+  #buffer;
+  #view;
+  constructor(buffer) {
+    this.#buffer = buffer;
+    this.#view = new DataView(buffer);
+  }
+  #readString(index) {
+    assert(index < CSS_FONT_INFO.strings.length, "Invalid string index");
+    return readString(this.#buffer, this.#view, index);
+  }
+  get fontFamily() {
+    return shadow(this, "fontFamily", this.#readString(0));
+  }
+  get fontWeight() {
+    return shadow(this, "fontWeight", this.#readString(1));
+  }
+  get italicAngle() {
+    return shadow(this, "italicAngle", this.#readString(2));
+  }
+}
+class SystemFontInfo {
+  #buffer;
+  #view;
+  constructor(buffer) {
+    this.#buffer = buffer;
+    this.#view = new DataView(buffer);
+  }
+  #readString(index) {
+    assert(index < SYSTEM_FONT_INFO.strings.length, "Invalid string index");
+    return readString(this.#buffer, this.#view, index, 4);
+  }
+  get css() {
+    return shadow(this, "css", this.#readString(0));
+  }
+  get loadedName() {
+    return shadow(this, "loadedName", this.#readString(1));
+  }
+  get baseFontName() {
+    return shadow(this, "baseFontName", this.#readString(2));
+  }
+  get src() {
+    return shadow(this, "src", this.#readString(3));
+  }
+  get style() {
+    let offset = 0;
+    offset += 4 + this.#view.getUint32(offset);
+    const style = readString(this.#buffer, this.#view, 0, offset),
+      weight = readString(this.#buffer, this.#view, 1, offset);
+    return shadow(this, "style", {
+      style,
+      weight
+    });
+  }
+}
+class FontInfo {
+  #buffer;
+  #view;
+  constructor(buffer) {
+    this.#buffer = buffer;
+    this.#view = new DataView(buffer);
+  }
+  #readBoolean(index) {
+    assert(index < FONT_INFO.bools.length, "Invalid boolean index");
+    const byteOffset = Math.floor(index / 4);
+    const bitOffset = index * 2 % 8;
+    const value = this.#view.getUint8(byteOffset) >> bitOffset & 0x03;
+    return value === 0x00 ? undefined : value === 0x02;
+  }
+  get black() {
+    return shadow(this, "black", this.#readBoolean(0));
+  }
+  get bold() {
+    return shadow(this, "bold", this.#readBoolean(1));
+  }
+  get disableFontFace() {
+    return shadow(this, "disableFontFace", this.#readBoolean(2));
+  }
+  get fontExtraProperties() {
+    return shadow(this, "fontExtraProperties", this.#readBoolean(3));
+  }
+  get isInvalidPDFjsFont() {
+    return shadow(this, "isInvalidPDFjsFont", this.#readBoolean(4));
+  }
+  get isType3Font() {
+    return shadow(this, "isType3Font", this.#readBoolean(5));
+  }
+  get italic() {
+    return shadow(this, "italic", this.#readBoolean(6));
+  }
+  get missingFile() {
+    return shadow(this, "missingFile", this.#readBoolean(7));
+  }
+  get remeasure() {
+    return shadow(this, "remeasure", this.#readBoolean(8));
+  }
+  get vertical() {
+    return shadow(this, "vertical", this.#readBoolean(9));
+  }
+  #readArray(offset, arrLen, lookupName, increment) {
+    const len = this.#view.getUint8(offset++);
+    if (len === 0) {
+      return undefined;
+    }
+    assert(len === arrLen, "Invalid array length.");
+    const arr = new Array(len);
+    for (let i = 0; i < len; i++) {
+      arr[i] = this.#view[lookupName](offset, true);
+      offset += increment;
+    }
+    return arr;
+  }
+  get bbox() {
+    return shadow(this, "bbox", this.#readArray(FONT_INFO.OFFSET_BBOX, 4, "getInt16", 2));
+  }
+  get fontMatrix() {
+    return shadow(this, "fontMatrix", this.#readArray(FONT_INFO.OFFSET_FONT_MATRIX, 6, "getFloat64", 8));
+  }
+  #readString(index) {
+    assert(index < FONT_INFO.strings.length, "Invalid string index");
+    return readString(this.#buffer, this.#view, index, FONT_INFO.OFFSET_STRINGS + 4);
+  }
+  get fallbackName() {
+    return shadow(this, "fallbackName", this.#readString(0));
+  }
+  get loadedName() {
+    return shadow(this, "loadedName", this.#readString(1));
+  }
+  #getBufferOffset(index) {
+    let offset = FONT_INFO.OFFSET_STRINGS;
+    for (let i = 0; i <= index; i++) {
+      offset += 4 + this.#view.getUint32(offset);
+    }
+    const length = this.#view.getUint32(offset);
+    return {
+      offset,
+      length
+    };
+  }
+  get data() {
+    const {
+      offset,
+      length
+    } = this.#getBufferOffset(2);
+    return !length ? undefined : new Uint8Array(this.#buffer, offset + 4, length);
+  }
+  clearData() {
+    const {
+      offset,
+      length
+    } = this.#getBufferOffset(2);
+    if (!length) {
+      return;
+    }
+    this.#view.setUint32(offset, 0);
+    this.#buffer = new Uint8Array(this.#buffer, 0, offset + 4).slice().buffer;
+    this.#view = new DataView(this.#buffer);
+  }
+  get cssFontInfo() {
+    const {
+      offset,
+      length
+    } = this.#getBufferOffset(1);
+    let info = null;
+    if (length) {
+      const data = new Uint8Array(this.#buffer, offset + 4, length).slice();
+      info = new CssFontInfo(data.buffer);
+    }
+    return shadow(this, "cssFontInfo", info);
+  }
+  get systemFontInfo() {
+    const {
+      offset,
+      length
+    } = this.#getBufferOffset(0);
+    let info = null;
+    if (length) {
+      const data = new Uint8Array(this.#buffer, offset + 4, length).slice();
+      info = new SystemFontInfo(data.buffer);
+    }
+    return shadow(this, "systemFontInfo", info);
+  }
+}
+class PatternInfo {
+  constructor(buffer) {
+    this.buffer = buffer;
+    this.view = new DataView(buffer);
+    this.data = new Uint8Array(buffer);
+  }
+  getIR() {
+    const dataView = this.view;
+    const kind = this.data[PATTERN_INFO.KIND];
+    const hasBBox = !!this.data[PATTERN_INFO.HAS_BBOX];
+    const hasBackground = !!this.data[PATTERN_INFO.HAS_BACKGROUND];
+    const nCoord = dataView.getUint32(PATTERN_INFO.N_COORD, true);
+    const nColor = dataView.getUint32(PATTERN_INFO.N_COLOR, true);
+    const nStop = dataView.getUint32(PATTERN_INFO.N_STOP, true);
+    let offset = 20;
+    const coords = new Float32Array(this.buffer, offset, nCoord * 2);
+    offset += nCoord * 8;
+    const colors = new Uint8Array(this.buffer, offset, nColor * 4);
+    offset += nColor * 4;
+    const stops = [];
+    for (let i = 0; i < nStop; ++i) {
+      const p = dataView.getFloat32(offset, true);
+      offset += 4;
+      const rgb = dataView.getUint32(offset, true);
+      offset += 4;
+      stops.push([p, `#${rgb.toString(16).padStart(6, "0")}`]);
+    }
+    let bbox = null;
+    if (hasBBox) {
+      bbox = [];
+      for (let i = 0; i < 4; ++i) {
+        bbox.push(dataView.getFloat32(offset, true));
+        offset += 4;
+      }
+    }
+    let background = null;
+    if (hasBackground) {
+      background = new Uint8Array(this.buffer, offset, 3);
+      offset += 3;
+    }
+    if (kind === 1) {
+      return ["RadialAxial", "axial", bbox, stops, [coords[0], coords[1]], [coords[2], coords[3]], null, null];
+    }
+    if (kind === 2) {
+      return ["RadialAxial", "radial", bbox, stops, [coords[0], coords[1]], [coords[3], coords[4]], coords[2], coords[5]];
+    }
+    if (kind === 3) {
+      const shadingType = this.data[PATTERN_INFO.SHADING_TYPE];
+      let bounds = null;
+      if (coords.length > 0) {
+        bounds = BBOX_INIT.slice();
+        for (let i = 0, ii = coords.length; i < ii; i += 2) {
+          Util.pointBoundingBox(coords[i], coords[i + 1], bounds);
+        }
+      }
+      return ["Mesh", shadingType, coords, colors, nCoord, bounds, bbox, background];
+    }
+    throw new Error(`Unsupported pattern kind: ${kind}`);
+  }
+}
+class FontPathInfo {
+  #buffer;
+  constructor(buffer) {
+    this.#buffer = buffer;
+  }
+  get path() {
+    if (FeatureTest.isFloat16ArraySupported) {
+      return new Float16Array(this.#buffer);
+    }
+    return new Float32Array(this.#buffer);
+  }
+}
+
+;// ./src/display/pdf_objects.js
+const INITIAL_DATA = Symbol("INITIAL_DATA");
+const dataObj = () => ({
+  ...Promise.withResolvers(),
+  data: INITIAL_DATA
+});
+class PDFObjects {
+  #objs = new Map();
+  get(objId, callback = null, errorCallback = null) {
+    if (callback) {
+      const obj = this.#objs.getOrInsertComputed(objId, dataObj);
+      obj.promise.then(() => callback(obj.data), errorCallback);
+      return null;
+    }
+    const obj = this.#objs.get(objId);
+    if (!obj || obj.data === INITIAL_DATA) {
+      throw new Error(`Requesting object that isn't resolved yet ${objId}.`);
+    }
+    return obj.data;
+  }
+  has(objId) {
+    const obj = this.#objs.get(objId);
+    return !!obj && obj.data !== INITIAL_DATA;
+  }
+  delete(objId) {
+    const obj = this.#objs.get(objId);
+    if (!obj || obj.data === INITIAL_DATA) {
+      return false;
+    }
+    this.#objs.delete(objId);
+    return true;
+  }
+  resolve(objId, data = null) {
+    const obj = this.#objs.getOrInsertComputed(objId, dataObj);
+    if (obj.data !== INITIAL_DATA) {
+      throw new Error(`Object already resolved ${objId}.`);
+    }
+    obj.data = data;
+    obj.resolve();
+  }
+  reject(objId, reason) {
+    const obj = this.#objs.getOrInsertComputed(objId, dataObj);
+    if (obj.data !== INITIAL_DATA) {
+      return;
+    }
+    obj.promise.catch(() => {});
+    obj.reject(reason);
+  }
+  clear() {
+    for (const {
+      data
+    } of this.#objs.values()) {
+      data?.bitmap?.close();
+    }
+    this.#objs.clear();
+  }
+  *[Symbol.iterator]() {
+    for (const [objId, {
+      data
+    }] of this.#objs) {
+      if (data !== INITIAL_DATA) {
+        yield [objId, data];
+      }
+    }
+  }
+}
+
+;// ./src/display/object_handler.js
+
+
+
+
+class ObjectHandler {
+  constructor({
+    messageHandler,
+    commonObjs,
+    fontLoader,
+    pageCache,
+    pdfBug = null,
+    shouldCreatePageObjs = false
+  }) {
+    this.messageHandler = messageHandler;
+    this.commonObjs = commonObjs;
+    this.fontLoader = fontLoader;
+    this.pageCache = pageCache;
+    this.pdfBug = pdfBug;
+    this.shouldCreatePageObjs = shouldCreatePageObjs;
+  }
+  resolveCommonObject(id, type, exportedData) {
+    switch (type) {
+      case "Font":
+        if ("error" in exportedData) {
+          const exportedError = exportedData.error;
+          warn(`Error during font loading: ${exportedError}`);
+          this.commonObjs.resolve(id, exportedError);
+          break;
+        }
+        const fontData = new FontInfo(exportedData.buffer);
+        const inspectFont = this.pdfBug && globalThis.FontInspector?.enabled ? (font, url) => globalThis.FontInspector.fontAdded(font, url) : null;
+        const font = new FontFaceObject(fontData, inspectFont, exportedData.charProcOperatorList, exportedData.extra);
+        this.fontLoader.bind(font).catch(() => this.messageHandler.sendWithPromise("FontFallback", {
+          id
+        }).catch(reason => {
+          warn(`FontFallback failed for "${id}": ${reason}`);
+        })).finally(() => {
+          if (!font.fontExtraProperties) {
+            font.clearData();
+          }
+          this.commonObjs.resolve(id, font);
+        });
+        break;
+      case "CopyLocalImage":
+        const {
+          imageRef
+        } = exportedData;
+        assert(imageRef, "The imageRef must be defined.");
+        for (const pageOrObjs of this.pageCache.values()) {
+          const objs = pageOrObjs.objs || pageOrObjs;
+          for (const [, data] of objs) {
+            if (data?.ref !== imageRef) {
+              continue;
+            }
+            if (!data.dataLen) {
+              return null;
+            }
+            const copy = structuredClone(data);
+            this.commonObjs.resolve(id, copy);
+            return data.dataLen;
+          }
+        }
+        break;
+      case "FontPath":
+        this.commonObjs.resolve(id, new FontPathInfo(exportedData));
+        break;
+      case "Image":
+        this.commonObjs.resolve(id, exportedData);
+        break;
+      case "Pattern":
+        const pattern = new PatternInfo(exportedData);
+        this.commonObjs.resolve(id, pattern.getIR());
+        break;
+      default:
+        throw new Error(`Got unknown common object type ${type}`);
+    }
+    return null;
+  }
+  resolveObject(id, pageProxyId, type, exportedData) {
+    let pageOrObjs = this.pageCache.get(pageProxyId);
+    if (!pageOrObjs) {
+      if (!this.shouldCreatePageObjs) {
+        return;
+      }
+      pageOrObjs = new PDFObjects();
+      this.pageCache.set(pageProxyId, pageOrObjs);
+    }
+    const objs = pageOrObjs.objs || pageOrObjs;
+    if (objs.has(id)) {
+      return;
+    }
+    if (pageOrObjs._intentStates?.size === 0) {
+      exportedData?.bitmap?.close();
+      return;
+    }
+    switch (type) {
+      case "Image":
+      case "Pattern":
+        objs.resolve(id, exportedData);
+        break;
+      default:
+        throw new Error(`Got unknown object type ${type}`);
+    }
   }
 }
 
@@ -14940,65 +15153,6 @@ class PagesMapper {
   }
 }
 
-;// ./src/display/pdf_objects.js
-const INITIAL_DATA = Symbol("INITIAL_DATA");
-const dataObj = () => ({
-  ...Promise.withResolvers(),
-  data: INITIAL_DATA
-});
-class PDFObjects {
-  #objs = new Map();
-  get(objId, callback = null) {
-    if (callback) {
-      const obj = this.#objs.getOrInsertComputed(objId, dataObj);
-      obj.promise.then(() => callback(obj.data));
-      return null;
-    }
-    const obj = this.#objs.get(objId);
-    if (!obj || obj.data === INITIAL_DATA) {
-      throw new Error(`Requesting object that isn't resolved yet ${objId}.`);
-    }
-    return obj.data;
-  }
-  has(objId) {
-    const obj = this.#objs.get(objId);
-    return !!obj && obj.data !== INITIAL_DATA;
-  }
-  delete(objId) {
-    const obj = this.#objs.get(objId);
-    if (!obj || obj.data === INITIAL_DATA) {
-      return false;
-    }
-    this.#objs.delete(objId);
-    return true;
-  }
-  resolve(objId, data = null) {
-    const obj = this.#objs.getOrInsertComputed(objId, dataObj);
-    if (obj.data !== INITIAL_DATA) {
-      throw new Error(`Object already resolved ${objId}.`);
-    }
-    obj.data = data;
-    obj.resolve();
-  }
-  clear() {
-    for (const {
-      data
-    } of this.#objs.values()) {
-      data?.bitmap?.close();
-    }
-    this.#objs.clear();
-  }
-  *[Symbol.iterator]() {
-    for (const [objId, {
-      data
-    }] of this.#objs) {
-      if (data !== INITIAL_DATA) {
-        yield [objId, data];
-      }
-    }
-  }
-}
-
 ;// ./src/display/text_layer.js
 
 
@@ -15422,9 +15576,10 @@ function getDocument(src = {}) {
   const gpuPromise = enableWebGPU ? initGPU() : Promise.resolve(false);
   const useWasm = src.useWasm !== false;
   const pagesMapper = src.pagesMapper || new PagesMapper();
+  const styleElement = null;
   const useSystemFonts = typeof src.useSystemFonts === "boolean" ? src.useSystemFonts : !isNodeJS && !disableFontFace;
   const useWorkerFetch = typeof src.useWorkerFetch === "boolean" ? src.useWorkerFetch : !!(BinaryDataFactory === DOMBinaryDataFactory && cMapUrl && cMapPacked && standardFontDataUrl && wasmUrl && isValidFetchUrl(cMapUrl, document.baseURI) && isValidFetchUrl(standardFontDataUrl, document.baseURI) && isValidFetchUrl(wasmUrl, document.baseURI));
-  const styleElement = null;
+  const disableWorkerRendering = src.disableWorkerRendering === true || !GlobalWorkerOptions.rendererSrc || typeof Worker === "undefined" || !isOffscreenCanvasSupported || !FeatureTest.isOffscreenCanvasSupported || ownerDocument !== globalThis.document || !ownerDocument?.fonts || !!styleElement;
   setVerbosityLevel(verbosity);
   const transportFactory = {
     canvasFactory: new CanvasFactory({
@@ -15447,6 +15602,11 @@ function getDocument(src = {}) {
       port: GlobalWorkerOptions.workerPort
     });
     task._worker = worker;
+  }
+  if (!disableWorkerRendering) {
+    task._rendererWorker = new RendererWorker({
+      verbosity
+    });
   }
   const docParams = {
     docId,
@@ -15481,12 +15641,21 @@ function getDocument(src = {}) {
     pdfBug,
     styleElement,
     enableHWA,
+    enableWebGPU,
     loadingParams: {
       disableAutoFetch,
       enableXfa
     }
   };
-  Promise.all([worker.promise, gpuPromise]).then(function ([, hasGPU]) {
+  const workerPromises = [worker.promise, gpuPromise];
+  if (task._rendererWorker) {
+    workerPromises.push(task._rendererWorker.promise.catch(reason => {
+      warn(`Renderer worker disabled: ${reason.message}`);
+      task._rendererWorker.destroy();
+      task._rendererWorker = null;
+    }));
+  }
+  Promise.all(workerPromises).then(function ([, hasGPU]) {
     if (worker.destroyed) {
       throw new Error("Worker was destroyed");
     }
@@ -15517,7 +15686,10 @@ function getDocument(src = {}) {
         throw new Error("Worker was destroyed");
       }
       const messageHandler = new MessageHandler(docId, workerId, worker.port);
-      const transport = new WorkerTransport(messageHandler, task, networkStream, transportParams, transportFactory, pagesMapper);
+      const transport = new WorkerTransport(messageHandler, task, networkStream, {
+        ...transportParams,
+        rendererWorker: task._rendererWorker
+      }, transportFactory, pagesMapper);
       task._transport = transport;
       if (task.destroyed) {
         throw new Error("Loading aborted");
@@ -15533,6 +15705,7 @@ class PDFDocumentLoadingTask {
   _setupCapability = Promise.withResolvers();
   _transport = null;
   _worker = null;
+  _rendererWorker = null;
   docId = `d${PDFDocumentLoadingTask.#docId++}`;
   destroyed = false;
   onPassword = null;
@@ -15558,6 +15731,8 @@ class PDFDocumentLoadingTask {
     this._transport = null;
     this._worker?.destroy();
     this._worker = null;
+    this._rendererWorker?.destroy();
+    this._rendererWorker = null;
   }
   async getData() {
     return this._transport.getData();
@@ -15827,6 +16002,7 @@ class PDFPageProxy {
     isEditing = false,
     recordImages = false,
     recordOperations = false,
+    partialFrames = false,
     operationsFilter = null
   }) {
     this._stats?.time("Overall");
@@ -15859,17 +16035,29 @@ class PDFPageProxy {
     const shouldRecordImages = !!canvas && !this.imageCoordinates && recordImages;
     const complete = error => {
       intentState.renderTasks.delete(internalRenderTask);
+      if (internalRenderTask.gfx) {
+        const {
+          dependencyTracker,
+          imagesTracker
+        } = internalRenderTask.gfx;
+        internalRenderTask.recordedBBoxes = dependencyTracker?.take() ?? null;
+        internalRenderTask.debugMetadata = recordForDebugger ? dependencyTracker?.takeDebugMetadata() ?? null : null;
+        internalRenderTask.imageCoordinates = imagesTracker?.take() ?? null;
+      }
       if (shouldRecordOperations) {
-        const recordedBBoxes = internalRenderTask.gfx?.dependencyTracker.take();
+        const {
+          recordedBBoxes,
+          debugMetadata
+        } = internalRenderTask;
         if (recordedBBoxes) {
-          internalRenderTask.stepper?.setOperatorBBoxes(recordedBBoxes, internalRenderTask.gfx.dependencyTracker.takeDebugMetadata());
+          internalRenderTask.stepper?.setOperatorBBoxes(recordedBBoxes, debugMetadata);
           if (recordOperations) {
             this.recordedBBoxes = recordedBBoxes;
           }
         }
       }
       if (shouldRecordImages && !error) {
-        this.imageCoordinates = internalRenderTask.gfx?.imagesTracker.take();
+        this.imageCoordinates = internalRenderTask.imageCoordinates;
       }
       if (intentPrint) {
         this.#pendingCleanup = true;
@@ -15892,41 +16080,38 @@ class PDFPageProxy {
         }
       }
     };
-    let dependencyTracker = null;
-    let bboxTracker = null;
-    if (shouldRecordOperations || shouldRecordImages) {
-      bboxTracker = new CanvasBBoxTracker(canvas, intentState.operatorList.length);
-    }
-    if (shouldRecordOperations) {
-      dependencyTracker = new CanvasDependencyTracker(bboxTracker, recordForDebugger);
-    }
     const internalRenderTask = new InternalRenderTask({
       callback: complete,
       params: {
         canvas,
         canvasContext,
-        dependencyTracker: dependencyTracker ?? bboxTracker,
-        imagesTracker: shouldRecordImages ? new CanvasImagesTracker(canvas) : null,
         viewport,
         transform,
-        background
+        background,
+        recordOperations: shouldRecordOperations,
+        recordImages: shouldRecordImages,
+        partialFrames,
+        recordForDebugger
       },
       objs: this.objs,
       commonObjs: this.commonObjs,
       annotationCanvasMap,
       operatorList: intentState.operatorList,
       pageIndex: this._pageIndex,
+      pageProxyId: this._id,
       canvasFactory: this._transport.canvasFactory,
       filterFactory: this._transport.filterFactory,
       useRequestAnimationFrame: !intentPrint,
       pdfBug: this._pdfBug,
       pageColors,
       enableHWA: this._transport.enableHWA,
-      operationsFilter
+      enableWebGPU: this._transport.enableWebGPU,
+      operationsFilter,
+      rendererWorker: this._transport.rendererWorker
     });
     (intentState.renderTasks ||= new Set()).add(internalRenderTask);
     const renderTask = internalRenderTask.task;
-    Promise.all([intentState.displayReadyCapability.promise, optionalContentConfigPromise]).then(([transparency, optionalContentConfig]) => {
+    Promise.all([intentState.displayReadyCapability.promise, optionalContentConfigPromise]).then(async ([transparency, optionalContentConfig]) => {
       if (this.destroyed) {
         complete();
         return;
@@ -15935,7 +16120,7 @@ class PDFPageProxy {
       if (!(optionalContentConfig.renderingIntent & renderingIntent)) {
         throw new Error("Must use the same `intent`-argument when calling the `PDFPageProxy.render` " + "and `PDFDocumentProxy.getOptionalContentConfig` methods.");
       }
-      internalRenderTask.initializeGraphics({
+      await internalRenderTask.initializeGraphics({
         transparency,
         optionalContentConfig
       });
@@ -16027,6 +16212,9 @@ class PDFPageProxy {
       }
     }
     this.objs.clear();
+    this._transport.rendererHandler?.send("cleanupPage", {
+      pageProxyId: this._id
+    });
     this.#pendingCleanup = false;
     return Promise.all(waitOn);
   }
@@ -16052,6 +16240,9 @@ class PDFPageProxy {
     }
     this._intentStates.clear();
     this.objs.clear();
+    this._transport.rendererHandler?.send("cleanupPage", {
+      pageProxyId: this._id
+    });
     this.#pendingCleanup = false;
     return true;
   }
@@ -16087,6 +16278,9 @@ class PDFPageProxy {
       map,
       transfer
     } = annotationStorageSerializable;
+    this._transport.rendererHandler?.send("restorePage", {
+      pageProxyId: this._id
+    });
     const readableStream = this._transport.messageHandler.sendWithStream("GetOperatorList", {
       pageId: this.#pagesMapper.getPageId(this._pageIndex + 1) - 1,
       pageIndex: this._pageIndex,
@@ -16183,6 +16377,87 @@ class PDFPageProxy {
   }
   get stats() {
     return this._stats;
+  }
+}
+class RendererWorker {
+  #capability = Promise.withResolvers();
+  #messageHandler = null;
+  #webWorker = null;
+  destroyed = false;
+  constructor({
+    verbosity = getVerbosityLevel()
+  } = {}) {
+    this.verbosity = verbosity;
+    this.#initialize();
+  }
+  get promise() {
+    return this.#capability.promise;
+  }
+  get messageHandler() {
+    return this.#messageHandler;
+  }
+  #resolve() {
+    this.#capability.resolve();
+    this.#messageHandler.send("configure", {
+      verbosity: this.verbosity
+    });
+  }
+  #initialize() {
+    try {
+      let {
+        rendererSrc
+      } = RendererWorker;
+      if (!PDFWorker._isSameOrigin(window.location, rendererSrc)) {
+        rendererSrc = PDFWorker._createCDNWrapper(new URL(rendererSrc, window.location).href);
+      }
+      const worker = new Worker(rendererSrc, {
+        type: "module"
+      });
+      const messageHandler = new MessageHandler("main", "renderer", worker);
+      const terminateEarly = reason => {
+        ac.abort();
+        messageHandler.destroy();
+        worker.terminate();
+        this.#capability.reject(new Error(`Renderer worker failed to initialize: "${reason?.message ?? reason}".`));
+      };
+      const ac = new AbortController();
+      worker.addEventListener("error", event => {
+        if (!this.#webWorker) {
+          terminateEarly(event.error || event.message);
+        }
+      }, {
+        signal: ac.signal
+      });
+      messageHandler.on("ready", data => {
+        ac.abort();
+        if (this.destroyed) {
+          terminateEarly("Worker was destroyed.");
+          return;
+        }
+        if (!(data instanceof Uint8Array)) {
+          terminateEarly("TypedArray transfer test failed.");
+          return;
+        }
+        this.#messageHandler = messageHandler;
+        this.#webWorker = worker;
+        this.#resolve();
+      });
+    } catch (reason) {
+      this.#capability.reject(reason);
+    }
+  }
+  destroy() {
+    this.destroyed = true;
+    this.#webWorker?.terminate();
+    this.#webWorker = null;
+    this.#messageHandler?.destroy();
+    this.#messageHandler = null;
+  }
+  static get rendererSrc() {
+    if (GlobalWorkerOptions.rendererSrc) {
+      return GlobalWorkerOptions.rendererSrc;
+    }
+    throw new Error('No "GlobalWorkerOptions.rendererSrc" specified.');
   }
 }
 class PDFWorker {
@@ -16389,6 +16664,8 @@ class WorkerTransport {
       styleElement: params.styleElement
     });
     this.enableHWA = params.enableHWA;
+    this.enableWebGPU = params.enableWebGPU === true;
+    this.rendererWorker = params.rendererWorker || null;
     this.loadingParams = params.loadingParams;
     this._params = params;
     this.canvasFactory = factory.canvasFactory;
@@ -16418,6 +16695,9 @@ class WorkerTransport {
   }
   get annotationStorage() {
     return shadow(this, "annotationStorage", new AnnotationStorage());
+  }
+  get rendererHandler() {
+    return this.rendererWorker?.messageHandler ?? null;
   }
   getRenderingIntent(intent, annotationMode = AnnotationMode.ENABLE, printAnnotationStorage = null, isEditing = false, isOpList = false) {
     let renderingIntent = RenderingIntentFlag.DISPLAY;
@@ -16497,6 +16777,7 @@ class WorkerTransport {
       this.#networkStream?.cancelAllRequests(new AbortException("Worker was terminated."));
       this.messageHandler?.destroy();
       this.messageHandler = null;
+      this.rendererWorker = null;
       this.destroyCapability.resolve();
     }, this.destroyCapability.reject);
     return this.destroyCapability.promise;
@@ -16630,87 +16911,61 @@ class WorkerTransport {
       const page = this.#pageCache.get(data.pageProxyId);
       page._startRenderPage(data.transparency, data.cacheKey);
     });
+    const objectHandler = new ObjectHandler({
+      messageHandler,
+      commonObjs: this.commonObjs,
+      fontLoader: this.fontLoader,
+      pageCache: this.#pageCache,
+      pdfBug: this._params.pdfBug
+    });
+    this.rendererHandler?.on("FontFallback", data => this.destroyed ? null : messageHandler.sendWithPromise("FontFallback", data));
+    this.rendererHandler?.on("RenderFrame", InternalRenderTask.handleRenderFrame);
+    const forwardToRenderer = (action, data) => {
+      const {
+        rendererHandler
+      } = this;
+      if (!rendererHandler) {
+        return;
+      }
+      try {
+        rendererHandler.send(action, data);
+      } catch (reason) {
+        warn(`forwardToRenderer("${action}") failed: ${reason}`);
+        rendererHandler.send("objFailed", {
+          id: data[0],
+          pageProxyId: action === "obj" ? data[1] : null,
+          reason: reason.message
+        });
+      }
+    };
     messageHandler.on("commonobj", ([id, type, exportedData]) => {
       if (this.destroyed) {
         return null;
       }
-      if (this.commonObjs.has(id)) {
-        return null;
-      }
-      switch (type) {
-        case "Font":
-          if ("error" in exportedData) {
-            const exportedError = exportedData.error;
-            warn(`Error during font loading: ${exportedError}`);
-            this.commonObjs.resolve(id, exportedError);
-            break;
+      if (type === "CopyLocalImage") {
+        const dataLen = this.commonObjs.has(id) ? null : objectHandler.resolveCommonObject(id, type, exportedData);
+        const {
+          rendererHandler
+        } = this;
+        if (!dataLen || !rendererHandler) {
+          return dataLen;
+        }
+        return rendererHandler.sendWithPromise("commonobj", [id, type, exportedData]).catch(() => null).then(rendererDataLen => {
+          if (!rendererDataLen) {
+            forwardToRenderer("commonobj", [id, "Image", this.commonObjs.get(id)]);
           }
-          const fontData = new FontInfo(exportedData.buffer);
-          const inspectFont = this._params.pdfBug && globalThis.FontInspector?.enabled ? (font, url) => globalThis.FontInspector.fontAdded(font, url) : null;
-          const font = new FontFaceObject(fontData, inspectFont, exportedData.charProcOperatorList, exportedData.extra);
-          this.fontLoader.bind(font).catch(() => messageHandler.sendWithPromise("FontFallback", {
-            id
-          })).finally(() => {
-            if (!font.fontExtraProperties) {
-              font.clearData();
-            }
-            this.commonObjs.resolve(id, font);
-          });
-          break;
-        case "CopyLocalImage":
-          const {
-            imageRef
-          } = exportedData;
-          assert(imageRef, "The imageRef must be defined.");
-          for (const pageProxy of this.#pageCache.values()) {
-            for (const [, data] of pageProxy.objs) {
-              if (data?.ref !== imageRef) {
-                continue;
-              }
-              if (!data.dataLen) {
-                return null;
-              }
-              const copy = structuredClone(data);
-              this.commonObjs.resolve(id, copy);
-              return data.dataLen;
-            }
-          }
-          break;
-        case "FontPath":
-          this.commonObjs.resolve(id, new FontPathInfo(exportedData));
-          break;
-        case "Image":
-          this.commonObjs.resolve(id, exportedData);
-          break;
-        case "Pattern":
-          const pattern = new PatternInfo(exportedData);
-          this.commonObjs.resolve(id, pattern.getIR());
-          break;
-        default:
-          throw new Error(`Got unknown common object type ${type}`);
+          return dataLen;
+        });
       }
-      return null;
+      forwardToRenderer("commonobj", [id, type, exportedData]);
+      return this.commonObjs.has(id) ? null : objectHandler.resolveCommonObject(id, type, exportedData);
     });
     messageHandler.on("obj", ([id, pageProxyId, type, imageData]) => {
       if (this.destroyed) {
         return;
       }
-      const pageProxy = this.#pageCache.get(pageProxyId);
-      if (pageProxy.objs.has(id)) {
-        return;
-      }
-      if (pageProxy._intentStates.size === 0) {
-        imageData?.bitmap?.close();
-        return;
-      }
-      switch (type) {
-        case "Image":
-        case "Pattern":
-          pageProxy.objs.resolve(id, imageData);
-          break;
-        default:
-          throw new Error(`Got unknown object type ${type}`);
-      }
+      forwardToRenderer("obj", [id, pageProxyId, type, imageData]);
+      objectHandler.resolveObject(id, pageProxyId, type, imageData);
     });
     messageHandler.on("DocProgress", data => {
       if (this.destroyed) {
@@ -16915,7 +17170,11 @@ class WorkerTransport {
     return this.messageHandler.sendWithPromise("GetOutline", null);
   }
   getOptionalContentConfig(renderingIntent) {
-    return this.#cacheSimpleMethod("GetOptionalContentConfig").then(data => new OptionalContentConfig(data, renderingIntent));
+    const name = "GetOptionalContentConfig";
+    return this.#methodPromises.getOrInsertComputed(name, () => this.messageHandler.sendWithPromise(name, null).catch(reason => {
+      warn(`${name}: "${reason}".`);
+      return null;
+    })).then(data => new OptionalContentConfig(data, renderingIntent));
   }
   getPermissions() {
     return this.messageHandler.sendWithPromise("GetPermissions", null);
@@ -16948,6 +17207,9 @@ class WorkerTransport {
     if (!keepLoadedFonts) {
       this.fontLoader.clear();
     }
+    this.rendererHandler?.send("Cleanup", {
+      keepLoadedFonts
+    });
     this.#methodPromises.clear();
     this.filterFactory.destroy(true);
     TextLayer.cleanup();
@@ -16971,6 +17233,7 @@ class RenderTask {
   _internalRenderTask = null;
   onContinue = null;
   onError = null;
+  onFrame = null;
   constructor(internalRenderTask) {
     this._internalRenderTask = internalRenderTask;
   }
@@ -16995,10 +17258,34 @@ class RenderTask {
   get imageCoordinates() {
     return this._internalRenderTask.imageCoordinates || null;
   }
+  get isWorkerRendering() {
+    return !!this._internalRenderTask.rendererHandler;
+  }
 }
 class InternalRenderTask {
   #rAF = null;
   static #canvasInUse = new WeakSet();
+  static #activeRenderTasks = new Map();
+  static #renderTaskId = 0;
+  static handleRenderFrame(frame) {
+    const internalTask = InternalRenderTask.#activeRenderTasks.get(frame.renderTaskId);
+    if (!internalTask) {
+      frame.bitmap.close();
+      if (frame.annotationBitmaps) {
+        for (const [,, annotationBitmap] of frame.annotationBitmaps) {
+          annotationBitmap.close();
+        }
+      }
+      return;
+    }
+    try {
+      internalTask.#drawFrame(frame);
+    } catch (ex) {
+      internalTask.cancel(ex);
+      return;
+    }
+    internalTask.task.onFrame?.();
+  }
   constructor({
     callback,
     params,
@@ -17007,13 +17294,16 @@ class InternalRenderTask {
     annotationCanvasMap,
     operatorList,
     pageIndex,
+    pageProxyId,
     canvasFactory,
     filterFactory,
     useRequestAnimationFrame = false,
     pdfBug = false,
     pageColors = null,
     enableHWA = false,
-    operationsFilter = null
+    enableWebGPU = false,
+    operationsFilter = null,
+    rendererWorker = null
   }) {
     this.callback = callback;
     this.params = params;
@@ -17023,6 +17313,7 @@ class InternalRenderTask {
     this.operatorListIdx = null;
     this.operatorList = operatorList;
     this._pageIndex = pageIndex;
+    this._pageProxyId = pageProxyId;
     this.canvasFactory = canvasFactory;
     this.filterFactory = filterFactory;
     this._pdfBug = pdfBug;
@@ -17041,14 +17332,76 @@ class InternalRenderTask {
     this._canvas = params.canvas;
     this._canvasContext = params.canvas ? null : params.canvasContext;
     this._enableHWA = enableHWA;
-    this._dependencyTracker = params.dependencyTracker;
-    this._imagesTracker = params.imagesTracker;
+    this._enableWebGPU = enableWebGPU;
+    this._recordOperations = !!params.recordOperations;
+    this._recordImages = !!params.recordImages;
+    this._recordForDebugger = !!params.recordForDebugger;
+    this._partialFrames = !!params.partialFrames;
     this._operationsFilter = operationsFilter;
+    this._rendererWorker = rendererWorker;
+    this._renderTaskId = InternalRenderTask.#renderTaskId++;
+    this._sentOperatorListLength = 0;
+    this.recordedBBoxes = null;
+    this.debugMetadata = null;
+    this.imageCoordinates = null;
   }
   get completed() {
     return this.capability.promise.catch(() => {});
   }
-  initializeGraphics({
+  get rendererHandler() {
+    return this._rendererWorker?.messageHandler ?? null;
+  }
+  #drawAnnotationFrames(annotationBitmaps) {
+    const {
+      ownerDocument
+    } = this._canvas;
+    if (typeof ownerDocument?.createElement !== "function") {
+      return;
+    }
+    const seen = new Set();
+    for (const [id, canvasName, bitmap] of annotationBitmaps) {
+      const canvas = ownerDocument.createElement("canvas");
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      canvas.getContext("2d").drawImage(bitmap, 0, 0);
+      if (!canvasName) {
+        this.annotationCanvasMap.set(id, canvas);
+        continue;
+      }
+      setAnnotationCanvasName(canvas, canvasName);
+      if (seen.has(id)) {
+        this.annotationCanvasMap.get(id).push(canvas);
+      } else {
+        seen.add(id);
+        this.annotationCanvasMap.set(id, [canvas]);
+      }
+    }
+  }
+  #drawFrame({
+    bitmap,
+    annotationBitmaps
+  }) {
+    try {
+      if (this.cancelled) {
+        return;
+      }
+      const ctx = this._canvas.getContext("2d", {
+        alpha: false
+      });
+      ctx.drawImage(bitmap, 0, 0);
+      if (annotationBitmaps) {
+        this.#drawAnnotationFrames(annotationBitmaps);
+      }
+    } finally {
+      bitmap.close();
+      if (annotationBitmaps) {
+        for (const [,, annotationBitmap] of annotationBitmaps) {
+          annotationBitmap.close();
+        }
+      }
+    }
+  }
+  async initializeGraphics({
     transparency = false,
     optionalContentConfig
   }) {
@@ -17069,23 +17422,69 @@ class InternalRenderTask {
     const {
       viewport,
       transform,
-      background,
-      dependencyTracker,
-      imagesTracker
-    } = this.params;
-    const canvasContext = this._canvasContext || this._canvas.getContext("2d", {
-      alpha: false,
-      willReadFrequently: !this._enableHWA
-    });
-    this.gfx = new CanvasGraphics(canvasContext, this.commonObjs, this.objs, this.canvasFactory, this.filterFactory, {
-      optionalContentConfig
-    }, this.annotationCanvasMap, this.pageColors, dependencyTracker, imagesTracker);
-    this.gfx.beginDrawing({
-      transform,
-      viewport,
-      transparency,
       background
-    });
+    } = this.params;
+    let useWorkerRendering = this.rendererHandler && !this.params.canvasContext && (!background || typeof background === "string") && !this.pageColors && !this._recordForDebugger;
+    if (!useWorkerRendering && this._rendererWorker) {
+      this._rendererWorker = null;
+    }
+    if (useWorkerRendering) {
+      try {
+        const initParams = {
+          width: this._canvas.width,
+          height: this._canvas.height,
+          pageProxyId: this._pageProxyId,
+          renderTaskId: this._renderTaskId,
+          enableHWA: this._enableHWA,
+          enableWebGPU: this._enableWebGPU,
+          hasAnnotationCanvasMap: !!this.annotationCanvasMap,
+          recordOperations: this._recordOperations,
+          recordImages: this._recordImages,
+          partialFrames: this._partialFrames,
+          optionalContentConfig: optionalContentConfig.serializable,
+          transform,
+          viewport,
+          transparency,
+          background
+        };
+        await this.rendererHandler.sendWithPromise("InitializeGraphics", initParams);
+        if (this.cancelled) {
+          return;
+        }
+        InternalRenderTask.#activeRenderTasks.set(this._renderTaskId, this);
+      } catch (ex) {
+        warn(`Failed to initialize graphics in renderer worker: ${ex.message}. ` + "Falling back to main-thread rendering.");
+        this._rendererWorker = null;
+        useWorkerRendering = false;
+      }
+    }
+    if (!useWorkerRendering) {
+      const canvasContext = this._canvasContext || this._canvas.getContext("2d", {
+        alpha: false,
+        willReadFrequently: !this._enableHWA
+      });
+      let bboxTracker = null;
+      let dependencyTracker = null;
+      let imagesTracker = null;
+      if (this._recordOperations || this._recordImages) {
+        bboxTracker = new CanvasBBoxTracker(this._canvas, this.operatorList.fnArray.length);
+      }
+      if (this._recordOperations) {
+        dependencyTracker = new CanvasDependencyTracker(bboxTracker, this._recordForDebugger);
+      }
+      if (this._recordImages) {
+        imagesTracker = new CanvasImagesTracker(this._canvas);
+      }
+      this.gfx = new CanvasGraphics(canvasContext, this.commonObjs, this.objs, this.canvasFactory, this.filterFactory, {
+        optionalContentConfig
+      }, this.annotationCanvasMap, this.pageColors, dependencyTracker ?? bboxTracker, imagesTracker);
+      this.gfx.beginDrawing({
+        transform,
+        viewport,
+        transparency,
+        background
+      });
+    }
     this.operatorListIdx = 0;
     this.graphicsReady = true;
     this.graphicsReadyCallback?.();
@@ -17093,6 +17492,10 @@ class InternalRenderTask {
   cancel(error = null, extraDelay = 0) {
     this.running = false;
     this.cancelled = true;
+    this.rendererHandler?.send("CleanupRenderTask", {
+      renderTaskId: this._renderTaskId
+    });
+    InternalRenderTask.#activeRenderTasks.delete(this._renderTaskId);
     this.gfx?.endDrawing();
     if (this.#rAF) {
       window.cancelAnimationFrame(this.#rAF);
@@ -17108,8 +17511,10 @@ class InternalRenderTask {
       this.graphicsReadyCallback ||= this._continueBound;
       return;
     }
-    this.gfx.dependencyTracker?.growOperationsCount(this.operatorList.fnArray.length);
-    this.stepper?.updateOperatorList(this.operatorList);
+    if (!this._rendererWorker) {
+      this.gfx.dependencyTracker?.growOperationsCount(this.operatorList.fnArray.length);
+      this.stepper?.updateOperatorList(this.operatorList);
+    }
     if (this.running) {
       return;
     }
@@ -17140,7 +17545,11 @@ class InternalRenderTask {
     if (this.cancelled) {
       return;
     }
-    this.operatorListIdx = this.gfx.executeOperatorList(this.operatorList, this.operatorListIdx, this._continueBound, this.stepper, this._operationsFilter);
+    if (this._rendererWorker) {
+      await this.#executeOperatorListInWorker();
+      return;
+    }
+    this.operatorListIdx = this.gfx.executeOperatorList(this.operatorList, this.operatorListIdx, this._continueBound, null, this.stepper, this._operationsFilter);
     if (this.operatorListIdx === this.operatorList.argsArray.length) {
       this.running = false;
       if (this.operatorList.lastChunk) {
@@ -17150,9 +17559,66 @@ class InternalRenderTask {
       }
     }
   }
+  async #executeOperatorListInWorker() {
+    const {
+      rendererHandler,
+      operatorList,
+      operatorListIdx
+    } = this;
+    if (!rendererHandler) {
+      throw new Error("Renderer worker was destroyed during rendering.");
+    }
+    const operatorListArgsArrayLen = operatorList.argsArray.length;
+    const sentLength = this._sentOperatorListLength;
+    const hasNewOps = sentLength < operatorListArgsArrayLen;
+    const fnArray = hasNewOps ? operatorList.fnArray.slice(sentLength, operatorListArgsArrayLen) : null;
+    const argsArray = hasNewOps ? operatorList.argsArray.slice(sentLength, operatorListArgsArrayLen) : null;
+    let operationsFilterMask = null;
+    if (fnArray && this._operationsFilter) {
+      operationsFilterMask = new Uint8Array(fnArray.length);
+      for (let i = 0, ii = fnArray.length; i < ii; i++) {
+        operationsFilterMask[i] = this._operationsFilter(sentLength + i, operatorList) ? 1 : 0;
+      }
+    }
+    const sentLastChunk = operatorList.lastChunk;
+    const response = await rendererHandler.sendWithPromise("ExecuteOperatorList", {
+      renderTaskId: this._renderTaskId,
+      fnArray,
+      argsArray,
+      operatorListIdx,
+      operationsFilterMask,
+      lastChunk: sentLastChunk
+    });
+    this.operatorListIdx = response.operatorListIdx;
+    if (response.recordedBBoxesBuffer) {
+      this.recordedBBoxes = BBoxReader.fromBuffer(response.recordedBBoxesBuffer);
+    }
+    if (response.imageCoordinates) {
+      this.imageCoordinates = response.imageCoordinates;
+    }
+    this._sentOperatorListLength = operatorListArgsArrayLen;
+    if (this.cancelled) {
+      return;
+    }
+    if (response.aborted) {
+      throw new Error("Render task was aborted in the renderer worker.");
+    }
+    if (this.operatorListIdx === operatorList.argsArray.length) {
+      this.running = false;
+      if (sentLastChunk) {
+        InternalRenderTask.#activeRenderTasks.delete(this._renderTaskId);
+        InternalRenderTask.#canvasInUse.delete(this._canvas);
+        this.callback();
+      } else if (operatorList.lastChunk) {
+        this._continue();
+      }
+    } else {
+      this._continue();
+    }
+  }
 }
 const version = "6.5.0";
-const build = "5915a9d";
+const build = "f46f647";
 
 ;// ./src/display/editor/color_picker.js
 
