@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = f46f647
+ * pdfjsBuild = 638bcdf
  */
 
 ;// ./src/shared/util.js
@@ -64489,7 +64489,7 @@ class WorkerMessageHandler {
     } = docParams;
     const workerVersion = "6.5.0";
     if (apiVersion !== workerVersion) {
-      throw new Error(`The API version "${apiVersion}" does not match ` + `the Worker version "${workerVersion}".`);
+      throw new Error(`The API version "${apiVersion}" does not match the Worker version "${workerVersion}".`);
     }
     const buildMsg = (type, prop) => `The \`${type}.prototype\` contains unexpected enumerable property ` + `"${prop}", thus breaking e.g. \`for...in\` iteration of ${type}s.`;
     for (const prop in {}) {

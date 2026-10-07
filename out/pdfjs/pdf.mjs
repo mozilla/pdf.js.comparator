@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = f46f647
+ * pdfjsBuild = 638bcdf
  */
 
 ;// ./src/shared/util.js
@@ -2094,7 +2094,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "672bc1f9-cdf7-42b8-a74f-e79800ac3e90";
+const INTERNAL_EVT = "a4dc1c49-e57e-4e31-aca5-ba7b5a9c77a8";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -12162,31 +12162,8 @@ class BaseCanvasFactory {
     unreachable("Abstract method `_createCanvas` called.");
   }
 }
-class DOMCanvasFactory extends BaseCanvasFactory {
-  constructor({
-    ownerDocument = globalThis.document,
-    enableHWA = false
-  }) {
-    super({
-      enableHWA
-    });
-    this._document = ownerDocument;
-  }
-  _createCanvas(width, height) {
-    const canvas = this._document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    return canvas;
-  }
-}
-class OffscreenCanvasFactory extends (/* unused pure expression or super */ null && (BaseCanvasFactory)) {
-  _createCanvas(width, height) {
-    return new OffscreenCanvas(width, height);
-  }
-}
 
 ;// ./src/display/filter_factory.js
-
 
 class BaseFilterFactory {
   addFilter(maps) {
@@ -12218,6 +12195,58 @@ class BaseFilterFactory {
   }
   destroy(keepHCM = false) {}
 }
+
+;// ./src/display/node_utils.js
+
+
+
+
+if (isNodeJS) {
+  warn("Please use the `legacy` build in Node.js environments.");
+}
+async function node_utils_fetchData(url) {
+  const fs = process.getBuiltinModule("fs/promises");
+  const data = await fs.readFile(url);
+  return new Uint8Array(data);
+}
+class NodeFilterFactory extends BaseFilterFactory {}
+class NodeCanvasFactory extends BaseCanvasFactory {
+  _createCanvas(width, height) {
+    const require = process.getBuiltinModule("module").createRequire(import.meta.url);
+    const canvas = require("@napi-rs/canvas");
+    return canvas.createCanvas(width, height);
+  }
+}
+class NodeBinaryDataFactory extends BaseBinaryDataFactory {
+  async _fetch(url, kind) {
+    return node_utils_fetchData(url);
+  }
+}
+
+;// ./src/display/dom_canvas_factory.js
+
+class DOMCanvasFactory extends BaseCanvasFactory {
+  constructor({
+    ownerDocument = globalThis.document,
+    enableHWA = false
+  }) {
+    super({
+      enableHWA
+    });
+    this._document = ownerDocument;
+  }
+  _createCanvas(width, height) {
+    const canvas = this._document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    return canvas;
+  }
+}
+
+;// ./src/display/dom_filter_factory.js
+
+
+
 class DOMFilterFactory extends BaseFilterFactory {
   #baseUrl;
   #_cache;
@@ -12576,36 +12605,8 @@ class DOMFilterFactory extends BaseFilterFactory {
     return [blend(r, canvasR, alpha), blend(g, canvasG, alpha), blend(b, canvasB, alpha)];
   }
 }
-class WorkerFilterFactory extends (/* unused pure expression or super */ null && (BaseFilterFactory)) {}
 function blend(fg, bg, alpha) {
   return Math.round(alpha * fg + (1 - alpha) * bg);
-}
-
-;// ./src/display/node_utils.js
-
-
-
-
-if (isNodeJS) {
-  warn("Please use the `legacy` build in Node.js environments.");
-}
-async function node_utils_fetchData(url) {
-  const fs = process.getBuiltinModule("fs/promises");
-  const data = await fs.readFile(url);
-  return new Uint8Array(data);
-}
-class NodeFilterFactory extends BaseFilterFactory {}
-class NodeCanvasFactory extends BaseCanvasFactory {
-  _createCanvas(width, height) {
-    const require = process.getBuiltinModule("module").createRequire(import.meta.url);
-    const canvas = require("@napi-rs/canvas");
-    return canvas.createCanvas(width, height);
-  }
-}
-class NodeBinaryDataFactory extends BaseBinaryDataFactory {
-  async _fetch(url, kind) {
-    return node_utils_fetchData(url);
-  }
 }
 
 ;// ./src/shared/css_utils.js
@@ -16434,8 +16435,13 @@ class RendererWorker {
           terminateEarly("Worker was destroyed.");
           return;
         }
-        if (!(data instanceof Uint8Array)) {
+        if (!(data?.testObj instanceof Uint8Array)) {
           terminateEarly("TypedArray transfer test failed.");
+          return;
+        }
+        const apiVersion = "6.5.0";
+        if (apiVersion !== data.workerVersion) {
+          terminateEarly(`The API version "${apiVersion}" does not match the Worker version "${data.workerVersion}".`);
           return;
         }
         this.#messageHandler = messageHandler;
@@ -17618,7 +17624,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.5.0";
-const build = "f46f647";
+const build = "638bcdf";
 
 ;// ./src/display/editor/color_picker.js
 
