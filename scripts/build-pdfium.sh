@@ -187,10 +187,12 @@ if [ ! -f "${WASM_PREFIX}/lib/libpdfium.a" ] || \
     # behind `#if defined(PDF_USE_AGG)` and core/fxge/dib/cfx_dibitmap.h
     # hides CompositeRect, so the out-of-line definitions in
     # core/fxge/agg/cfx_agg_devicedriver.cpp fail to match any declaration.
+    # `-DPDF_ENABLE_FREETYPE` is gn's `pdf_enable_freetype` (our only font
+    # backend, as fontations needs Rust).
     export PDFIUM_CXXFLAGS="-O2 -fno-exceptions --std=c++20 -DNDEBUG \
         -DUSE_SYSTEM_LIBPNG -DUSE_SYSTEM_ZLIB -DUSE_SYSTEM_LIBOPENJPEG2 \
         -DUSE_SYSTEM_LCMS2 \
-        -DPDF_USE_AGG \
+        -DPDF_USE_AGG -DPDF_ENABLE_FREETYPE \
         -I${PDFIUM_SRC} -I${PDFIUM_SRC}/public \
         -I${PDFIUM_SRC}/third_party/abseil-cpp \
         -I${WASM_PREFIX}/include \
