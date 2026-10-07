@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = 24de17e
+ * pdfjsBuild = 89b500f
  */
 
 ;// ./src/shared/util.js
@@ -2094,7 +2094,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "f4dc0dfd-2477-44bf-8dd1-45b40d96caac";
+const INTERNAL_EVT = "4dd56368-ce25-4257-9916-6ca8a3157e59";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -14504,7 +14504,7 @@ class ObjectHandler {
     commonObjs,
     fontLoader,
     pageCache,
-    pdfBug = null,
+    pdfBug = false,
     shouldCreatePageObjs = false
   }) {
     this.messageHandler = messageHandler;
@@ -15643,6 +15643,7 @@ function getDocument(src = {}) {
     styleElement,
     enableHWA,
     enableWebGPU,
+    rendererWorker: null,
     loadingParams: {
       disableAutoFetch,
       enableXfa
@@ -15661,6 +15662,7 @@ function getDocument(src = {}) {
       throw new Error("Worker was destroyed");
     }
     docParams.evaluatorOptions.hasGPU = hasGPU;
+    transportParams.rendererWorker = task._rendererWorker;
     const workerIdPromise = worker.messageHandler.sendWithPromise("GetDocRequest", docParams, data ? [data.buffer] : null);
     let networkStream;
     if (data) {} else if (rangeTransport) {
@@ -15687,10 +15689,7 @@ function getDocument(src = {}) {
         throw new Error("Worker was destroyed");
       }
       const messageHandler = new MessageHandler(docId, workerId, worker.port);
-      const transport = new WorkerTransport(messageHandler, task, networkStream, {
-        ...transportParams,
-        rendererWorker: task._rendererWorker
-      }, transportFactory, pagesMapper);
+      const transport = new WorkerTransport(messageHandler, task, networkStream, transportParams, transportFactory, pagesMapper);
       task._transport = transport;
       if (task.destroyed) {
         throw new Error("Loading aborted");
@@ -16670,8 +16669,8 @@ class WorkerTransport {
       styleElement: params.styleElement
     });
     this.enableHWA = params.enableHWA;
-    this.enableWebGPU = params.enableWebGPU === true;
-    this.rendererWorker = params.rendererWorker || null;
+    this.enableWebGPU = params.enableWebGPU;
+    this.rendererWorker = params.rendererWorker;
     this.loadingParams = params.loadingParams;
     this._params = params;
     this.canvasFactory = factory.canvasFactory;
@@ -17624,7 +17623,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.5.0";
-const build = "24de17e";
+const build = "89b500f";
 
 ;// ./src/display/editor/color_picker.js
 
