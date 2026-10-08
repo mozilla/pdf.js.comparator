@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = 89b500f
+ * pdfjsBuild = dcb5136
  */
 
 ;// ./src/shared/util.js
@@ -2094,7 +2094,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "4dd56368-ce25-4257-9916-6ca8a3157e59";
+const INTERNAL_EVT = "12b29e1b-cb88-4e59-bc14-29a1383b2826";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -7115,6 +7115,684 @@ class PrintAnnotationStorage extends AnnotationStorage {
   }
 }
 
+;// ./src/display/api_utils.js
+
+function getUrlProp(val) {
+  if (val instanceof URL) {
+    return val;
+  }
+  if (typeof val === "string") {
+    if (isNodeJS) {
+      if (/^[a-z][a-z0-9\-+.]+:/i.test(val)) {
+        return new URL(val);
+      }
+      const url = process.getBuiltinModule("url");
+      return new URL(url.pathToFileURL(val));
+    }
+    const url = URL.parse(val, window.location);
+    if (url) {
+      return url;
+    }
+  }
+  throw new Error("Invalid PDF url data: " + "either string or URL-object is expected in the url property.");
+}
+function getDataProp(val) {
+  if (isNodeJS && typeof Buffer !== "undefined" && val instanceof Buffer) {
+    throw new Error("Please provide binary data as `Uint8Array`, rather than `Buffer`.");
+  }
+  if (val instanceof Uint8Array && val.byteLength === val.buffer.byteLength) {
+    return val;
+  }
+  if (typeof val === "string") {
+    return stringToBytes(val);
+  }
+  if (val instanceof ArrayBuffer || ArrayBuffer.isView(val) || typeof val === "object" && !isNaN(val?.length)) {
+    return new Uint8Array(val);
+  }
+  throw new Error("Invalid PDF binary data: either TypedArray, " + "string, or array-like object is expected in the data property.");
+}
+function getFactoryUrlProp(val) {
+  if (typeof val !== "string") {
+    return null;
+  }
+  if (val.endsWith("/")) {
+    return val;
+  }
+  throw new Error(`Invalid factory url: "${val}" must include trailing slash.`);
+}
+const isRefProxy = v => typeof v === "object" && Number.isInteger(v?.num) && v.num >= 0 && Number.isInteger(v?.gen) && v.gen >= 0;
+const isNameProxy = v => typeof v === "object" && typeof v?.name === "string";
+const isValidExplicitDest = _isValidExplicitDest.bind(null, isRefProxy, isNameProxy);
+function isSameOrigin(baseUrl, otherUrl) {
+  const base = URL.parse(baseUrl);
+  if (!base?.origin || base.origin === "null") {
+    return false;
+  }
+  const other = new URL(otherUrl, base);
+  return base.origin === other.origin;
+}
+function getWorkerSrc(src) {
+  if (!isSameOrigin(window.location, src)) {
+    const wrapper = `await import("${new URL(src, window.location).href}");`;
+    return URL.createObjectURL(new Blob([wrapper], {
+      type: "text/javascript"
+    }));
+  }
+  return src;
+}
+class LoopbackPort {
+  #listeners = new Map();
+  #deferred = Promise.resolve();
+  postMessage(obj, transfer) {
+    const event = {
+      data: structuredClone(obj, transfer ? {
+        transfer
+      } : null)
+    };
+    this.#deferred.then(() => {
+      for (const [listener] of this.#listeners) {
+        listener.call(this, event);
+      }
+    });
+  }
+  addEventListener(name, listener, options = null) {
+    let rmAbort = null;
+    if (options?.signal instanceof AbortSignal) {
+      const {
+        signal
+      } = options;
+      if (signal.aborted) {
+        warn("LoopbackPort - cannot use an `aborted` signal.");
+        return;
+      }
+      const onAbort = () => this.removeEventListener(name, listener);
+      rmAbort = () => signal.removeEventListener("abort", onAbort);
+      signal.addEventListener("abort", onAbort);
+    }
+    this.#listeners.set(listener, rmAbort);
+  }
+  removeEventListener(name, listener) {
+    const rmAbort = this.#listeners.get(listener);
+    rmAbort?.();
+    this.#listeners.delete(listener);
+  }
+  terminate() {
+    for (const [, rmAbort] of this.#listeners) {
+      rmAbort?.();
+    }
+    this.#listeners.clear();
+  }
+}
+
+;// ./src/shared/message_handler.js
+
+const CallbackKind = {
+  DATA: 1,
+  ERROR: 2
+};
+const StreamKind = {
+  CANCEL: 1,
+  CANCEL_COMPLETE: 2,
+  CLOSE: 3,
+  ENQUEUE: 4,
+  ERROR: 5,
+  PULL: 6,
+  PULL_COMPLETE: 7,
+  START_COMPLETE: 8
+};
+function onFn() {}
+function wrapReason(ex) {
+  if (ex instanceof AbortException || ex instanceof InvalidPDFException || ex instanceof PasswordException || ex instanceof ResponseException || ex instanceof UnknownErrorException) {
+    return ex;
+  }
+  if (!(ex instanceof Error || typeof ex === "object" && ex !== null)) {
+    unreachable('wrapReason: Expected "reason" to be a (possibly cloned) Error.');
+  }
+  switch (ex.name) {
+    case "AbortException":
+      return new AbortException(ex.message);
+    case "InvalidPDFException":
+      return new InvalidPDFException(ex.message);
+    case "PasswordException":
+      return new PasswordException(ex.message, ex.code);
+    case "ResponseException":
+      return new ResponseException(ex.message, ex.status, ex.missing);
+    case "UnknownErrorException":
+      return new UnknownErrorException(ex.message, ex.details);
+  }
+  return new UnknownErrorException(ex.message, ex.toString());
+}
+class MessageHandler {
+  #actions = new Map();
+  #callbackCapabilities = new Map();
+  #callbackId = 1;
+  #comObj;
+  #messageAC = new AbortController();
+  #sourceName;
+  #streamControllers = new Map();
+  #streamId = 1;
+  #streamSinks = new Map();
+  #targetName;
+  constructor(sourceName, targetName, comObj) {
+    this.#sourceName = sourceName;
+    this.#targetName = targetName;
+    this.#comObj = comObj;
+    comObj.addEventListener("message", this.#onMessage.bind(this), {
+      signal: this.#messageAC.signal
+    });
+  }
+  #onMessage({
+    data
+  }) {
+    if (data.targetName !== this.#sourceName) {
+      return;
+    }
+    if (data.stream) {
+      this.#processStreamMessage(data);
+      return;
+    }
+    if (data.callback) {
+      const {
+        callbackId,
+        callback
+      } = data;
+      const capability = this.#callbackCapabilities.get(callbackId);
+      if (!capability) {
+        throw new Error(`Cannot resolve callback ${callbackId}`);
+      }
+      this.#callbackCapabilities.delete(callbackId);
+      if (callback === CallbackKind.DATA) {
+        capability.resolve(data.data);
+      } else if (callback === CallbackKind.ERROR) {
+        capability.reject(wrapReason(data.reason));
+      } else {
+        throw new Error("Unexpected callback case");
+      }
+      return;
+    }
+    const action = this.#actions.get(data.action);
+    if (!action) {
+      throw new Error(`Unknown action from worker: ${data.action}`);
+    }
+    if (data.callbackId) {
+      const sourceName = this.#sourceName,
+        targetName = data.sourceName,
+        comObj = this.#comObj;
+      Promise.try(action, data.data).then(result => {
+        comObj.postMessage({
+          sourceName,
+          targetName,
+          callback: CallbackKind.DATA,
+          callbackId: data.callbackId,
+          data: result
+        });
+      }).catch(reason => {
+        comObj.postMessage({
+          sourceName,
+          targetName,
+          callback: CallbackKind.ERROR,
+          callbackId: data.callbackId,
+          reason: wrapReason(reason)
+        });
+      });
+      return;
+    }
+    if (data.streamId) {
+      this.#createStreamSink(data);
+      return;
+    }
+    action(data.data);
+  }
+  on(actionName, handler) {
+    const ah = this.#actions;
+    if (ah.has(actionName)) {
+      throw new Error(`There is already a "${actionName}" handler.`);
+    }
+    ah.set(actionName, handler);
+  }
+  send(actionName, data, transfers) {
+    this.#comObj.postMessage({
+      sourceName: this.#sourceName,
+      targetName: this.#targetName,
+      action: actionName,
+      data
+    }, transfers);
+  }
+  sendWithPromise(actionName, data, transfers) {
+    const callbackId = this.#callbackId++,
+      capability = Promise.withResolvers();
+    this.#callbackCapabilities.set(callbackId, capability);
+    try {
+      this.#comObj.postMessage({
+        sourceName: this.#sourceName,
+        targetName: this.#targetName,
+        action: actionName,
+        callbackId,
+        data
+      }, transfers);
+    } catch (ex) {
+      capability.reject(ex);
+    }
+    return capability.promise;
+  }
+  sendWithStream(actionName, data, queueingStrategy, transfers) {
+    const streamId = this.#streamId++,
+      sourceName = this.#sourceName,
+      targetName = this.#targetName,
+      comObj = this.#comObj;
+    return new ReadableStream({
+      start: controller => {
+        const startCapability = Promise.withResolvers();
+        this.#streamControllers.set(streamId, {
+          controller,
+          startCall: startCapability,
+          pullCall: null,
+          cancelCall: null,
+          isClosed: false
+        });
+        comObj.postMessage({
+          sourceName,
+          targetName,
+          action: actionName,
+          streamId,
+          data,
+          desiredSize: controller.desiredSize
+        }, transfers);
+        return startCapability.promise;
+      },
+      pull: controller => {
+        const pullCapability = Promise.withResolvers();
+        this.#streamControllers.get(streamId).pullCall = pullCapability;
+        comObj.postMessage({
+          sourceName,
+          targetName,
+          stream: StreamKind.PULL,
+          streamId,
+          desiredSize: controller.desiredSize
+        });
+        return pullCapability.promise;
+      },
+      cancel: reason => {
+        assert(reason instanceof Error, "cancel must have a valid reason");
+        const cancelCapability = Promise.withResolvers();
+        this.#streamControllers.get(streamId).cancelCall = cancelCapability;
+        this.#streamControllers.get(streamId).isClosed = true;
+        comObj.postMessage({
+          sourceName,
+          targetName,
+          stream: StreamKind.CANCEL,
+          streamId,
+          reason: wrapReason(reason)
+        });
+        return cancelCapability.promise;
+      }
+    }, queueingStrategy);
+  }
+  #createStreamSink(data) {
+    const streamId = data.streamId,
+      sourceName = this.#sourceName,
+      targetName = data.sourceName,
+      comObj = this.#comObj;
+    const streamSinks = this.#streamSinks,
+      action = this.#actions.get(data.action);
+    const streamSink = {
+      enqueue(chunk, size = 1, transfers) {
+        if (this.isCancelled) {
+          return;
+        }
+        const lastDesiredSize = this.desiredSize;
+        this.desiredSize -= size;
+        if (lastDesiredSize > 0 && this.desiredSize <= 0) {
+          this.sinkCapability = Promise.withResolvers();
+          this.ready = this.sinkCapability.promise;
+        }
+        comObj.postMessage({
+          sourceName,
+          targetName,
+          stream: StreamKind.ENQUEUE,
+          streamId,
+          chunk
+        }, transfers);
+      },
+      close() {
+        if (this.isCancelled) {
+          return;
+        }
+        this.isCancelled = true;
+        comObj.postMessage({
+          sourceName,
+          targetName,
+          stream: StreamKind.CLOSE,
+          streamId
+        });
+        streamSinks.delete(streamId);
+      },
+      error(reason) {
+        assert(reason instanceof Error, "error must have a valid reason");
+        if (this.isCancelled) {
+          return;
+        }
+        this.isCancelled = true;
+        comObj.postMessage({
+          sourceName,
+          targetName,
+          stream: StreamKind.ERROR,
+          streamId,
+          reason: wrapReason(reason)
+        });
+      },
+      sinkCapability: Promise.withResolvers(),
+      onPull: null,
+      onCancel: null,
+      isCancelled: false,
+      desiredSize: data.desiredSize,
+      ready: null
+    };
+    streamSink.sinkCapability.resolve();
+    streamSink.ready = streamSink.sinkCapability.promise;
+    streamSinks.set(streamId, streamSink);
+    Promise.try(action, data.data, streamSink).then(() => {
+      comObj.postMessage({
+        sourceName,
+        targetName,
+        stream: StreamKind.START_COMPLETE,
+        streamId,
+        success: true
+      });
+    }, reason => {
+      comObj.postMessage({
+        sourceName,
+        targetName,
+        stream: StreamKind.START_COMPLETE,
+        streamId,
+        reason: wrapReason(reason)
+      });
+    });
+  }
+  #processStreamMessage(data) {
+    const streamId = data.streamId,
+      sourceName = this.#sourceName,
+      targetName = data.sourceName,
+      comObj = this.#comObj;
+    const streamController = this.#streamControllers.get(streamId),
+      streamSink = this.#streamSinks.get(streamId);
+    switch (data.stream) {
+      case StreamKind.START_COMPLETE:
+        if (data.success) {
+          streamController.startCall.resolve();
+        } else {
+          streamController.startCall.reject(wrapReason(data.reason));
+        }
+        break;
+      case StreamKind.PULL_COMPLETE:
+        if (data.success) {
+          streamController.pullCall.resolve();
+        } else {
+          streamController.pullCall.reject(wrapReason(data.reason));
+        }
+        break;
+      case StreamKind.PULL:
+        if (!streamSink) {
+          comObj.postMessage({
+            sourceName,
+            targetName,
+            stream: StreamKind.PULL_COMPLETE,
+            streamId,
+            success: true
+          });
+          break;
+        }
+        if (streamSink.desiredSize <= 0 && data.desiredSize > 0) {
+          streamSink.sinkCapability.resolve();
+        }
+        streamSink.desiredSize = data.desiredSize;
+        Promise.try(streamSink.onPull || onFn).then(() => {
+          comObj.postMessage({
+            sourceName,
+            targetName,
+            stream: StreamKind.PULL_COMPLETE,
+            streamId,
+            success: true
+          });
+        }, reason => {
+          comObj.postMessage({
+            sourceName,
+            targetName,
+            stream: StreamKind.PULL_COMPLETE,
+            streamId,
+            reason: wrapReason(reason)
+          });
+        });
+        break;
+      case StreamKind.ENQUEUE:
+        assert(streamController, "enqueue should have stream controller");
+        if (streamController.isClosed) {
+          break;
+        }
+        streamController.controller.enqueue(data.chunk);
+        break;
+      case StreamKind.CLOSE:
+        assert(streamController, "close should have stream controller");
+        if (streamController.isClosed) {
+          break;
+        }
+        streamController.isClosed = true;
+        streamController.controller.close();
+        this.#deleteStreamController(streamController, streamId);
+        break;
+      case StreamKind.ERROR:
+        assert(streamController, "error should have stream controller");
+        streamController.controller.error(wrapReason(data.reason));
+        this.#deleteStreamController(streamController, streamId);
+        break;
+      case StreamKind.CANCEL_COMPLETE:
+        if (data.success) {
+          streamController.cancelCall.resolve();
+        } else {
+          streamController.cancelCall.reject(wrapReason(data.reason));
+        }
+        this.#deleteStreamController(streamController, streamId);
+        break;
+      case StreamKind.CANCEL:
+        if (!streamSink) {
+          break;
+        }
+        const dataReason = wrapReason(data.reason);
+        Promise.try(streamSink.onCancel || onFn, dataReason).then(() => {
+          comObj.postMessage({
+            sourceName,
+            targetName,
+            stream: StreamKind.CANCEL_COMPLETE,
+            streamId,
+            success: true
+          });
+        }, reason => {
+          comObj.postMessage({
+            sourceName,
+            targetName,
+            stream: StreamKind.CANCEL_COMPLETE,
+            streamId,
+            reason: wrapReason(reason)
+          });
+        });
+        streamSink.sinkCapability.reject(dataReason);
+        streamSink.isCancelled = true;
+        this.#streamSinks.delete(streamId);
+        break;
+      default:
+        throw new Error("Unexpected stream case");
+    }
+  }
+  async #deleteStreamController(streamController, streamId) {
+    await Promise.allSettled([streamController.startCall?.promise, streamController.pullCall?.promise, streamController.cancelCall?.promise]);
+    this.#streamControllers.delete(streamId);
+  }
+  destroy() {
+    this.#messageAC?.abort();
+    this.#messageAC = null;
+  }
+}
+
+;// ./src/display/binary_data_factory.js
+
+
+class BaseBinaryDataFactory {
+  #errorStr = Object.freeze({
+    cMapUrl: "CMap",
+    standardFontDataUrl: "font",
+    wasmUrl: "wasm"
+  });
+  constructor({
+    cMapUrl = null,
+    standardFontDataUrl = null,
+    wasmUrl = null
+  }) {
+    this.cMapUrl = cMapUrl;
+    this.standardFontDataUrl = standardFontDataUrl;
+    this.wasmUrl = wasmUrl;
+  }
+  async fetch({
+    kind,
+    filename
+  }) {
+    switch (kind) {
+      case "cMapUrl":
+      case "standardFontDataUrl":
+      case "wasmUrl":
+        break;
+      default:
+        unreachable(`Not implemented: ${kind}`);
+    }
+    const baseUrl = this[kind];
+    if (!baseUrl) {
+      throw new Error(`Ensure that the \`${kind}\` API parameter is provided.`);
+    }
+    const url = `${baseUrl}${filename}`;
+    return this._fetch(url, kind).catch(reason => {
+      throw new Error(`Unable to load ${this.#errorStr[kind]} data at: ${url}`);
+    });
+  }
+  async _fetch(url, kind) {
+    unreachable("Abstract method `_fetch` called.");
+  }
+}
+class DOMBinaryDataFactory extends BaseBinaryDataFactory {
+  async _fetch(url, kind) {
+    const type = kind === "cMapUrl" && !url.endsWith(".bcmap") ? "text" : "bytes";
+    const data = await fetchData(url, type);
+    return data instanceof Uint8Array ? data : stringToBytes(data);
+  }
+}
+
+;// ./src/display/canvas_factory.js
+
+class BaseCanvasFactory {
+  #enableHWA = false;
+  constructor({
+    enableHWA = false
+  }) {
+    this.#enableHWA = enableHWA;
+  }
+  create(width, height) {
+    if (width <= 0 || height <= 0) {
+      throw new Error("Invalid canvas size");
+    }
+    const canvas = this._createCanvas(width, height);
+    return {
+      canvas,
+      context: canvas.getContext("2d", {
+        willReadFrequently: !this.#enableHWA
+      })
+    };
+  }
+  reset({
+    canvas
+  }, width, height) {
+    if (!canvas) {
+      throw new Error("Canvas is not specified");
+    }
+    if (width <= 0 || height <= 0) {
+      throw new Error("Invalid canvas size");
+    }
+    canvas.width = width;
+    canvas.height = height;
+  }
+  destroy(canvasAndContext) {
+    const {
+      canvas
+    } = canvasAndContext;
+    if (!canvas) {
+      throw new Error("Canvas is not specified");
+    }
+    canvas.width = canvas.height = 0;
+    canvasAndContext.canvas = null;
+    canvasAndContext.context = null;
+  }
+  _createCanvas(width, height) {
+    unreachable("Abstract method `_createCanvas` called.");
+  }
+}
+
+;// ./src/display/filter_factory.js
+
+class BaseFilterFactory {
+  addFilter(maps) {
+    return "none";
+  }
+  addHCMFilter(fgColor, bgColor) {
+    return "none";
+  }
+  addAlphaFilter(map) {
+    return "none";
+  }
+  addLuminosityFilter(map) {
+    return "none";
+  }
+  addKnockoutFilter(alpha = 0) {
+    return "none";
+  }
+  addHighlightHCMFilter(filterName, fgColor, bgColor, newFgColor, newBgColor) {
+    return "none";
+  }
+  addSelectionHCMFilter(fgColor, bgColor) {
+    return "none";
+  }
+  addSelectionFilter() {
+    return "none";
+  }
+  createSelectionStyle(pageColors = null) {
+    return null;
+  }
+  destroy(keepHCM = false) {}
+}
+
+;// ./src/display/node_utils.js
+
+
+
+
+if (isNodeJS) {
+  warn("Please use the `legacy` build in Node.js environments.");
+}
+async function node_utils_fetchData(url) {
+  const fs = process.getBuiltinModule("fs/promises");
+  const data = await fs.readFile(url);
+  return new Uint8Array(data);
+}
+class NodeFilterFactory extends BaseFilterFactory {}
+class NodeCanvasFactory extends BaseCanvasFactory {
+  _createCanvas(width, height) {
+    const require = process.getBuiltinModule("module").createRequire(import.meta.url);
+    const canvas = require("@napi-rs/canvas");
+    return canvas.createCanvas(width, height);
+  }
+}
+class NodeBinaryDataFactory extends BaseBinaryDataFactory {
+  async _fetch(url, kind) {
+    return node_utils_fetchData(url);
+  }
+}
+
 ;// ./src/display/canvas_dependency_tracker.js
 
 
@@ -7876,6 +8554,17 @@ class CanvasImagesTracker {
   take() {
     return this.#coords.subarray(0, this.#count * 6);
   }
+}
+function createCanvasTrackers(canvas, operationsCount, {
+  recordOperations = false,
+  recordImages = false,
+  recordDebugMetadata = false
+}) {
+  const bboxTracker = recordOperations || recordImages ? new CanvasBBoxTracker(canvas, operationsCount) : null;
+  return {
+    dependencyTracker: recordOperations ? new CanvasDependencyTracker(bboxTracker, recordDebugMetadata) : bboxTracker,
+    imagesTracker: recordImages ? new CanvasImagesTracker(canvas) : null
+  };
 }
 
 ;// ./src/shared/image_utils.js
@@ -11562,667 +12251,6 @@ for (const op in OPS) {
   }
 }
 
-;// ./src/display/api_utils.js
-
-function getUrlProp(val) {
-  if (val instanceof URL) {
-    return val;
-  }
-  if (typeof val === "string") {
-    if (isNodeJS) {
-      if (/^[a-z][a-z0-9\-+.]+:/i.test(val)) {
-        return new URL(val);
-      }
-      const url = process.getBuiltinModule("url");
-      return new URL(url.pathToFileURL(val));
-    }
-    const url = URL.parse(val, window.location);
-    if (url) {
-      return url;
-    }
-  }
-  throw new Error("Invalid PDF url data: " + "either string or URL-object is expected in the url property.");
-}
-function getDataProp(val) {
-  if (isNodeJS && typeof Buffer !== "undefined" && val instanceof Buffer) {
-    throw new Error("Please provide binary data as `Uint8Array`, rather than `Buffer`.");
-  }
-  if (val instanceof Uint8Array && val.byteLength === val.buffer.byteLength) {
-    return val;
-  }
-  if (typeof val === "string") {
-    return stringToBytes(val);
-  }
-  if (val instanceof ArrayBuffer || ArrayBuffer.isView(val) || typeof val === "object" && !isNaN(val?.length)) {
-    return new Uint8Array(val);
-  }
-  throw new Error("Invalid PDF binary data: either TypedArray, " + "string, or array-like object is expected in the data property.");
-}
-function getFactoryUrlProp(val) {
-  if (typeof val !== "string") {
-    return null;
-  }
-  if (val.endsWith("/")) {
-    return val;
-  }
-  throw new Error(`Invalid factory url: "${val}" must include trailing slash.`);
-}
-const isRefProxy = v => typeof v === "object" && Number.isInteger(v?.num) && v.num >= 0 && Number.isInteger(v?.gen) && v.gen >= 0;
-const isNameProxy = v => typeof v === "object" && typeof v?.name === "string";
-const isValidExplicitDest = _isValidExplicitDest.bind(null, isRefProxy, isNameProxy);
-class LoopbackPort {
-  #listeners = new Map();
-  #deferred = Promise.resolve();
-  postMessage(obj, transfer) {
-    const event = {
-      data: structuredClone(obj, transfer ? {
-        transfer
-      } : null)
-    };
-    this.#deferred.then(() => {
-      for (const [listener] of this.#listeners) {
-        listener.call(this, event);
-      }
-    });
-  }
-  addEventListener(name, listener, options = null) {
-    let rmAbort = null;
-    if (options?.signal instanceof AbortSignal) {
-      const {
-        signal
-      } = options;
-      if (signal.aborted) {
-        warn("LoopbackPort - cannot use an `aborted` signal.");
-        return;
-      }
-      const onAbort = () => this.removeEventListener(name, listener);
-      rmAbort = () => signal.removeEventListener("abort", onAbort);
-      signal.addEventListener("abort", onAbort);
-    }
-    this.#listeners.set(listener, rmAbort);
-  }
-  removeEventListener(name, listener) {
-    const rmAbort = this.#listeners.get(listener);
-    rmAbort?.();
-    this.#listeners.delete(listener);
-  }
-  terminate() {
-    for (const [, rmAbort] of this.#listeners) {
-      rmAbort?.();
-    }
-    this.#listeners.clear();
-  }
-}
-
-;// ./src/shared/message_handler.js
-
-const CallbackKind = {
-  DATA: 1,
-  ERROR: 2
-};
-const StreamKind = {
-  CANCEL: 1,
-  CANCEL_COMPLETE: 2,
-  CLOSE: 3,
-  ENQUEUE: 4,
-  ERROR: 5,
-  PULL: 6,
-  PULL_COMPLETE: 7,
-  START_COMPLETE: 8
-};
-function onFn() {}
-function wrapReason(ex) {
-  if (ex instanceof AbortException || ex instanceof InvalidPDFException || ex instanceof PasswordException || ex instanceof ResponseException || ex instanceof UnknownErrorException) {
-    return ex;
-  }
-  if (!(ex instanceof Error || typeof ex === "object" && ex !== null)) {
-    unreachable('wrapReason: Expected "reason" to be a (possibly cloned) Error.');
-  }
-  switch (ex.name) {
-    case "AbortException":
-      return new AbortException(ex.message);
-    case "InvalidPDFException":
-      return new InvalidPDFException(ex.message);
-    case "PasswordException":
-      return new PasswordException(ex.message, ex.code);
-    case "ResponseException":
-      return new ResponseException(ex.message, ex.status, ex.missing);
-    case "UnknownErrorException":
-      return new UnknownErrorException(ex.message, ex.details);
-  }
-  return new UnknownErrorException(ex.message, ex.toString());
-}
-class MessageHandler {
-  #actions = new Map();
-  #callbackCapabilities = new Map();
-  #callbackId = 1;
-  #comObj;
-  #messageAC = new AbortController();
-  #sourceName;
-  #streamControllers = new Map();
-  #streamId = 1;
-  #streamSinks = new Map();
-  #targetName;
-  constructor(sourceName, targetName, comObj) {
-    this.#sourceName = sourceName;
-    this.#targetName = targetName;
-    this.#comObj = comObj;
-    comObj.addEventListener("message", this.#onMessage.bind(this), {
-      signal: this.#messageAC.signal
-    });
-  }
-  #onMessage({
-    data
-  }) {
-    if (data.targetName !== this.#sourceName) {
-      return;
-    }
-    if (data.stream) {
-      this.#processStreamMessage(data);
-      return;
-    }
-    if (data.callback) {
-      const {
-        callbackId,
-        callback
-      } = data;
-      const capability = this.#callbackCapabilities.get(callbackId);
-      if (!capability) {
-        throw new Error(`Cannot resolve callback ${callbackId}`);
-      }
-      this.#callbackCapabilities.delete(callbackId);
-      if (callback === CallbackKind.DATA) {
-        capability.resolve(data.data);
-      } else if (callback === CallbackKind.ERROR) {
-        capability.reject(wrapReason(data.reason));
-      } else {
-        throw new Error("Unexpected callback case");
-      }
-      return;
-    }
-    const action = this.#actions.get(data.action);
-    if (!action) {
-      throw new Error(`Unknown action from worker: ${data.action}`);
-    }
-    if (data.callbackId) {
-      const sourceName = this.#sourceName,
-        targetName = data.sourceName,
-        comObj = this.#comObj;
-      Promise.try(action, data.data).then(result => {
-        comObj.postMessage({
-          sourceName,
-          targetName,
-          callback: CallbackKind.DATA,
-          callbackId: data.callbackId,
-          data: result
-        });
-      }).catch(reason => {
-        comObj.postMessage({
-          sourceName,
-          targetName,
-          callback: CallbackKind.ERROR,
-          callbackId: data.callbackId,
-          reason: wrapReason(reason)
-        });
-      });
-      return;
-    }
-    if (data.streamId) {
-      this.#createStreamSink(data);
-      return;
-    }
-    action(data.data);
-  }
-  on(actionName, handler) {
-    const ah = this.#actions;
-    if (ah.has(actionName)) {
-      throw new Error(`There is already a "${actionName}" handler.`);
-    }
-    ah.set(actionName, handler);
-  }
-  send(actionName, data, transfers) {
-    this.#comObj.postMessage({
-      sourceName: this.#sourceName,
-      targetName: this.#targetName,
-      action: actionName,
-      data
-    }, transfers);
-  }
-  sendWithPromise(actionName, data, transfers) {
-    const callbackId = this.#callbackId++,
-      capability = Promise.withResolvers();
-    this.#callbackCapabilities.set(callbackId, capability);
-    try {
-      this.#comObj.postMessage({
-        sourceName: this.#sourceName,
-        targetName: this.#targetName,
-        action: actionName,
-        callbackId,
-        data
-      }, transfers);
-    } catch (ex) {
-      capability.reject(ex);
-    }
-    return capability.promise;
-  }
-  sendWithStream(actionName, data, queueingStrategy, transfers) {
-    const streamId = this.#streamId++,
-      sourceName = this.#sourceName,
-      targetName = this.#targetName,
-      comObj = this.#comObj;
-    return new ReadableStream({
-      start: controller => {
-        const startCapability = Promise.withResolvers();
-        this.#streamControllers.set(streamId, {
-          controller,
-          startCall: startCapability,
-          pullCall: null,
-          cancelCall: null,
-          isClosed: false
-        });
-        comObj.postMessage({
-          sourceName,
-          targetName,
-          action: actionName,
-          streamId,
-          data,
-          desiredSize: controller.desiredSize
-        }, transfers);
-        return startCapability.promise;
-      },
-      pull: controller => {
-        const pullCapability = Promise.withResolvers();
-        this.#streamControllers.get(streamId).pullCall = pullCapability;
-        comObj.postMessage({
-          sourceName,
-          targetName,
-          stream: StreamKind.PULL,
-          streamId,
-          desiredSize: controller.desiredSize
-        });
-        return pullCapability.promise;
-      },
-      cancel: reason => {
-        assert(reason instanceof Error, "cancel must have a valid reason");
-        const cancelCapability = Promise.withResolvers();
-        this.#streamControllers.get(streamId).cancelCall = cancelCapability;
-        this.#streamControllers.get(streamId).isClosed = true;
-        comObj.postMessage({
-          sourceName,
-          targetName,
-          stream: StreamKind.CANCEL,
-          streamId,
-          reason: wrapReason(reason)
-        });
-        return cancelCapability.promise;
-      }
-    }, queueingStrategy);
-  }
-  #createStreamSink(data) {
-    const streamId = data.streamId,
-      sourceName = this.#sourceName,
-      targetName = data.sourceName,
-      comObj = this.#comObj;
-    const streamSinks = this.#streamSinks,
-      action = this.#actions.get(data.action);
-    const streamSink = {
-      enqueue(chunk, size = 1, transfers) {
-        if (this.isCancelled) {
-          return;
-        }
-        const lastDesiredSize = this.desiredSize;
-        this.desiredSize -= size;
-        if (lastDesiredSize > 0 && this.desiredSize <= 0) {
-          this.sinkCapability = Promise.withResolvers();
-          this.ready = this.sinkCapability.promise;
-        }
-        comObj.postMessage({
-          sourceName,
-          targetName,
-          stream: StreamKind.ENQUEUE,
-          streamId,
-          chunk
-        }, transfers);
-      },
-      close() {
-        if (this.isCancelled) {
-          return;
-        }
-        this.isCancelled = true;
-        comObj.postMessage({
-          sourceName,
-          targetName,
-          stream: StreamKind.CLOSE,
-          streamId
-        });
-        streamSinks.delete(streamId);
-      },
-      error(reason) {
-        assert(reason instanceof Error, "error must have a valid reason");
-        if (this.isCancelled) {
-          return;
-        }
-        this.isCancelled = true;
-        comObj.postMessage({
-          sourceName,
-          targetName,
-          stream: StreamKind.ERROR,
-          streamId,
-          reason: wrapReason(reason)
-        });
-      },
-      sinkCapability: Promise.withResolvers(),
-      onPull: null,
-      onCancel: null,
-      isCancelled: false,
-      desiredSize: data.desiredSize,
-      ready: null
-    };
-    streamSink.sinkCapability.resolve();
-    streamSink.ready = streamSink.sinkCapability.promise;
-    streamSinks.set(streamId, streamSink);
-    Promise.try(action, data.data, streamSink).then(() => {
-      comObj.postMessage({
-        sourceName,
-        targetName,
-        stream: StreamKind.START_COMPLETE,
-        streamId,
-        success: true
-      });
-    }, reason => {
-      comObj.postMessage({
-        sourceName,
-        targetName,
-        stream: StreamKind.START_COMPLETE,
-        streamId,
-        reason: wrapReason(reason)
-      });
-    });
-  }
-  #processStreamMessage(data) {
-    const streamId = data.streamId,
-      sourceName = this.#sourceName,
-      targetName = data.sourceName,
-      comObj = this.#comObj;
-    const streamController = this.#streamControllers.get(streamId),
-      streamSink = this.#streamSinks.get(streamId);
-    switch (data.stream) {
-      case StreamKind.START_COMPLETE:
-        if (data.success) {
-          streamController.startCall.resolve();
-        } else {
-          streamController.startCall.reject(wrapReason(data.reason));
-        }
-        break;
-      case StreamKind.PULL_COMPLETE:
-        if (data.success) {
-          streamController.pullCall.resolve();
-        } else {
-          streamController.pullCall.reject(wrapReason(data.reason));
-        }
-        break;
-      case StreamKind.PULL:
-        if (!streamSink) {
-          comObj.postMessage({
-            sourceName,
-            targetName,
-            stream: StreamKind.PULL_COMPLETE,
-            streamId,
-            success: true
-          });
-          break;
-        }
-        if (streamSink.desiredSize <= 0 && data.desiredSize > 0) {
-          streamSink.sinkCapability.resolve();
-        }
-        streamSink.desiredSize = data.desiredSize;
-        Promise.try(streamSink.onPull || onFn).then(() => {
-          comObj.postMessage({
-            sourceName,
-            targetName,
-            stream: StreamKind.PULL_COMPLETE,
-            streamId,
-            success: true
-          });
-        }, reason => {
-          comObj.postMessage({
-            sourceName,
-            targetName,
-            stream: StreamKind.PULL_COMPLETE,
-            streamId,
-            reason: wrapReason(reason)
-          });
-        });
-        break;
-      case StreamKind.ENQUEUE:
-        assert(streamController, "enqueue should have stream controller");
-        if (streamController.isClosed) {
-          break;
-        }
-        streamController.controller.enqueue(data.chunk);
-        break;
-      case StreamKind.CLOSE:
-        assert(streamController, "close should have stream controller");
-        if (streamController.isClosed) {
-          break;
-        }
-        streamController.isClosed = true;
-        streamController.controller.close();
-        this.#deleteStreamController(streamController, streamId);
-        break;
-      case StreamKind.ERROR:
-        assert(streamController, "error should have stream controller");
-        streamController.controller.error(wrapReason(data.reason));
-        this.#deleteStreamController(streamController, streamId);
-        break;
-      case StreamKind.CANCEL_COMPLETE:
-        if (data.success) {
-          streamController.cancelCall.resolve();
-        } else {
-          streamController.cancelCall.reject(wrapReason(data.reason));
-        }
-        this.#deleteStreamController(streamController, streamId);
-        break;
-      case StreamKind.CANCEL:
-        if (!streamSink) {
-          break;
-        }
-        const dataReason = wrapReason(data.reason);
-        Promise.try(streamSink.onCancel || onFn, dataReason).then(() => {
-          comObj.postMessage({
-            sourceName,
-            targetName,
-            stream: StreamKind.CANCEL_COMPLETE,
-            streamId,
-            success: true
-          });
-        }, reason => {
-          comObj.postMessage({
-            sourceName,
-            targetName,
-            stream: StreamKind.CANCEL_COMPLETE,
-            streamId,
-            reason: wrapReason(reason)
-          });
-        });
-        streamSink.sinkCapability.reject(dataReason);
-        streamSink.isCancelled = true;
-        this.#streamSinks.delete(streamId);
-        break;
-      default:
-        throw new Error("Unexpected stream case");
-    }
-  }
-  async #deleteStreamController(streamController, streamId) {
-    await Promise.allSettled([streamController.startCall?.promise, streamController.pullCall?.promise, streamController.cancelCall?.promise]);
-    this.#streamControllers.delete(streamId);
-  }
-  destroy() {
-    this.#messageAC?.abort();
-    this.#messageAC = null;
-  }
-}
-
-;// ./src/display/binary_data_factory.js
-
-
-class BaseBinaryDataFactory {
-  #errorStr = Object.freeze({
-    cMapUrl: "CMap",
-    standardFontDataUrl: "font",
-    wasmUrl: "wasm"
-  });
-  constructor({
-    cMapUrl = null,
-    standardFontDataUrl = null,
-    wasmUrl = null
-  }) {
-    this.cMapUrl = cMapUrl;
-    this.standardFontDataUrl = standardFontDataUrl;
-    this.wasmUrl = wasmUrl;
-  }
-  async fetch({
-    kind,
-    filename
-  }) {
-    switch (kind) {
-      case "cMapUrl":
-      case "standardFontDataUrl":
-      case "wasmUrl":
-        break;
-      default:
-        unreachable(`Not implemented: ${kind}`);
-    }
-    const baseUrl = this[kind];
-    if (!baseUrl) {
-      throw new Error(`Ensure that the \`${kind}\` API parameter is provided.`);
-    }
-    const url = `${baseUrl}${filename}`;
-    return this._fetch(url, kind).catch(reason => {
-      throw new Error(`Unable to load ${this.#errorStr[kind]} data at: ${url}`);
-    });
-  }
-  async _fetch(url, kind) {
-    unreachable("Abstract method `_fetch` called.");
-  }
-}
-class DOMBinaryDataFactory extends BaseBinaryDataFactory {
-  async _fetch(url, kind) {
-    const type = kind === "cMapUrl" && !url.endsWith(".bcmap") ? "text" : "bytes";
-    const data = await fetchData(url, type);
-    return data instanceof Uint8Array ? data : stringToBytes(data);
-  }
-}
-
-;// ./src/display/canvas_factory.js
-
-class BaseCanvasFactory {
-  #enableHWA = false;
-  constructor({
-    enableHWA = false
-  }) {
-    this.#enableHWA = enableHWA;
-  }
-  create(width, height) {
-    if (width <= 0 || height <= 0) {
-      throw new Error("Invalid canvas size");
-    }
-    const canvas = this._createCanvas(width, height);
-    return {
-      canvas,
-      context: canvas.getContext("2d", {
-        willReadFrequently: !this.#enableHWA
-      })
-    };
-  }
-  reset({
-    canvas
-  }, width, height) {
-    if (!canvas) {
-      throw new Error("Canvas is not specified");
-    }
-    if (width <= 0 || height <= 0) {
-      throw new Error("Invalid canvas size");
-    }
-    canvas.width = width;
-    canvas.height = height;
-  }
-  destroy(canvasAndContext) {
-    const {
-      canvas
-    } = canvasAndContext;
-    if (!canvas) {
-      throw new Error("Canvas is not specified");
-    }
-    canvas.width = canvas.height = 0;
-    canvasAndContext.canvas = null;
-    canvasAndContext.context = null;
-  }
-  _createCanvas(width, height) {
-    unreachable("Abstract method `_createCanvas` called.");
-  }
-}
-
-;// ./src/display/filter_factory.js
-
-class BaseFilterFactory {
-  addFilter(maps) {
-    return "none";
-  }
-  addHCMFilter(fgColor, bgColor) {
-    return "none";
-  }
-  addAlphaFilter(map) {
-    return "none";
-  }
-  addLuminosityFilter(map) {
-    return "none";
-  }
-  addKnockoutFilter(alpha = 0) {
-    return "none";
-  }
-  addHighlightHCMFilter(filterName, fgColor, bgColor, newFgColor, newBgColor) {
-    return "none";
-  }
-  addSelectionHCMFilter(fgColor, bgColor) {
-    return "none";
-  }
-  addSelectionFilter() {
-    return "none";
-  }
-  createSelectionStyle(pageColors = null) {
-    return null;
-  }
-  destroy(keepHCM = false) {}
-}
-
-;// ./src/display/node_utils.js
-
-
-
-
-if (isNodeJS) {
-  warn("Please use the `legacy` build in Node.js environments.");
-}
-async function node_utils_fetchData(url) {
-  const fs = process.getBuiltinModule("fs/promises");
-  const data = await fs.readFile(url);
-  return new Uint8Array(data);
-}
-class NodeFilterFactory extends BaseFilterFactory {}
-class NodeCanvasFactory extends BaseCanvasFactory {
-  _createCanvas(width, height) {
-    const require = process.getBuiltinModule("module").createRequire(import.meta.url);
-    const canvas = require("@napi-rs/canvas");
-    return canvas.createCanvas(width, height);
-  }
-}
-class NodeBinaryDataFactory extends BaseBinaryDataFactory {
-  async _fetch(url, kind) {
-    return node_utils_fetchData(url);
-  }
-}
-
 ;// ./src/display/dom_canvas_factory.js
 
 class DOMCanvasFactory extends BaseCanvasFactory {
@@ -14576,24 +14604,24 @@ class ObjectHandler {
     let pageOrObjs = this.pageCache.get(pageProxyId);
     if (!pageOrObjs) {
       if (!this.shouldCreatePageObjs) {
-        return;
+        return false;
       }
       pageOrObjs = new PDFObjects();
       this.pageCache.set(pageProxyId, pageOrObjs);
     }
     const objs = pageOrObjs.objs || pageOrObjs;
     if (objs.has(id)) {
-      return;
+      return false;
     }
     if (pageOrObjs._intentStates?.size === 0) {
       exportedData?.bitmap?.close();
-      return;
+      return false;
     }
     switch (type) {
       case "Image":
       case "Pattern":
         objs.resolve(id, exportedData);
-        break;
+        return true;
       default:
         throw new Error(`Got unknown object type ${type}`);
     }
@@ -15154,6 +15182,347 @@ class PagesMapper {
   }
 }
 
+;// ./src/display/renderer_worker_proxy.js
+
+
+
+
+
+
+function closeFrame({
+  bitmap,
+  annotationBitmaps
+}) {
+  bitmap.close();
+  if (annotationBitmaps) {
+    for (const [,, annotationBitmap] of annotationBitmaps) {
+      annotationBitmap.close();
+    }
+  }
+}
+class WorkerRenderTask {
+  #annotationCanvasMap;
+  #cancelled = false;
+  #canvas;
+  #canvasFactory;
+  #id;
+  #initParams;
+  #onError;
+  #onFrame;
+  #rendererWorker;
+  #renderTasks;
+  #sentLength = 0;
+  imageCoordinates = null;
+  recordedBBoxes = null;
+  constructor({
+    rendererWorker,
+    renderTasks,
+    canvas,
+    canvasFactory,
+    annotationCanvasMap,
+    initParams,
+    onFrame,
+    onError
+  }) {
+    this.#rendererWorker = rendererWorker;
+    this.#renderTasks = renderTasks;
+    this.#canvas = canvas;
+    this.#canvasFactory = canvasFactory;
+    this.#annotationCanvasMap = annotationCanvasMap;
+    this.#initParams = initParams;
+    this.#id = initParams.renderTaskId;
+    this.#onFrame = onFrame;
+    this.#onError = onError;
+  }
+  async initialize(transparency, optionalContentConfig) {
+    const handler = this.#rendererWorker.messageHandler;
+    if (!handler) {
+      return false;
+    }
+    try {
+      await handler.sendWithPromise("InitializeGraphics", {
+        ...this.#initParams,
+        width: this.#canvas.width,
+        height: this.#canvas.height,
+        transparency,
+        optionalContentConfig: optionalContentConfig.serializable
+      });
+    } catch (ex) {
+      warn(`Failed to initialize graphics in renderer worker: ${ex.message}. ` + "Falling back to main-thread rendering.");
+      return false;
+    }
+    if (!this.#cancelled) {
+      this.#renderTasks.set(this.#id, this);
+    }
+    return true;
+  }
+  async executeOperatorList(operatorList, operatorListIdx, operationsFilter) {
+    const handler = this.#rendererWorker.messageHandler;
+    if (!handler) {
+      throw new Error("Renderer worker was destroyed during rendering.");
+    }
+    const {
+      lastChunk
+    } = operatorList;
+    const start = this.#sentLength,
+      end = operatorList.argsArray.length;
+    let fnArray = null,
+      argsArray = null,
+      operationsFilterMask = null;
+    if (start < end) {
+      fnArray = operatorList.fnArray.slice(start, end);
+      argsArray = operatorList.argsArray.slice(start, end);
+      if (operationsFilter) {
+        operationsFilterMask = new Uint8Array(end - start);
+        for (let i = start; i < end; i++) {
+          operationsFilterMask[i - start] = operationsFilter(i, operatorList) ? 1 : 0;
+        }
+      }
+    }
+    const response = await handler.sendWithPromise("ExecuteOperatorList", {
+      renderTaskId: this.#id,
+      fnArray,
+      argsArray,
+      operatorListIdx,
+      operationsFilterMask,
+      lastChunk
+    });
+    this.#sentLength = end;
+    if (response.aborted && !this.#cancelled) {
+      throw new Error("Render task was aborted in the renderer worker.");
+    }
+    if (lastChunk && response.operatorListIdx === end) {
+      this.#renderTasks.delete(this.#id);
+      const {
+        recordedBBoxesBuffer,
+        imageCoordinates
+      } = response;
+      if (recordedBBoxesBuffer) {
+        this.recordedBBoxes = BBoxReader.fromBuffer(recordedBBoxesBuffer);
+      }
+      this.imageCoordinates = imageCoordinates ?? null;
+    }
+    return response.operatorListIdx;
+  }
+  cancel() {
+    this.#cancelled = true;
+    this.#renderTasks.delete(this.#id);
+    this.#rendererWorker.messageHandler?.send("CleanupRenderTask", {
+      renderTaskId: this.#id
+    });
+  }
+  drawFrame(frame) {
+    try {
+      const ctx = this.#canvas.getContext("2d", {
+        alpha: false
+      });
+      ctx.drawImage(frame.bitmap, 0, 0);
+      if (frame.annotationBitmaps) {
+        this.#drawAnnotationCanvases(frame.annotationBitmaps);
+      }
+    } catch (ex) {
+      this.#onError(ex);
+      return;
+    } finally {
+      closeFrame(frame);
+    }
+    this.#onFrame();
+  }
+  #drawAnnotationCanvases(annotationBitmaps) {
+    const annotationCanvasMap = this.#annotationCanvasMap;
+    const seen = new Set();
+    for (const [id, canvasName, bitmap] of annotationBitmaps) {
+      const {
+        canvas,
+        context
+      } = this.#canvasFactory.create(bitmap.width, bitmap.height);
+      context.drawImage(bitmap, 0, 0);
+      if (!canvasName) {
+        annotationCanvasMap.set(id, canvas);
+        continue;
+      }
+      setAnnotationCanvasName(canvas, canvasName);
+      if (seen.has(id)) {
+        annotationCanvasMap.get(id).push(canvas);
+      } else {
+        seen.add(id);
+        annotationCanvasMap.set(id, [canvas]);
+      }
+    }
+  }
+}
+class RendererWorker {
+  #capability = Promise.withResolvers();
+  #enableHWA;
+  #enableWebGPU;
+  #messageHandler = null;
+  #renderTaskId = 0;
+  #renderTasks = new Map();
+  #webWorker = null;
+  destroyed = false;
+  constructor({
+    verbosity = getVerbosityLevel(),
+    enableHWA = false,
+    enableWebGPU = false
+  } = {}) {
+    this.verbosity = verbosity;
+    this.#enableHWA = enableHWA;
+    this.#enableWebGPU = enableWebGPU;
+    this.#initialize();
+  }
+  static get isAvailable() {
+    return !!GlobalWorkerOptions.rendererSrc && typeof Worker !== "undefined" && FeatureTest.isOffscreenCanvasSupported && !!globalThis.document?.fonts;
+  }
+  get promise() {
+    return this.#capability.promise;
+  }
+  get messageHandler() {
+    return this.#messageHandler;
+  }
+  #resolve() {
+    this.#messageHandler.on("RenderFrame", frame => {
+      const renderTask = this.#renderTasks.get(frame.renderTaskId);
+      if (renderTask) {
+        renderTask.drawFrame(frame);
+      } else {
+        closeFrame(frame);
+      }
+    });
+    this.#capability.resolve();
+    this.#messageHandler.send("configure", {
+      verbosity: this.verbosity
+    });
+  }
+  #initialize() {
+    try {
+      const worker = new Worker(getWorkerSrc(GlobalWorkerOptions.rendererSrc), {
+        type: "module"
+      });
+      const messageHandler = new MessageHandler("main", "renderer", worker);
+      const terminateEarly = reason => {
+        ac.abort();
+        messageHandler.destroy();
+        worker.terminate();
+        this.#capability.reject(new Error(`Renderer worker failed to initialize: "${reason?.message ?? reason}".`));
+      };
+      const ac = new AbortController();
+      worker.addEventListener("error", event => {
+        if (!this.#webWorker) {
+          terminateEarly(event.error || event.message);
+        }
+      }, {
+        signal: ac.signal
+      });
+      messageHandler.on("ready", data => {
+        ac.abort();
+        if (this.destroyed) {
+          terminateEarly("Worker was destroyed.");
+          return;
+        }
+        if (!(data?.testObj instanceof Uint8Array)) {
+          terminateEarly("TypedArray transfer test failed.");
+          return;
+        }
+        const apiVersion = "6.5.0";
+        if (apiVersion !== data.workerVersion) {
+          terminateEarly(`The API version "${apiVersion}" does not match the Worker version "${data.workerVersion}".`);
+          return;
+        }
+        this.#messageHandler = messageHandler;
+        this.#webWorker = worker;
+        this.#resolve();
+      });
+    } catch (reason) {
+      this.#capability.reject(reason);
+    }
+  }
+  destroy() {
+    this.destroyed = true;
+    this.#webWorker?.terminate();
+    this.#webWorker = null;
+    this.#messageHandler?.destroy();
+    this.#messageHandler = null;
+  }
+  #sendObj(action, data, id, pageProxyId) {
+    const handler = this.#messageHandler;
+    if (!handler) {
+      return;
+    }
+    try {
+      handler.send(action, data);
+    } catch (reason) {
+      warn(`RendererWorker - failed to send "${action}": ${reason}`);
+      handler.send("objFailed", {
+        id,
+        pageProxyId,
+        reason: reason.message
+      });
+    }
+  }
+  sendCommonObj(id, type, data) {
+    this.#sendObj("commonobj", [id, type, data], id, null);
+  }
+  sendObj(id, pageProxyId, type, data) {
+    this.#sendObj("obj", [id, pageProxyId, type, data], id, pageProxyId);
+  }
+  async copyLocalImage(id, data, image) {
+    const dataLen = await this.#messageHandler?.sendWithPromise("commonobj", [id, "CopyLocalImage", data]).catch(() => null);
+    if (!dataLen) {
+      this.sendCommonObj(id, "Image", image);
+    }
+  }
+  cleanup(keepLoadedFonts) {
+    this.#messageHandler?.send("Cleanup", {
+      keepLoadedFonts
+    });
+  }
+  cleanupPage(pageProxyId) {
+    this.#messageHandler?.send("cleanupPage", {
+      pageProxyId
+    });
+  }
+  createRenderTask({
+    pageProxyId,
+    params,
+    pageColors,
+    canvasFactory,
+    annotationCanvasMap,
+    onFrame,
+    onError
+  }) {
+    const {
+      canvas,
+      canvasContext,
+      background
+    } = params;
+    if (!this.#messageHandler || canvasContext || background && typeof background !== "string" || pageColors || params.recordForDebugger) {
+      return null;
+    }
+    return new WorkerRenderTask({
+      rendererWorker: this,
+      renderTasks: this.#renderTasks,
+      canvas,
+      canvasFactory,
+      annotationCanvasMap,
+      initParams: {
+        pageProxyId,
+        renderTaskId: this.#renderTaskId++,
+        enableHWA: this.#enableHWA,
+        enableWebGPU: this.#enableWebGPU,
+        hasAnnotationCanvasMap: !!annotationCanvasMap,
+        recordOperations: params.recordOperations,
+        recordImages: params.recordImages,
+        partialFrames: params.partialFrames,
+        transform: params.transform,
+        viewport: params.viewport,
+        background
+      },
+      onFrame,
+      onError
+    });
+  }
+}
+
 ;// ./src/display/text_layer.js
 
 
@@ -15535,6 +15904,7 @@ class TextLayer {
 
 
 
+
 const RENDERING_CANCELLED_TIMEOUT = 100;
 function getDocument(src = {}) {
   const task = new PDFDocumentLoadingTask();
@@ -15580,7 +15950,7 @@ function getDocument(src = {}) {
   const styleElement = null;
   const useSystemFonts = typeof src.useSystemFonts === "boolean" ? src.useSystemFonts : !isNodeJS && !disableFontFace;
   const useWorkerFetch = typeof src.useWorkerFetch === "boolean" ? src.useWorkerFetch : !!(BinaryDataFactory === DOMBinaryDataFactory && cMapUrl && cMapPacked && standardFontDataUrl && wasmUrl && isValidFetchUrl(cMapUrl, document.baseURI) && isValidFetchUrl(standardFontDataUrl, document.baseURI) && isValidFetchUrl(wasmUrl, document.baseURI));
-  const disableWorkerRendering = src.disableWorkerRendering === true || !GlobalWorkerOptions.rendererSrc || typeof Worker === "undefined" || !isOffscreenCanvasSupported || !FeatureTest.isOffscreenCanvasSupported || ownerDocument !== globalThis.document || !ownerDocument?.fonts || !!styleElement;
+  const disableWorkerRendering = src.disableWorkerRendering === true || !isOffscreenCanvasSupported || ownerDocument !== globalThis.document || !!styleElement || !RendererWorker.isAvailable;
   setVerbosityLevel(verbosity);
   const transportFactory = {
     canvasFactory: new CanvasFactory({
@@ -15606,7 +15976,9 @@ function getDocument(src = {}) {
   }
   if (!disableWorkerRendering) {
     task._rendererWorker = new RendererWorker({
-      verbosity
+      verbosity,
+      enableHWA,
+      enableWebGPU
     });
   }
   const docParams = {
@@ -15642,22 +16014,18 @@ function getDocument(src = {}) {
     pdfBug,
     styleElement,
     enableHWA,
-    enableWebGPU,
     rendererWorker: null,
     loadingParams: {
       disableAutoFetch,
       enableXfa
     }
   };
-  const workerPromises = [worker.promise, gpuPromise];
-  if (task._rendererWorker) {
-    workerPromises.push(task._rendererWorker.promise.catch(reason => {
-      warn(`Renderer worker disabled: ${reason.message}`);
-      task._rendererWorker.destroy();
-      task._rendererWorker = null;
-    }));
-  }
-  Promise.all(workerPromises).then(function ([, hasGPU]) {
+  const rendererWorkerPromise = task._rendererWorker?.promise.catch(reason => {
+    warn(`Renderer worker disabled: ${reason.message}`);
+    task._rendererWorker.destroy();
+    task._rendererWorker = null;
+  });
+  Promise.all([worker.promise, gpuPromise, rendererWorkerPromise]).then(function ([, hasGPU]) {
     if (worker.destroyed) {
       throw new Error("Worker was destroyed");
     }
@@ -16035,22 +16403,12 @@ class PDFPageProxy {
     const shouldRecordImages = !!canvas && !this.imageCoordinates && recordImages;
     const complete = error => {
       intentState.renderTasks.delete(internalRenderTask);
-      if (internalRenderTask.gfx) {
-        const {
-          dependencyTracker,
-          imagesTracker
-        } = internalRenderTask.gfx;
-        internalRenderTask.recordedBBoxes = dependencyTracker?.take() ?? null;
-        internalRenderTask.debugMetadata = recordForDebugger ? dependencyTracker?.takeDebugMetadata() ?? null : null;
-        internalRenderTask.imageCoordinates = imagesTracker?.take() ?? null;
-      }
       if (shouldRecordOperations) {
         const {
-          recordedBBoxes,
-          debugMetadata
+          recordedBBoxes
         } = internalRenderTask;
         if (recordedBBoxes) {
-          internalRenderTask.stepper?.setOperatorBBoxes(recordedBBoxes, debugMetadata);
+          internalRenderTask.stepper?.setOperatorBBoxes(recordedBBoxes, internalRenderTask.gfx.dependencyTracker.takeDebugMetadata());
           if (recordOperations) {
             this.recordedBBoxes = recordedBBoxes;
           }
@@ -16105,7 +16463,6 @@ class PDFPageProxy {
       pdfBug: this._pdfBug,
       pageColors,
       enableHWA: this._transport.enableHWA,
-      enableWebGPU: this._transport.enableWebGPU,
       operationsFilter,
       rendererWorker: this._transport.rendererWorker
     });
@@ -16212,9 +16569,7 @@ class PDFPageProxy {
       }
     }
     this.objs.clear();
-    this._transport.rendererHandler?.send("cleanupPage", {
-      pageProxyId: this._id
-    });
+    this._transport.rendererWorker?.cleanupPage(this._id);
     this.#pendingCleanup = false;
     return Promise.all(waitOn);
   }
@@ -16240,9 +16595,7 @@ class PDFPageProxy {
     }
     this._intentStates.clear();
     this.objs.clear();
-    this._transport.rendererHandler?.send("cleanupPage", {
-      pageProxyId: this._id
-    });
+    this._transport.rendererWorker?.cleanupPage(this._id);
     this.#pendingCleanup = false;
     return true;
   }
@@ -16278,9 +16631,6 @@ class PDFPageProxy {
       map,
       transfer
     } = annotationStorageSerializable;
-    this._transport.rendererHandler?.send("restorePage", {
-      pageProxyId: this._id
-    });
     const readableStream = this._transport.messageHandler.sendWithStream("GetOperatorList", {
       pageId: this.#pagesMapper.getPageId(this._pageIndex + 1) - 1,
       pageIndex: this._pageIndex,
@@ -16379,92 +16729,6 @@ class PDFPageProxy {
     return this._stats;
   }
 }
-class RendererWorker {
-  #capability = Promise.withResolvers();
-  #messageHandler = null;
-  #webWorker = null;
-  destroyed = false;
-  constructor({
-    verbosity = getVerbosityLevel()
-  } = {}) {
-    this.verbosity = verbosity;
-    this.#initialize();
-  }
-  get promise() {
-    return this.#capability.promise;
-  }
-  get messageHandler() {
-    return this.#messageHandler;
-  }
-  #resolve() {
-    this.#capability.resolve();
-    this.#messageHandler.send("configure", {
-      verbosity: this.verbosity
-    });
-  }
-  #initialize() {
-    try {
-      let {
-        rendererSrc
-      } = RendererWorker;
-      if (!PDFWorker._isSameOrigin(window.location, rendererSrc)) {
-        rendererSrc = PDFWorker._createCDNWrapper(new URL(rendererSrc, window.location).href);
-      }
-      const worker = new Worker(rendererSrc, {
-        type: "module"
-      });
-      const messageHandler = new MessageHandler("main", "renderer", worker);
-      const terminateEarly = reason => {
-        ac.abort();
-        messageHandler.destroy();
-        worker.terminate();
-        this.#capability.reject(new Error(`Renderer worker failed to initialize: "${reason?.message ?? reason}".`));
-      };
-      const ac = new AbortController();
-      worker.addEventListener("error", event => {
-        if (!this.#webWorker) {
-          terminateEarly(event.error || event.message);
-        }
-      }, {
-        signal: ac.signal
-      });
-      messageHandler.on("ready", data => {
-        ac.abort();
-        if (this.destroyed) {
-          terminateEarly("Worker was destroyed.");
-          return;
-        }
-        if (!(data?.testObj instanceof Uint8Array)) {
-          terminateEarly("TypedArray transfer test failed.");
-          return;
-        }
-        const apiVersion = "6.5.0";
-        if (apiVersion !== data.workerVersion) {
-          terminateEarly(`The API version "${apiVersion}" does not match the Worker version "${data.workerVersion}".`);
-          return;
-        }
-        this.#messageHandler = messageHandler;
-        this.#webWorker = worker;
-        this.#resolve();
-      });
-    } catch (reason) {
-      this.#capability.reject(reason);
-    }
-  }
-  destroy() {
-    this.destroyed = true;
-    this.#webWorker?.terminate();
-    this.#webWorker = null;
-    this.#messageHandler?.destroy();
-    this.#messageHandler = null;
-  }
-  static get rendererSrc() {
-    if (GlobalWorkerOptions.rendererSrc) {
-      return GlobalWorkerOptions.rendererSrc;
-    }
-    throw new Error('No "GlobalWorkerOptions.rendererSrc" specified.');
-  }
-}
 class PDFWorker {
   #capability = Promise.withResolvers();
   #messageHandler = null;
@@ -16478,20 +16742,6 @@ class PDFWorker {
       this.#isWorkerDisabled = true;
       GlobalWorkerOptions.workerSrc ||= "./pdf.worker.mjs";
     }
-    this._isSameOrigin = (baseUrl, otherUrl) => {
-      const base = URL.parse(baseUrl);
-      if (!base?.origin || base.origin === "null") {
-        return false;
-      }
-      const other = new URL(otherUrl, base);
-      return base.origin === other.origin;
-    };
-    this._createCDNWrapper = url => {
-      const wrapper = `await import("${url}");`;
-      return URL.createObjectURL(new Blob([wrapper], {
-        type: "text/javascript"
-      }));
-    };
   }
   constructor({
     name = null,
@@ -16537,14 +16787,11 @@ class PDFWorker {
       this.#setupFakeWorker();
       return;
     }
-    let {
+    const {
       workerSrc
     } = PDFWorker;
     try {
-      if (!PDFWorker._isSameOrigin(window.location, workerSrc)) {
-        workerSrc = PDFWorker._createCDNWrapper(new URL(workerSrc, window.location).href);
-      }
-      const worker = new Worker(workerSrc, {
+      const worker = new Worker(getWorkerSrc(workerSrc), {
         type: "module"
       });
       const messageHandler = new MessageHandler("main", "worker", worker);
@@ -16669,7 +16916,6 @@ class WorkerTransport {
       styleElement: params.styleElement
     });
     this.enableHWA = params.enableHWA;
-    this.enableWebGPU = params.enableWebGPU;
     this.rendererWorker = params.rendererWorker;
     this.loadingParams = params.loadingParams;
     this._params = params;
@@ -16700,9 +16946,6 @@ class WorkerTransport {
   }
   get annotationStorage() {
     return shadow(this, "annotationStorage", new AnnotationStorage());
-  }
-  get rendererHandler() {
-    return this.rendererWorker?.messageHandler ?? null;
   }
   getRenderingIntent(intent, annotationMode = AnnotationMode.ENABLE, printAnnotationStorage = null, isEditing = false, isOpList = false) {
     let renderingIntent = RenderingIntentFlag.DISPLAY;
@@ -16923,54 +17166,33 @@ class WorkerTransport {
       pageCache: this.#pageCache,
       pdfBug: this._params.pdfBug
     });
-    this.rendererHandler?.on("FontFallback", data => this.destroyed ? null : messageHandler.sendWithPromise("FontFallback", data));
-    this.rendererHandler?.on("RenderFrame", InternalRenderTask.handleRenderFrame);
-    const forwardToRenderer = (action, data) => {
-      const {
-        rendererHandler
-      } = this;
-      if (!rendererHandler) {
-        return;
-      }
-      try {
-        rendererHandler.send(action, data);
-      } catch (reason) {
-        warn(`forwardToRenderer("${action}") failed: ${reason}`);
-        rendererHandler.send("objFailed", {
-          id: data[0],
-          pageProxyId: action === "obj" ? data[1] : null,
-          reason: reason.message
-        });
-      }
-    };
+    this.rendererWorker?.messageHandler.on("FontFallback", data => this.destroyed ? null : messageHandler.sendWithPromise("FontFallback", data));
     messageHandler.on("commonobj", ([id, type, exportedData]) => {
       if (this.destroyed) {
         return null;
       }
-      if (type === "CopyLocalImage") {
-        const dataLen = this.commonObjs.has(id) ? null : objectHandler.resolveCommonObject(id, type, exportedData);
-        const {
-          rendererHandler
-        } = this;
-        if (!dataLen || !rendererHandler) {
-          return dataLen;
-        }
-        return rendererHandler.sendWithPromise("commonobj", [id, type, exportedData]).catch(() => null).then(rendererDataLen => {
-          if (!rendererDataLen) {
-            forwardToRenderer("commonobj", [id, "Image", this.commonObjs.get(id)]);
-          }
-          return dataLen;
-        });
+      const {
+        rendererWorker
+      } = this;
+      if (type !== "CopyLocalImage") {
+        rendererWorker?.sendCommonObj(id, type, exportedData);
       }
-      forwardToRenderer("commonobj", [id, type, exportedData]);
-      return this.commonObjs.has(id) ? null : objectHandler.resolveCommonObject(id, type, exportedData);
+      if (this.commonObjs.has(id)) {
+        return null;
+      }
+      const dataLen = objectHandler.resolveCommonObject(id, type, exportedData);
+      if (dataLen && rendererWorker) {
+        return rendererWorker.copyLocalImage(id, exportedData, this.commonObjs.get(id)).then(() => dataLen);
+      }
+      return dataLen;
     });
     messageHandler.on("obj", ([id, pageProxyId, type, imageData]) => {
       if (this.destroyed) {
         return;
       }
-      forwardToRenderer("obj", [id, pageProxyId, type, imageData]);
-      objectHandler.resolveObject(id, pageProxyId, type, imageData);
+      if (objectHandler.resolveObject(id, pageProxyId, type, imageData)) {
+        this.rendererWorker?.sendObj(id, pageProxyId, type, imageData);
+      }
     });
     messageHandler.on("DocProgress", data => {
       if (this.destroyed) {
@@ -17212,9 +17434,7 @@ class WorkerTransport {
     if (!keepLoadedFonts) {
       this.fontLoader.clear();
     }
-    this.rendererHandler?.send("Cleanup", {
-      keepLoadedFonts
-    });
+    this.rendererWorker?.cleanup(keepLoadedFonts);
     this.#methodPromises.clear();
     this.filterFactory.destroy(true);
     TextLayer.cleanup();
@@ -17264,33 +17484,13 @@ class RenderTask {
     return this._internalRenderTask.imageCoordinates || null;
   }
   get isWorkerRendering() {
-    return !!this._internalRenderTask.rendererHandler;
+    return this._internalRenderTask.isWorkerRendering;
   }
 }
 class InternalRenderTask {
   #rAF = null;
+  #rendererTask = null;
   static #canvasInUse = new WeakSet();
-  static #activeRenderTasks = new Map();
-  static #renderTaskId = 0;
-  static handleRenderFrame(frame) {
-    const internalTask = InternalRenderTask.#activeRenderTasks.get(frame.renderTaskId);
-    if (!internalTask) {
-      frame.bitmap.close();
-      if (frame.annotationBitmaps) {
-        for (const [,, annotationBitmap] of frame.annotationBitmaps) {
-          annotationBitmap.close();
-        }
-      }
-      return;
-    }
-    try {
-      internalTask.#drawFrame(frame);
-    } catch (ex) {
-      internalTask.cancel(ex);
-      return;
-    }
-    internalTask.task.onFrame?.();
-  }
   constructor({
     callback,
     params,
@@ -17306,7 +17506,6 @@ class InternalRenderTask {
     pdfBug = false,
     pageColors = null,
     enableHWA = false,
-    enableWebGPU = false,
     operationsFilter = null,
     rendererWorker = null
   }) {
@@ -17318,7 +17517,6 @@ class InternalRenderTask {
     this.operatorListIdx = null;
     this.operatorList = operatorList;
     this._pageIndex = pageIndex;
-    this._pageProxyId = pageProxyId;
     this.canvasFactory = canvasFactory;
     this.filterFactory = filterFactory;
     this._pdfBug = pdfBug;
@@ -17337,74 +17535,28 @@ class InternalRenderTask {
     this._canvas = params.canvas;
     this._canvasContext = params.canvas ? null : params.canvasContext;
     this._enableHWA = enableHWA;
-    this._enableWebGPU = enableWebGPU;
-    this._recordOperations = !!params.recordOperations;
-    this._recordImages = !!params.recordImages;
-    this._recordForDebugger = !!params.recordForDebugger;
-    this._partialFrames = !!params.partialFrames;
     this._operationsFilter = operationsFilter;
-    this._rendererWorker = rendererWorker;
-    this._renderTaskId = InternalRenderTask.#renderTaskId++;
-    this._sentOperatorListLength = 0;
-    this.recordedBBoxes = null;
-    this.debugMetadata = null;
-    this.imageCoordinates = null;
+    this.#rendererTask = rendererWorker?.createRenderTask({
+      pageProxyId,
+      params,
+      pageColors,
+      canvasFactory,
+      annotationCanvasMap,
+      onFrame: () => this.task.onFrame?.(),
+      onError: reason => this.cancel(reason)
+    }) ?? null;
   }
   get completed() {
     return this.capability.promise.catch(() => {});
   }
-  get rendererHandler() {
-    return this._rendererWorker?.messageHandler ?? null;
+  get isWorkerRendering() {
+    return !!this.#rendererTask;
   }
-  #drawAnnotationFrames(annotationBitmaps) {
-    const {
-      ownerDocument
-    } = this._canvas;
-    if (typeof ownerDocument?.createElement !== "function") {
-      return;
-    }
-    const seen = new Set();
-    for (const [id, canvasName, bitmap] of annotationBitmaps) {
-      const canvas = ownerDocument.createElement("canvas");
-      canvas.width = bitmap.width;
-      canvas.height = bitmap.height;
-      canvas.getContext("2d").drawImage(bitmap, 0, 0);
-      if (!canvasName) {
-        this.annotationCanvasMap.set(id, canvas);
-        continue;
-      }
-      setAnnotationCanvasName(canvas, canvasName);
-      if (seen.has(id)) {
-        this.annotationCanvasMap.get(id).push(canvas);
-      } else {
-        seen.add(id);
-        this.annotationCanvasMap.set(id, [canvas]);
-      }
-    }
+  get imageCoordinates() {
+    return this.#rendererTask ? this.#rendererTask.imageCoordinates : this.gfx?.imagesTracker?.take();
   }
-  #drawFrame({
-    bitmap,
-    annotationBitmaps
-  }) {
-    try {
-      if (this.cancelled) {
-        return;
-      }
-      const ctx = this._canvas.getContext("2d", {
-        alpha: false
-      });
-      ctx.drawImage(bitmap, 0, 0);
-      if (annotationBitmaps) {
-        this.#drawAnnotationFrames(annotationBitmaps);
-      }
-    } finally {
-      bitmap.close();
-      if (annotationBitmaps) {
-        for (const [,, annotationBitmap] of annotationBitmaps) {
-          annotationBitmap.close();
-        }
-      }
-    }
+  get recordedBBoxes() {
+    return this.#rendererTask ? this.#rendererTask.recordedBBoxes : this.gfx?.dependencyTracker?.take();
   }
   async initializeGraphics({
     transparency = false,
@@ -17424,65 +17576,39 @@ class InternalRenderTask {
       this.stepper.init(this.operatorList);
       this.stepper.nextBreakPoint = this.stepper.getNextBreakPoint();
     }
-    const {
-      viewport,
-      transform,
-      background
-    } = this.params;
-    let useWorkerRendering = this.rendererHandler && !this.params.canvasContext && (!background || typeof background === "string") && !this.pageColors && !this._recordForDebugger;
-    if (!useWorkerRendering && this._rendererWorker) {
-      this._rendererWorker = null;
-    }
-    if (useWorkerRendering) {
-      try {
-        const initParams = {
-          width: this._canvas.width,
-          height: this._canvas.height,
-          pageProxyId: this._pageProxyId,
-          renderTaskId: this._renderTaskId,
-          enableHWA: this._enableHWA,
-          enableWebGPU: this._enableWebGPU,
-          hasAnnotationCanvasMap: !!this.annotationCanvasMap,
-          recordOperations: this._recordOperations,
-          recordImages: this._recordImages,
-          partialFrames: this._partialFrames,
-          optionalContentConfig: optionalContentConfig.serializable,
-          transform,
-          viewport,
-          transparency,
-          background
-        };
-        await this.rendererHandler.sendWithPromise("InitializeGraphics", initParams);
-        if (this.cancelled) {
-          return;
-        }
-        InternalRenderTask.#activeRenderTasks.set(this._renderTaskId, this);
-      } catch (ex) {
-        warn(`Failed to initialize graphics in renderer worker: ${ex.message}. ` + "Falling back to main-thread rendering.");
-        this._rendererWorker = null;
-        useWorkerRendering = false;
+    if (this.#rendererTask) {
+      const initialized = await this.#rendererTask.initialize(transparency, optionalContentConfig);
+      if (this.cancelled) {
+        return;
+      }
+      if (!initialized) {
+        this.#rendererTask = null;
       }
     }
-    if (!useWorkerRendering) {
+    if (!this.#rendererTask) {
+      const {
+        viewport,
+        transform,
+        background,
+        recordOperations,
+        recordImages,
+        recordForDebugger
+      } = this.params;
       const canvasContext = this._canvasContext || this._canvas.getContext("2d", {
         alpha: false,
         willReadFrequently: !this._enableHWA
       });
-      let bboxTracker = null;
-      let dependencyTracker = null;
-      let imagesTracker = null;
-      if (this._recordOperations || this._recordImages) {
-        bboxTracker = new CanvasBBoxTracker(this._canvas, this.operatorList.fnArray.length);
-      }
-      if (this._recordOperations) {
-        dependencyTracker = new CanvasDependencyTracker(bboxTracker, this._recordForDebugger);
-      }
-      if (this._recordImages) {
-        imagesTracker = new CanvasImagesTracker(this._canvas);
-      }
+      const {
+        dependencyTracker,
+        imagesTracker
+      } = createCanvasTrackers(this._canvas, this.operatorList.fnArray.length, {
+        recordOperations,
+        recordImages,
+        recordDebugMetadata: recordForDebugger
+      });
       this.gfx = new CanvasGraphics(canvasContext, this.commonObjs, this.objs, this.canvasFactory, this.filterFactory, {
         optionalContentConfig
-      }, this.annotationCanvasMap, this.pageColors, dependencyTracker ?? bboxTracker, imagesTracker);
+      }, this.annotationCanvasMap, this.pageColors, dependencyTracker, imagesTracker);
       this.gfx.beginDrawing({
         transform,
         viewport,
@@ -17497,10 +17623,7 @@ class InternalRenderTask {
   cancel(error = null, extraDelay = 0) {
     this.running = false;
     this.cancelled = true;
-    this.rendererHandler?.send("CleanupRenderTask", {
-      renderTaskId: this._renderTaskId
-    });
-    InternalRenderTask.#activeRenderTasks.delete(this._renderTaskId);
+    this.#rendererTask?.cancel();
     this.gfx?.endDrawing();
     if (this.#rAF) {
       window.cancelAnimationFrame(this.#rAF);
@@ -17516,10 +17639,8 @@ class InternalRenderTask {
       this.graphicsReadyCallback ||= this._continueBound;
       return;
     }
-    if (!this._rendererWorker) {
-      this.gfx.dependencyTracker?.growOperationsCount(this.operatorList.fnArray.length);
-      this.stepper?.updateOperatorList(this.operatorList);
-    }
+    this.gfx?.dependencyTracker?.growOperationsCount(this.operatorList.fnArray.length);
+    this.stepper?.updateOperatorList(this.operatorList);
     if (this.running) {
       return;
     }
@@ -17550,80 +17671,36 @@ class InternalRenderTask {
     if (this.cancelled) {
       return;
     }
-    if (this._rendererWorker) {
-      await this.#executeOperatorListInWorker();
-      return;
-    }
-    this.operatorListIdx = this.gfx.executeOperatorList(this.operatorList, this.operatorListIdx, this._continueBound, null, this.stepper, this._operationsFilter);
-    if (this.operatorListIdx === this.operatorList.argsArray.length) {
-      this.running = false;
-      if (this.operatorList.lastChunk) {
-        this.gfx.endDrawing();
-        InternalRenderTask.#canvasInUse.delete(this._canvas);
-        this.callback();
-      }
-    }
-  }
-  async #executeOperatorListInWorker() {
     const {
-      rendererHandler,
-      operatorList,
-      operatorListIdx
+      operatorList
     } = this;
-    if (!rendererHandler) {
-      throw new Error("Renderer worker was destroyed during rendering.");
-    }
-    const operatorListArgsArrayLen = operatorList.argsArray.length;
-    const sentLength = this._sentOperatorListLength;
-    const hasNewOps = sentLength < operatorListArgsArrayLen;
-    const fnArray = hasNewOps ? operatorList.fnArray.slice(sentLength, operatorListArgsArrayLen) : null;
-    const argsArray = hasNewOps ? operatorList.argsArray.slice(sentLength, operatorListArgsArrayLen) : null;
-    let operationsFilterMask = null;
-    if (fnArray && this._operationsFilter) {
-      operationsFilterMask = new Uint8Array(fnArray.length);
-      for (let i = 0, ii = fnArray.length; i < ii; i++) {
-        operationsFilterMask[i] = this._operationsFilter(sentLength + i, operatorList) ? 1 : 0;
+    const {
+      lastChunk
+    } = operatorList;
+    if (this.#rendererTask) {
+      this.operatorListIdx = await this.#rendererTask.executeOperatorList(operatorList, this.operatorListIdx, this._operationsFilter);
+      if (this.cancelled) {
+        return;
       }
-    }
-    const sentLastChunk = operatorList.lastChunk;
-    const response = await rendererHandler.sendWithPromise("ExecuteOperatorList", {
-      renderTaskId: this._renderTaskId,
-      fnArray,
-      argsArray,
-      operatorListIdx,
-      operationsFilterMask,
-      lastChunk: sentLastChunk
-    });
-    this.operatorListIdx = response.operatorListIdx;
-    if (response.recordedBBoxesBuffer) {
-      this.recordedBBoxes = BBoxReader.fromBuffer(response.recordedBBoxesBuffer);
-    }
-    if (response.imageCoordinates) {
-      this.imageCoordinates = response.imageCoordinates;
-    }
-    this._sentOperatorListLength = operatorListArgsArrayLen;
-    if (this.cancelled) {
-      return;
-    }
-    if (response.aborted) {
-      throw new Error("Render task was aborted in the renderer worker.");
+      if (this.operatorListIdx !== operatorList.argsArray.length || lastChunk !== operatorList.lastChunk) {
+        this._continue();
+        return;
+      }
+    } else {
+      this.operatorListIdx = this.gfx.executeOperatorList(operatorList, this.operatorListIdx, this._continueBound, null, this.stepper, this._operationsFilter);
     }
     if (this.operatorListIdx === operatorList.argsArray.length) {
       this.running = false;
-      if (sentLastChunk) {
-        InternalRenderTask.#activeRenderTasks.delete(this._renderTaskId);
+      if (lastChunk) {
+        this.gfx?.endDrawing();
         InternalRenderTask.#canvasInUse.delete(this._canvas);
         this.callback();
-      } else if (operatorList.lastChunk) {
-        this._continue();
       }
-    } else {
-      this._continue();
     }
   }
 }
 const version = "6.5.0";
-const build = "89b500f";
+const build = "dcb5136";
 
 ;// ./src/display/editor/color_picker.js
 
