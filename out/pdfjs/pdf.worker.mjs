@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = dcb5136
+ * pdfjsBuild = f5e56f0
  */
 
 ;// ./src/shared/util.js
@@ -17356,37 +17356,34 @@ function recoverGlyphName(name, glyphsUnicodeMap) {
   info("Unable to recover a standard glyph name for: " + name);
   return name;
 }
+function buildMapping(baseEncoding, glyphNames) {
+  const map = new Map();
+  const {
+    length
+  } = baseEncoding;
+  for (let charCode = 0; charCode < length; charCode++) {
+    const glyphId = glyphNames.indexOf(baseEncoding[charCode]);
+    map.set(charCode, glyphId >= 0 ? glyphId : 0);
+  }
+  return map;
+}
 function type1FontGlyphMapping(properties, builtInEncoding, glyphNames) {
-  const charCodeToGlyphId = new Map();
-  let glyphId, baseEncoding;
-  const isSymbolicFont = !!(properties.flags & FontFlags.Symbolic);
+  let charCodeToGlyphId, glyphsUnicodeMap;
   if (properties.isInternalFont) {
-    baseEncoding = builtInEncoding;
-    for (let charCode = 0; charCode < baseEncoding.length; charCode++) {
-      glyphId = glyphNames.indexOf(baseEncoding[charCode]);
-      charCodeToGlyphId.set(charCode, glyphId >= 0 ? glyphId : 0);
-    }
+    charCodeToGlyphId = buildMapping(builtInEncoding, glyphNames);
   } else if (properties.baseEncodingName) {
-    baseEncoding = getEncoding(properties.baseEncodingName);
-    for (let charCode = 0; charCode < baseEncoding.length; charCode++) {
-      glyphId = glyphNames.indexOf(baseEncoding[charCode]);
-      charCodeToGlyphId.set(charCode, glyphId >= 0 ? glyphId : 0);
-    }
-  } else if (isSymbolicFont) {
+    charCodeToGlyphId = buildMapping(getEncoding(properties.baseEncodingName), glyphNames);
+  } else if (properties.flags & FontFlags.Symbolic) {
+    charCodeToGlyphId = new Map();
     for (const charCode in builtInEncoding) {
       charCodeToGlyphId.set(+charCode, builtInEncoding[charCode]);
     }
   } else {
-    baseEncoding = StandardEncoding;
-    for (let charCode = 0; charCode < baseEncoding.length; charCode++) {
-      glyphId = glyphNames.indexOf(baseEncoding[charCode]);
-      charCodeToGlyphId.set(charCode, glyphId >= 0 ? glyphId : 0);
-    }
+    charCodeToGlyphId = buildMapping(StandardEncoding, glyphNames);
   }
-  let glyphsUnicodeMap;
   if (properties.differences) {
     for (const [charCode, glyphName] of properties.differences) {
-      glyphId = glyphNames.indexOf(glyphName);
+      let glyphId = glyphNames.indexOf(glyphName);
       if (glyphId === -1) {
         glyphsUnicodeMap ??= getGlyphsUnicode();
         const standardGlyphName = recoverGlyphName(glyphName, glyphsUnicodeMap);
