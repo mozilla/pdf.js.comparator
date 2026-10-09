@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = f5e56f0
+ * pdfjsBuild = c53f395
  */
 
 ;// ./src/shared/util.js
@@ -492,6 +492,9 @@ class FeatureTest {
   }
   static get isImageDecoderSupported() {
     return shadow(this, "isImageDecoderSupported", typeof ImageDecoder !== "undefined");
+  }
+  static get isVideoFrameSupported() {
+    return shadow(this, "isVideoFrameSupported", typeof VideoFrame !== "undefined");
   }
   static get isFloat16ArraySupported() {
     return shadow(this, "isFloat16ArraySupported", typeof Float16Array !== "undefined");
@@ -1053,6 +1056,9 @@ class RefMap {
   }
   putAlias(ref, aliasRef) {
     this.#map.set(ref.toString(), this.get(aliasRef));
+  }
+  remove(ref) {
+    this.#map.delete(ref.toString());
   }
   getOrPutComputed(ref, callback) {
     const map = this.#map,
@@ -31874,6 +31880,7 @@ class GlobalImageCache {
   static MIN_IMAGES_TO_CACHE = 10;
   static MAX_BYTE_SIZE = 5e7;
   #decodeFailedSet = new RefSet();
+  #decodedImages = new RefMap();
   constructor() {
     this._refCache = new RefMap();
     this._imageCache = new RefMap();
@@ -31904,6 +31911,64 @@ class GlobalImageCache {
   }
   hasDecodeFailed(ref) {
     return this.#decodeFailedSet.has(ref);
+  }
+  startDecodedImage(ref, pageProxyId) {
+    if (!FeatureTest.isVideoFrameSupported) {
+      return;
+    }
+    if (!FeatureTest.platform.isFirefox) {
+      return;
+    }
+    this.#decodedImages.get(ref)?.imgData?.bitmap.close();
+    this.#decodedImages.put(ref, {
+      pageProxyId,
+      imgData: null
+    });
+  }
+  setDecodedImage(ref, imgData) {
+    const entry = this.#decodedImages.get(ref);
+    if (!entry || entry.imgData) {
+      return;
+    }
+    const {
+      bitmap
+    } = imgData;
+    try {
+      if (bitmap instanceof ImageBitmap) {
+        entry.imgData = {
+          ...imgData,
+          bitmap: new VideoFrame(bitmap, {
+            timestamp: 0
+          })
+        };
+      } else if (bitmap instanceof VideoFrame) {
+        entry.imgData = {
+          ...imgData,
+          bitmap: bitmap.clone()
+        };
+      }
+    } catch (reason) {
+      warn(`GlobalImageCache.setDecodedImage - "${reason}".`);
+    }
+    if (!entry.imgData) {
+      this.#decodedImages.remove(ref);
+    }
+  }
+  takeDecodedImage(ref) {
+    const imgData = this.#decodedImages.get(ref)?.imgData;
+    if (!imgData) {
+      return null;
+    }
+    this.#decodedImages.remove(ref);
+    return imgData;
+  }
+  cleanupPage(pageProxyId) {
+    for (const [ref, entry] of this.#decodedImages.items()) {
+      if (entry.pageProxyId === pageProxyId) {
+        entry.imgData?.bitmap.close();
+        this.#decodedImages.remove(ref);
+      }
+    }
   }
   addByteSize(ref, byteSize) {
     const imageData = this._imageCache.get(ref);
@@ -31946,6 +32011,12 @@ class GlobalImageCache {
       this._refCache.clear();
     }
     this._imageCache.clear();
+    for (const {
+      imgData
+    } of this.#decodedImages.values()) {
+      imgData?.bitmap.close();
+    }
+    this.#decodedImages.clear();
   }
 }
 
@@ -34651,6 +34722,7 @@ class PartialEvaluator {
     }
     let objId = `img_${this.idFactory.createObjId()}`,
       cacheGlobally = false,
+      keepDecodedImage = false,
       globalCacheData = null;
     if (this.parsingType3Font) {
       objId = `${this.idFactory.getDocId()}_type3_${objId}`;
@@ -34659,6 +34731,9 @@ class PartialEvaluator {
       if (cacheGlobally) {
         assert(!isInline, "Cannot cache an inline image globally.");
         objId = `${this.idFactory.getDocId()}_${objId}`;
+      } else if (this.pageProxyId !== null) {
+        this.globalImageCache.startDecodedImage(imageRef, this.pageProxyId);
+        keepDecodedImage = true;
       }
     }
     operatorList.addDependency(objId);
@@ -34677,6 +34752,13 @@ class PartialEvaluator {
       if (this.globalImageCache.hasDecodeFailed(imageRef)) {
         this.globalImageCache.setData(imageRef, globalCacheData);
         this._sendImgData(objId, null, cacheGlobally);
+        return;
+      }
+      const decodedImgData = this.globalImageCache.takeDecodedImage(imageRef);
+      if (decodedImgData) {
+        this.globalImageCache.setData(imageRef, globalCacheData);
+        this.globalImageCache.addByteSize(imageRef, decodedImgData.dataLen);
+        this._sendImgData(objId, decodedImgData, cacheGlobally);
         return;
       }
       if (w * h > 250000 || hasMask) {
@@ -34704,6 +34786,8 @@ class PartialEvaluator {
       imgData.ref = imageRef;
       if (cacheGlobally) {
         this.globalImageCache.addByteSize(imageRef, imgData.dataLen);
+      } else if (keepDecodedImage) {
+        this.globalImageCache.setDecodedImage(imageRef, imgData);
       }
       return this._sendImgData(objId, imgData, cacheGlobally);
     }).catch(reason => {
@@ -65129,6 +65213,12 @@ class WorkerMessageHandler {
     });
     handler.on("Cleanup", function () {
       return pdfManager.cleanup(true);
+    });
+    handler.on("CleanupPage", async function ({
+      pageProxyId
+    }) {
+      const globalImageCache = await pdfManager.ensureCatalog("globalImageCache");
+      globalImageCache.cleanupPage(pageProxyId);
     });
     handler.on("Terminate", async function () {
       terminated = true;

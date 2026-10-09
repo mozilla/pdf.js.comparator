@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = f5e56f0
+ * pdfjsBuild = c53f395
  */
 
 ;// ./src/shared/util.js
@@ -492,6 +492,9 @@ class FeatureTest {
   }
   static get isImageDecoderSupported() {
     return shadow(this, "isImageDecoderSupported", typeof ImageDecoder !== "undefined");
+  }
+  static get isVideoFrameSupported() {
+    return shadow(this, "isVideoFrameSupported", typeof VideoFrame !== "undefined");
   }
   static get isFloat16ArraySupported() {
     return shadow(this, "isFloat16ArraySupported", typeof Float16Array !== "undefined");
@@ -2070,7 +2073,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "f12a74d7-ce77-4686-8a1f-7706e44a2716";
+const INTERNAL_EVT = "209e7587-5ac5-437a-b390-c86de96914ba";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -14550,6 +14553,27 @@ class ObjectHandler {
     this.shouldCreatePageObjs = shouldCreatePageObjs;
   }
   resolveCommonObject(id, type, exportedData) {
+    if (type === "CopyLocalImage") {
+      const {
+        imageRef
+      } = exportedData;
+      assert(imageRef, "The imageRef must be defined.");
+      for (const pageOrObjs of this.pageCache.values()) {
+        const objs = pageOrObjs.objs || pageOrObjs;
+        for (const [, data] of objs) {
+          if (data?.ref !== imageRef) {
+            continue;
+          }
+          if (!data.dataLen) {
+            return null;
+          }
+          const copy = structuredClone(data);
+          this.commonObjs.resolve(id, copy);
+          return data.dataLen;
+        }
+      }
+      return null;
+    }
     switch (type) {
       case "Font":
         if ("error" in exportedData) {
@@ -14571,26 +14595,6 @@ class ObjectHandler {
           }
           this.commonObjs.resolve(id, font);
         });
-        break;
-      case "CopyLocalImage":
-        const {
-          imageRef
-        } = exportedData;
-        assert(imageRef, "The imageRef must be defined.");
-        for (const pageOrObjs of this.pageCache.values()) {
-          const objs = pageOrObjs.objs || pageOrObjs;
-          for (const [, data] of objs) {
-            if (data?.ref !== imageRef) {
-              continue;
-            }
-            if (!data.dataLen) {
-              return null;
-            }
-            const copy = structuredClone(data);
-            this.commonObjs.resolve(id, copy);
-            return data.dataLen;
-          }
-        }
         break;
       case "FontPath":
         this.commonObjs.resolve(id, new FontPathInfo(exportedData));
@@ -15397,7 +15401,9 @@ class RendererWorker {
     });
     this.#capability.resolve();
     this.#messageHandler.send("configure", {
-      verbosity: this.verbosity
+      verbosity: this.verbosity,
+      enableHWA: this.#enableHWA,
+      enableWebGPU: this.#enableWebGPU
     });
   }
   #initialize() {
@@ -15472,12 +15478,6 @@ class RendererWorker {
   sendObj(id, pageProxyId, type, data) {
     this.#sendObj("obj", [id, pageProxyId, type, data], id, pageProxyId);
   }
-  async copyLocalImage(id, data, image) {
-    const dataLen = await this.#messageHandler?.sendWithPromise("commonobj", [id, "CopyLocalImage", data]).catch(() => null);
-    if (!dataLen) {
-      this.sendCommonObj(id, "Image", image);
-    }
-  }
   cleanup(keepLoadedFonts) {
     this.#messageHandler?.send("Cleanup", {
       keepLoadedFonts
@@ -15514,8 +15514,6 @@ class RendererWorker {
       initParams: {
         pageProxyId,
         renderTaskId: this.#renderTaskId++,
-        enableHWA: this.#enableHWA,
-        enableWebGPU: this.#enableWebGPU,
         hasAnnotationCanvasMap: !!annotationCanvasMap,
         recordOperations: params.recordOperations,
         recordImages: params.recordImages,
@@ -16578,7 +16576,7 @@ class PDFPageProxy {
       }
     }
     this.objs.clear();
-    this._transport.rendererWorker?.cleanupPage(this._id);
+    this._transport.cleanupPage(this._id);
     this.#pendingCleanup = false;
     return Promise.all(waitOn);
   }
@@ -16604,7 +16602,7 @@ class PDFPageProxy {
     }
     this._intentStates.clear();
     this.objs.clear();
-    this._transport.rendererWorker?.cleanupPage(this._id);
+    this._transport.cleanupPage(this._id);
     this.#pendingCleanup = false;
     return true;
   }
@@ -17183,17 +17181,21 @@ class WorkerTransport {
       const {
         rendererWorker
       } = this;
-      if (type !== "CopyLocalImage") {
-        rendererWorker?.sendCommonObj(id, type, exportedData);
+      if (type === "CopyLocalImage") {
+        if (this.commonObjs.has(id)) {
+          return null;
+        }
+        const dataLen = objectHandler.resolveCommonObject(id, type, exportedData);
+        if (dataLen) {
+          rendererWorker?.sendCommonObj(id, "Image", this.commonObjs.get(id));
+        }
+        return dataLen;
       }
-      if (this.commonObjs.has(id)) {
-        return null;
+      rendererWorker?.sendCommonObj(id, type, exportedData);
+      if (!this.commonObjs.has(id)) {
+        objectHandler.resolveCommonObject(id, type, exportedData);
       }
-      const dataLen = objectHandler.resolveCommonObject(id, type, exportedData);
-      if (dataLen && rendererWorker) {
-        return rendererWorker.copyLocalImage(id, exportedData, this.commonObjs.get(id)).then(() => dataLen);
-      }
-      return dataLen;
+      return null;
     });
     messageHandler.on("obj", ([id, pageProxyId, type, imageData]) => {
       if (this.destroyed) {
@@ -17447,6 +17449,14 @@ class WorkerTransport {
     this.#methodPromises.clear();
     this.filterFactory.destroy(true);
     TextLayer.cleanup();
+  }
+  cleanupPage(pageProxyId) {
+    if (!this.destroyed) {
+      this.messageHandler.send("CleanupPage", {
+        pageProxyId
+      });
+    }
+    this.rendererWorker?.cleanupPage(pageProxyId);
   }
   cachedPageNumber(ref) {
     if (!isRefProxy(ref)) {
@@ -17709,7 +17719,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.5.0";
-const build = "f5e56f0";
+const build = "c53f395";
 
 ;// ./src/display/editor/color_picker.js
 
