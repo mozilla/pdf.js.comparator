@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = 519c1ba
+ * pdfjsBuild = 24176a9
  */
 
 ;// ./src/shared/util.js
@@ -2073,7 +2073,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "bbd050f2-1f1f-4462-ae1b-2e018b0002b9";
+const INTERNAL_EVT = "d281635b-f826-4c86-af84-a0146b12cb2a";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -9825,12 +9825,12 @@ class TransferMapsFallback {
     ctx.putImageData(imgData, 0, 0);
   }
 }
-function getImageSmoothingEnabled(transform, interpolate) {
+function getImageSmoothingEnabled(transform, interpolate, pixelRatio) {
   if (interpolate) {
     return true;
   }
   Util.singularValueDecompose2dScale(transform, XY);
-  const actualScale = Math.fround(OutputScale.pixelRatio * PixelsPerInch.PDF_TO_CSS_UNITS);
+  const actualScale = Math.fround(pixelRatio * PixelsPerInch.PDF_TO_CSS_UNITS);
   return XY[0] <= actualScale && XY[1] <= actualScale;
 }
 const LINE_CAP_STYLES = ["butt", "round", "square"];
@@ -9851,7 +9851,8 @@ class CanvasGraphics {
   #groupStackMeta = [];
   constructor(canvasCtx, commonObjs, objs, canvasFactory, filterFactory, {
     optionalContentConfig,
-    markedContentStack = null
+    markedContentStack = null,
+    pixelRatio = OutputScale.pixelRatio
   }, annotationCanvasMap, pageColors, dependencyTracker, imagesTracker) {
     this.ctx = canvasCtx;
     this.current = new CanvasExtraState(this.ctx.canvas.width, this.ctx.canvas.height);
@@ -9878,6 +9879,7 @@ class CanvasGraphics {
     this.contentVisible = true;
     this.markedContentStack = markedContentStack || [];
     this.optionalContentConfig = optionalContentConfig;
+    this.pixelRatio = pixelRatio;
     this.cachedPatterns = new Map();
     this.annotationCanvasMap = annotationCanvasMap;
     this.viewportScale = 1;
@@ -10189,7 +10191,7 @@ class CanvasGraphics {
         maskCanvas = null;
       }
     }
-    fillCtx.imageSmoothingEnabled = getImageSmoothingEnabled(getCurrentTransform(fillCtx), img.interpolate);
+    fillCtx.imageSmoothingEnabled = getImageSmoothingEnabled(getCurrentTransform(fillCtx), img.interpolate, this.pixelRatio);
     drawImageAtIntegerCoords(fillCtx, scaled, 0, 0, scaled.width, scaled.height, 0, 0, width, height);
     if (scaledEntry) {
       this.canvasFactory.destroy(scaledEntry);
@@ -11401,7 +11403,8 @@ class CanvasGraphics {
       const canvasGraphicsFactory = {
         createCanvasGraphics: (ctx, renderingOpIdx) => new CanvasGraphics(ctx, this.commonObjs, this.objs, this.canvasFactory, this.filterFactory, {
           optionalContentConfig: this.optionalContentConfig,
-          markedContentStack: this.markedContentStack
+          markedContentStack: this.markedContentStack,
+          pixelRatio: this.pixelRatio
         }, undefined, undefined, this.dependencyTracker ? new CanvasNestedDependencyTracker(this.dependencyTracker, renderingOpIdx, true) : null)
       };
       pattern = new TilingPattern(IR, this.ctx, canvasGraphicsFactory, baseTransform);
@@ -12035,7 +12038,7 @@ class CanvasGraphics {
       inlineImgCanvas = tmpCanvas;
     }
     const scaled = this._scaleImage(imgToPaint, getCurrentTransformInverse(ctx));
-    ctx.imageSmoothingEnabled = getImageSmoothingEnabled(getCurrentTransform(ctx), imgData.interpolate);
+    ctx.imageSmoothingEnabled = getImageSmoothingEnabled(getCurrentTransform(ctx), imgData.interpolate, this.pixelRatio);
     if (this.dependencyTracker) {
       this.dependencyTracker.resetBBox(opIdx).recordBBox(opIdx, ctx, 0, width, -height, 0).recordDependencies(opIdx, Dependencies.imageXObject).recordOperation(opIdx);
       this.imagesTracker?.record(ctx, width, height, this.dependencyTracker.clipBox);
@@ -15200,6 +15203,7 @@ class PagesMapper {
 
 
 
+
 function closeFrame({
   bitmap,
   annotationBitmaps
@@ -15520,7 +15524,8 @@ class RendererWorker {
         partialFrames: params.partialFrames,
         transform: params.transform,
         viewport: params.viewport,
-        background
+        background,
+        pixelRatio: OutputScale.pixelRatio
       },
       onFrame,
       onError
@@ -17719,7 +17724,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.5.0";
-const build = "519c1ba";
+const build = "24176a9";
 
 ;// ./src/display/editor/color_picker.js
 
