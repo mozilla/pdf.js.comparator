@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = 24176a9
+ * pdfjsBuild = d34302b
  */
 
 ;// ./src/shared/util.js
@@ -2073,7 +2073,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "d281635b-f826-4c86-af84-a0146b12cb2a";
+const INTERNAL_EVT = "a0e09896-9223-4a35-8d2b-7802dda2897d";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -7736,6 +7736,12 @@ class BaseCanvasFactory {
     canvas.width = canvas.height = 0;
     canvasAndContext.canvas = null;
     canvasAndContext.context = null;
+  }
+  getNoAlphaContext(canvas) {
+    return canvas.getContext("2d", {
+      alpha: false,
+      willReadFrequently: !this.#enableHWA
+    });
   }
   _createCanvas(width, height) {
     unreachable("Abstract method `_createCanvas` called.");
@@ -16025,7 +16031,6 @@ function getDocument(src = {}) {
     ownerDocument,
     pdfBug,
     styleElement,
-    enableHWA,
     rendererWorker: null,
     loadingParams: {
       disableAutoFetch,
@@ -16474,7 +16479,6 @@ class PDFPageProxy {
       useRequestAnimationFrame: !intentPrint,
       pdfBug: this._pdfBug,
       pageColors,
-      enableHWA: this._transport.enableHWA,
       operationsFilter,
       rendererWorker: this._transport.rendererWorker
     });
@@ -16927,7 +16931,6 @@ class WorkerTransport {
       ownerDocument: params.ownerDocument,
       styleElement: params.styleElement
     });
-    this.enableHWA = params.enableHWA;
     this.rendererWorker = params.rendererWorker;
     this.loadingParams = params.loadingParams;
     this._params = params;
@@ -17529,7 +17532,6 @@ class InternalRenderTask {
     useRequestAnimationFrame = false,
     pdfBug = false,
     pageColors = null,
-    enableHWA = false,
     operationsFilter = null,
     rendererWorker = null
   }) {
@@ -17558,7 +17560,6 @@ class InternalRenderTask {
     this._nextBound = this._next.bind(this);
     this._canvas = params.canvas;
     this._canvasContext = params.canvas ? null : params.canvasContext;
-    this._enableHWA = enableHWA;
     this._operationsFilter = operationsFilter;
     this.#rendererTask = rendererWorker?.createRenderTask({
       pageProxyId,
@@ -17618,10 +17619,7 @@ class InternalRenderTask {
         recordImages,
         recordForDebugger
       } = this.params;
-      const canvasContext = this._canvasContext || this._canvas.getContext("2d", {
-        alpha: false,
-        willReadFrequently: !this._enableHWA
-      });
+      const canvasContext = this._canvasContext || this.canvasFactory.getNoAlphaContext(this._canvas);
       const {
         dependencyTracker,
         imagesTracker
@@ -17724,7 +17722,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.5.0";
-const build = "24176a9";
+const build = "d34302b";
 
 ;// ./src/display/editor/color_picker.js
 
