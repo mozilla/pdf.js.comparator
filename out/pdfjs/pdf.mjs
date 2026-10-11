@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = d34302b
+ * pdfjsBuild = da95557
  */
 
 ;// ./src/shared/util.js
@@ -2073,7 +2073,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "a0e09896-9223-4a35-8d2b-7802dda2897d";
+const INTERNAL_EVT = "731583ec-bed3-459f-8e88-21e5d4faf51e";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -15226,13 +15226,14 @@ class WorkerRenderTask {
   #cancelled = false;
   #canvas;
   #canvasFactory;
+  #filteredLength = 0;
   #id;
   #initParams;
   #onError;
   #onFrame;
+  #operatorListState;
   #rendererWorker;
   #renderTasks;
-  #sentLength = 0;
   imageCoordinates = null;
   recordedBBoxes = null;
   constructor({
@@ -15241,6 +15242,7 @@ class WorkerRenderTask {
     canvas,
     canvasFactory,
     annotationCanvasMap,
+    operatorListState,
     initParams,
     onFrame,
     onError
@@ -15250,6 +15252,7 @@ class WorkerRenderTask {
     this.#canvas = canvas;
     this.#canvasFactory = canvasFactory;
     this.#annotationCanvasMap = annotationCanvasMap;
+    this.#operatorListState = operatorListState;
     this.#initParams = initParams;
     this.#id = initParams.renderTaskId;
     this.#onFrame = onFrame;
@@ -15285,30 +15288,34 @@ class WorkerRenderTask {
     const {
       lastChunk
     } = operatorList;
-    const start = this.#sentLength,
-      end = operatorList.argsArray.length;
-    let fnArray = null,
-      argsArray = null,
-      operationsFilterMask = null;
-    if (start < end) {
-      fnArray = operatorList.fnArray.slice(start, end);
-      argsArray = operatorList.argsArray.slice(start, end);
-      if (operationsFilter) {
-        operationsFilterMask = new Uint8Array(end - start);
-        for (let i = start; i < end; i++) {
-          operationsFilterMask[i - start] = operationsFilter(i, operatorList) ? 1 : 0;
-        }
+    const end = operatorList.argsArray.length;
+    const operatorListState = this.#operatorListState;
+    if (operatorListState.sentLength < end) {
+      const start = operatorListState.sentLength;
+      handler.send("AppendOperatorList", {
+        pageProxyId: this.#initParams.pageProxyId,
+        operatorListId: operatorListState.id,
+        fnArray: operatorList.fnArray.slice(start, end),
+        argsArray: operatorList.argsArray.slice(start, end)
+      });
+      operatorListState.sentLength = end;
+    }
+    let operationsFilterMask = null;
+    if (operationsFilter && this.#filteredLength < end) {
+      const start = this.#filteredLength;
+      operationsFilterMask = new Uint8Array(end - start);
+      for (let i = start; i < end; i++) {
+        operationsFilterMask[i - start] = operationsFilter(i, operatorList) ? 1 : 0;
       }
+      this.#filteredLength = end;
     }
     const response = await handler.sendWithPromise("ExecuteOperatorList", {
       renderTaskId: this.#id,
-      fnArray,
-      argsArray,
       operatorListIdx,
+      operatorListLength: end,
       operationsFilterMask,
       lastChunk
     });
-    this.#sentLength = end;
     if (response.aborted && !this.#cancelled) {
       throw new Error("Render task was aborted in the renderer worker.");
     }
@@ -15377,6 +15384,8 @@ class RendererWorker {
   #enableHWA;
   #enableWebGPU;
   #messageHandler = null;
+  #operatorListId = 0;
+  #operatorLists = new WeakMap();
   #renderTaskId = 0;
   #renderTasks = new Map();
   #webWorker = null;
@@ -15500,6 +15509,7 @@ class RendererWorker {
   }
   createRenderTask({
     pageProxyId,
+    operatorList,
     params,
     pageColors,
     canvasFactory,
@@ -15515,14 +15525,20 @@ class RendererWorker {
     if (!this.#messageHandler || canvasContext || background && typeof background !== "string" || pageColors || params.recordForDebugger) {
       return null;
     }
+    const operatorListState = this.#operatorLists.getOrInsertComputed(operatorList, () => ({
+      id: this.#operatorListId++,
+      sentLength: 0
+    }));
     return new WorkerRenderTask({
       rendererWorker: this,
       renderTasks: this.#renderTasks,
       canvas,
       canvasFactory,
       annotationCanvasMap,
+      operatorListState,
       initParams: {
         pageProxyId,
+        operatorListId: operatorListState.id,
         renderTaskId: this.#renderTaskId++,
         hasAnnotationCanvasMap: !!annotationCanvasMap,
         recordOperations: params.recordOperations,
@@ -17563,6 +17579,7 @@ class InternalRenderTask {
     this._operationsFilter = operationsFilter;
     this.#rendererTask = rendererWorker?.createRenderTask({
       pageProxyId,
+      operatorList,
       params,
       pageColors,
       canvasFactory,
@@ -17722,7 +17739,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.5.0";
-const build = "d34302b";
+const build = "da95557";
 
 ;// ./src/display/editor/color_picker.js
 
