@@ -7,12 +7,12 @@
     "abseil": {
       "repo": "https://github.com/abseil/abseil-cpp.git",
       "ref": "HEAD",
-      "commit": "d292c59c4b88018a8e0532bf5bd3d173513f4921"
+      "commit": "511e3f4b7ee50848e52dad3b054887e19def5ad8"
     },
     "fast_float": {
       "repo": "https://github.com/fastfloat/fast_float.git",
       "ref": "HEAD",
-      "commit": "033f64f6088bb00690858ce59bc8c7fd0566384a"
+      "commit": "166d2b3df29cf8101bb715bde2125610881df791"
     },
     "dragonbox": {
       "repo": "https://github.com/jk-jeon/dragonbox.git",
@@ -20,5 +20,5 @@
       "commit": "beeeef91cf6fef89a4d4ba5e95d47ca64ccb3a44"
     }
   },
-  "fingerprint": "pdfium=59ea54cce0179db3269c4c58874249597ca3b118;fast_float=033f64f6088bb00690858ce59bc8c7fd0566384a;abseil=d292c59c4b88018a8e0532bf5bd3d173513f4921;dragonbox=beeeef91cf6fef89a4d4ba5e95d47ca64ccb3a44"
+  "fingerprint": "pdfium=59ea54cce0179db3269c4c58874249597ca3b118;fast_float=166d2b3df29cf8101bb715bde2125610881df791;abseil=511e3f4b7ee50848e52dad3b054887e19def5ad8;dragonbox=beeeef91cf6fef89a4d4ba5e95d47ca64ccb3a44"
 }
