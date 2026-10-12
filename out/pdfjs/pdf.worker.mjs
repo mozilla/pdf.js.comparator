@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = e0b4f47
+ * pdfjsBuild = 68f5e21
  */
 
 ;// ./src/shared/util.js
@@ -9676,7 +9676,7 @@ async function JBig2(moduleArg = {}) {
 
 
 class WasmImage {
-  static #handler = null;
+  static #getHandler = null;
   static #instances = new Set();
   static #useWasm = true;
   static #useWorkerFetch = true;
@@ -9686,7 +9686,7 @@ class WasmImage {
   _filename = null;
   _noWasmFilename = null;
   static setOptions({
-    handler,
+    getHandler,
     useWasm,
     useWorkerFetch,
     wasmUrl
@@ -9695,7 +9695,7 @@ class WasmImage {
     WasmImage.#useWorkerFetch = useWorkerFetch;
     WasmImage.#wasmUrl = wasmUrl;
     if (!useWorkerFetch) {
-      WasmImage.#handler = handler;
+      WasmImage.#getHandler = getHandler;
     }
   }
   static get instance() {
@@ -9730,7 +9730,7 @@ class WasmImage {
         if (WasmImage.#useWorkerFetch) {
           this.#buffer = await fetchBinaryData(`${WasmImage.#wasmUrl}${this._filename}`);
         } else {
-          this.#buffer = await WasmImage.#handler.sendWithPromise("FetchBinaryData", {
+          this.#buffer = await WasmImage.#getHandler().sendWithPromise("FetchBinaryData", {
             kind: "wasmUrl",
             filename: this._filename
           });
@@ -60840,6 +60840,8 @@ function parseDocBaseUrl(url) {
   return null;
 }
 class BasePdfManager {
+  static #handlers = new Set();
+  #handler = null;
   constructor({
     docBaseUrl,
     docId,
@@ -60850,8 +60852,10 @@ class BasePdfManager {
   }) {
     this._docBaseUrl = parseDocBaseUrl(docBaseUrl);
     this._docId = docId;
+    this.#handler = handler;
     this._password = password;
     this.enableXfa = enableXfa;
+    BasePdfManager.#handlers.add(handler);
     evaluatorOptions.isOffscreenCanvasSupported &&= FeatureTest.isOffscreenCanvasSupported;
     evaluatorOptions.isImageDecoderSupported &&= FeatureTest.isImageDecoderSupported;
     this.evaluatorOptions = Object.freeze(evaluatorOptions);
@@ -60860,7 +60864,7 @@ class BasePdfManager {
     OperatorList.setOptions(evaluatorOptions);
     const options = {
       ...evaluatorOptions,
-      handler
+      getHandler: () => this.#handler ?? BasePdfManager.#handlers.keys().next().value
     };
     IccColorSpace.setOptions(options);
     CmykICCBasedCS.setOptions(options);
@@ -60916,7 +60920,8 @@ class BasePdfManager {
     this.pdfDocument.xref.encrypt?.setPassword(password);
   }
   terminate(reason) {
-    unreachable("Abstract method `terminate` called");
+    BasePdfManager.#handlers.delete(this.#handler);
+    this.#handler = null;
   }
 }
 class LocalPdfManager extends BasePdfManager {
@@ -60933,7 +60938,6 @@ class LocalPdfManager extends BasePdfManager {
   requestLoadedStream(noFetch = false) {
     return this._loadedStreamPromise;
   }
-  terminate(reason) {}
 }
 class NetworkPdfManager extends BasePdfManager {
   constructor(args) {
@@ -60970,6 +60974,7 @@ class NetworkPdfManager extends BasePdfManager {
     });
   }
   terminate(reason) {
+    super.terminate(reason);
     this.streamManager.abort(reason);
   }
 }
