@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = 68f5e21
+ * pdfjsBuild = e1412d3
  */
 
 ;// ./src/shared/util.js
@@ -39984,6 +39984,12 @@ class StructTreeRoot {
           if (objRef) {
             const tagDict = xref.fetch(objRef).clone();
             StructTreeRoot.#writeProperties(tagDict, accessibilityData);
+            if (!accessibilityData.alt) {
+              tagDict.delete("Alt");
+              if (!accessibilityData.actualText) {
+                tagDict.delete("ActualText");
+              }
+            }
             changes.put(objRef, {
               data: tagDict
             });
@@ -53744,7 +53750,7 @@ class Annotation {
     } = this.data;
     let appearance = this.appearance;
     const isUsingOwnCanvas = !!(hasOwnCanvas && intent & RenderingIntentFlag.DISPLAY && (!this._ownCanvasRequiresForms || intent & RenderingIntentFlag.ANNOTATIONS_FORMS));
-    if (isUsingOwnCanvas && (this.width === 0 || this.height === 0)) {
+    if (isUsingOwnCanvas && !this._hasCanvasSize) {
       this.data.hasOwnCanvas = false;
       return this._getOperatorListNoAppearance();
     }
@@ -53924,6 +53930,13 @@ class Annotation {
   }
   get height() {
     return this.data.rect[3] - this.data.rect[1];
+  }
+  get _hasCanvasSize() {
+    const {
+      width,
+      height
+    } = this;
+    return width > 0 && height > 0 && Number.isFinite(width + height);
   }
 }
 class AnnotationBorderStyle {
@@ -54310,7 +54323,7 @@ class WidgetAnnotation extends Annotation {
       return super.getOperatorList(evaluator, task, intent, annotationStorage);
     }
     const isUsingOwnCanvas = !!(this.data.hasOwnCanvas && intent & RenderingIntentFlag.DISPLAY);
-    if (isUsingOwnCanvas && (this.width === 0 || this.height === 0)) {
+    if (isUsingOwnCanvas && !this._hasCanvasSize) {
       this.data.hasOwnCanvas = false;
       return this._getOperatorListNoAppearance();
     }
@@ -61000,8 +61013,8 @@ function wrapReason(ex) {
   if (ex instanceof AbortException || ex instanceof InvalidPDFException || ex instanceof PasswordException || ex instanceof ResponseException || ex instanceof UnknownErrorException) {
     return ex;
   }
-  if (!(ex instanceof Error || typeof ex === "object" && ex !== null)) {
-    unreachable('wrapReason: Expected "reason" to be a (possibly cloned) Error.');
+  if (typeof ex !== "object" || ex === null) {
+    return new UnknownErrorException(String(ex), String(ex));
   }
   switch (ex.name) {
     case "AbortException":
@@ -61223,7 +61236,6 @@ class MessageHandler {
         streamSinks.delete(streamId);
       },
       error(reason) {
-        assert(reason instanceof Error, "error must have a valid reason");
         if (this.isCancelled) {
           return;
         }

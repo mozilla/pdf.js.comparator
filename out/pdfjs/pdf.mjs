@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = 68f5e21
+ * pdfjsBuild = e1412d3
  */
 
 ;// ./src/shared/util.js
@@ -2073,7 +2073,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "55e81664-9b80-44ec-8ff8-a3b7e778ed50";
+const INTERNAL_EVT = "9cb94a57-de06-4c8f-8dbd-2edeac6d9f5c";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -3877,7 +3877,7 @@ class AnnotationEditorUIManager {
     this.#commandManager.undo();
     this.#dispatchUpdateStates({
       hasSomethingToUndo: this.#commandManager.hasSomethingToUndo(),
-      hasSomethingToRedo: true,
+      hasSomethingToRedo: this.#commandManager.hasSomethingToRedo(),
       isEmpty: this.#isEmpty()
     });
     this._editorUndoBar?.hide();
@@ -3885,7 +3885,7 @@ class AnnotationEditorUIManager {
   redo() {
     this.#commandManager.redo();
     this.#dispatchUpdateStates({
-      hasSomethingToUndo: true,
+      hasSomethingToUndo: this.#commandManager.hasSomethingToUndo(),
       hasSomethingToRedo: this.#commandManager.hasSomethingToRedo(),
       isEmpty: this.#isEmpty()
     });
@@ -7254,8 +7254,8 @@ function wrapReason(ex) {
   if (ex instanceof AbortException || ex instanceof InvalidPDFException || ex instanceof PasswordException || ex instanceof ResponseException || ex instanceof UnknownErrorException) {
     return ex;
   }
-  if (!(ex instanceof Error || typeof ex === "object" && ex !== null)) {
-    unreachable('wrapReason: Expected "reason" to be a (possibly cloned) Error.');
+  if (typeof ex !== "object" || ex === null) {
+    return new UnknownErrorException(String(ex), String(ex));
   }
   switch (ex.name) {
     case "AbortException":
@@ -7477,7 +7477,6 @@ class MessageHandler {
         streamSinks.delete(streamId);
       },
       error(reason) {
-        assert(reason instanceof Error, "error must have a valid reason");
         if (this.isCancelled) {
           return;
         }
@@ -9354,34 +9353,37 @@ class TilingPattern {
     if (dependencyTracker) {
       owner.dependencyTracker = new CanvasNestedDependencyTracker(dependencyTracker, opIdx);
     }
-    owner.save();
-    if (useEOFill) {
-      owner.ctx.clip(path, "evenodd");
-    } else {
-      owner.ctx.clip(path);
-    }
-    owner.ctx.setTransform(...this.patternBaseMatrix);
-    owner.ctx.translate(n * this.xstep, m * this.ystep);
-    if (this.needsIsolation || owner.ctx.globalAlpha !== 1 || owner.ctx.globalCompositeOperation !== "source-over" || owner.inSMaskMode) {
-      const bboxWidth = x1 - x0;
-      const bboxHeight = y1 - y0;
-      const [combinedScaleX, combinedScaleY] = this._getCombinedScales();
-      const dimx = this.getSizeAndScale(bboxWidth, this.ctx.canvas.width, combinedScaleX);
-      const dimy = this.getSizeAndScale(bboxHeight, this.ctx.canvas.height, combinedScaleY);
-      const tmpCanvas = this._renderTileCanvas(owner, opIdx, dimx, dimy);
-      owner.ctx.drawImage(tmpCanvas.canvas, x0, y0, bboxWidth, bboxHeight);
-      owner.canvasFactory.destroy(tmpCanvas);
-    } else {
-      this.setFillAndStrokeStyleToContext(owner, this.paintType, this.color);
-      this.clipBbox(owner, x0, y0, x1, y1);
-      owner.baseTransformStack.push(owner.baseTransform);
-      owner.baseTransform = getCurrentTransform(owner.ctx);
-      owner.executeOperatorList(this.operatorList);
-      owner.baseTransform = owner.baseTransformStack.pop();
-    }
-    owner.restore();
-    if (dependencyTracker) {
-      owner.dependencyTracker = dependencyTracker;
+    try {
+      owner.save();
+      if (useEOFill) {
+        owner.ctx.clip(path, "evenodd");
+      } else {
+        owner.ctx.clip(path);
+      }
+      owner.ctx.setTransform(...this.patternBaseMatrix);
+      owner.ctx.translate(n * this.xstep, m * this.ystep);
+      if (this.needsIsolation || owner.ctx.globalAlpha !== 1 || owner.ctx.globalCompositeOperation !== "source-over" || owner.inSMaskMode) {
+        const bboxWidth = x1 - x0;
+        const bboxHeight = y1 - y0;
+        const [combinedScaleX, combinedScaleY] = this._getCombinedScales();
+        const dimx = this.getSizeAndScale(bboxWidth, this.ctx.canvas.width, combinedScaleX);
+        const dimy = this.getSizeAndScale(bboxHeight, this.ctx.canvas.height, combinedScaleY);
+        const tmpCanvas = this._renderTileCanvas(owner, opIdx, dimx, dimy);
+        owner.ctx.drawImage(tmpCanvas.canvas, x0, y0, bboxWidth, bboxHeight);
+        owner.canvasFactory.destroy(tmpCanvas);
+      } else {
+        this.setFillAndStrokeStyleToContext(owner, this.paintType, this.color);
+        this.clipBbox(owner, x0, y0, x1, y1);
+        owner.baseTransformStack.push(owner.baseTransform);
+        owner.baseTransform = getCurrentTransform(owner.ctx);
+        owner.executeOperatorList(this.operatorList);
+        owner.baseTransform = owner.baseTransformStack.pop();
+      }
+      owner.restore();
+    } finally {
+      if (dependencyTracker) {
+        owner.dependencyTracker = dependencyTracker;
+      }
     }
   }
   createPatternCanvas(owner, opIdx) {
@@ -9845,6 +9847,7 @@ const NORMAL_CLIP = {};
 const EO_CLIP = {};
 class CanvasGraphics {
   static #SCALE_MATRIX = null;
+  static #pathCaches = new WeakMap();
   #knockoutGroupLevel = 0;
   #knockoutElementDepth = 0;
   #knockoutTempCanvasEntry = null;
@@ -9941,7 +9944,7 @@ class CanvasGraphics {
     const argsArray = operatorList.argsArray;
     const fnArray = operatorList.fnArray;
     const prevPathCache = this._pathCache;
-    this._pathCache = operatorList.pathCache ||= new Map();
+    this._pathCache = operatorList.pathCache ?? CanvasGraphics.#pathCaches.getOrInsertComputed(operatorList, makeMap);
     try {
       let i = executionStartIdx || 0;
       const argsArrayLen = argsArray.length;
@@ -11360,39 +11363,42 @@ class CanvasGraphics {
     ctx.scale(textHScale, fontDirection);
     const dependencyTracker = this.dependencyTracker;
     this.dependencyTracker = dependencyTracker ? new CanvasNestedDependencyTracker(dependencyTracker, opIdx) : null;
-    for (i = 0; i < glyphsLength; ++i) {
-      glyph = glyphs[i];
-      if (typeof glyph === "number") {
-        spacingLength = spacingDir * glyph * fontSize / 1000;
-        this.ctx.translate(spacingLength, 0);
-        current.x += spacingLength * textHScale;
-        continue;
-      }
-      const spacing = (glyph.isSpace ? wordSpacing : 0) + charSpacing;
-      const operatorList = font.charProcOperatorList.get(glyph.operatorListId);
-      if (!operatorList) {
-        warn(`Type3 character "${glyph.operatorListId}" is not available.`);
-      } else if (this.contentVisible) {
-        this.save();
-        if (operatorList.fnArray[0] === OPS.setCharWidth) {
-          current.fillAlpha = current.strokeAlpha = 1;
-          ctx.globalAlpha = 1;
+    try {
+      for (i = 0; i < glyphsLength; ++i) {
+        glyph = glyphs[i];
+        if (typeof glyph === "number") {
+          spacingLength = spacingDir * glyph * fontSize / 1000;
+          this.ctx.translate(spacingLength, 0);
+          current.x += spacingLength * textHScale;
+          continue;
         }
-        ctx.scale(fontSize, fontSize);
-        ctx.transform(...fontMatrix);
-        this.executeOperatorList(operatorList);
-        this.restore();
+        const spacing = (glyph.isSpace ? wordSpacing : 0) + charSpacing;
+        const operatorList = font.charProcOperatorList.get(glyph.operatorListId);
+        if (!operatorList) {
+          warn(`Type3 character "${glyph.operatorListId}" is not available.`);
+        } else if (this.contentVisible) {
+          this.save();
+          if (operatorList.fnArray[0] === OPS.setCharWidth) {
+            current.fillAlpha = current.strokeAlpha = 1;
+            ctx.globalAlpha = 1;
+          }
+          ctx.scale(fontSize, fontSize);
+          ctx.transform(...fontMatrix);
+          this.executeOperatorList(operatorList);
+          this.restore();
+        }
+        const p = [glyph.width, 0];
+        Util.applyTransform(p, fontMatrix);
+        width = p[0] * fontSize + spacing;
+        ctx.translate(width, 0);
+        current.x += width * textHScale;
       }
-      const p = [glyph.width, 0];
-      Util.applyTransform(p, fontMatrix);
-      width = p[0] * fontSize + spacing;
-      ctx.translate(width, 0);
-      current.x += width * textHScale;
+    } finally {
+      if (dependencyTracker) {
+        this.dependencyTracker = dependencyTracker;
+      }
     }
     ctx.restore();
-    if (dependencyTracker) {
-      this.dependencyTracker = dependencyTracker;
-    }
   }
   setCharWidth(opIdx, xWidth, yWidth) {}
   setCharWidthAndBounds(opIdx, xWidth, yWidth, llx, lly, urx, ury) {
@@ -14950,6 +14956,7 @@ class PagesMapper {
   #pageNumberToId = null;
   #prevPageNumbers = null;
   #pagesNumber = 0;
+  #initialPagesNumber = 0;
   #clipboard = null;
   #savedData = null;
   get pagesNumber() {
@@ -14959,7 +14966,7 @@ class PagesMapper {
     if (this.#pagesNumber === n) {
       return;
     }
-    this.#pagesNumber = n;
+    this.#pagesNumber = this.#initialPagesNumber = n;
     this.#pageNumberToId = null;
     this.#prevPageNumbers = null;
   }
@@ -15016,7 +15023,7 @@ class PagesMapper {
     prevPageNumbers.copyWithin(adjustedTarget + movedCount, adjustedTarget, remainingLen);
     prevPageNumbers.set(pagesToMove, adjustedTarget);
     this.#prevPageNumbers = prevPageNumbers;
-    if (pageNumberToId.every((id, i) => id === i + 1)) {
+    if (pagesNumber === this.#initialPagesNumber && pageNumberToId.every((id, i) => id === i + 1)) {
       this.#pageNumberToId = null;
     }
   }
@@ -15214,7 +15221,7 @@ function closeFrame({
   bitmap,
   annotationBitmaps
 }) {
-  bitmap.close();
+  bitmap?.close();
   if (annotationBitmaps) {
     for (const [,, annotationBitmap] of annotationBitmaps) {
       annotationBitmap.close();
@@ -15341,10 +15348,10 @@ class WorkerRenderTask {
   }
   drawFrame(frame) {
     try {
-      const ctx = this.#canvas.getContext("2d", {
-        alpha: false
-      });
-      ctx.drawImage(frame.bitmap, 0, 0);
+      if (frame.bitmap) {
+        const ctx = this.#canvasFactory.getNoAlphaContext(this.#canvas);
+        ctx.drawImage(frame.bitmap, 0, 0);
+      }
       if (frame.annotationBitmaps) {
         this.#drawAnnotationCanvases(frame.annotationBitmaps);
       }
@@ -16441,7 +16448,7 @@ class PDFPageProxy {
           recordedBBoxes
         } = internalRenderTask;
         if (recordedBBoxes) {
-          internalRenderTask.stepper?.setOperatorBBoxes(recordedBBoxes, internalRenderTask.gfx.dependencyTracker.takeDebugMetadata());
+          internalRenderTask.stepper?.setOperatorBBoxes(recordedBBoxes, internalRenderTask.debugMetadata);
           if (recordOperations) {
             this.recordedBBoxes = recordedBBoxes;
           }
@@ -17531,6 +17538,8 @@ class RenderTask {
   }
 }
 class InternalRenderTask {
+  #dependencyTracker = null;
+  #imagesTracker = null;
   #rAF = null;
   #rendererTask = null;
   static #canvasInUse = new WeakSet();
@@ -17595,10 +17604,13 @@ class InternalRenderTask {
     return !!this.#rendererTask;
   }
   get imageCoordinates() {
-    return this.#rendererTask ? this.#rendererTask.imageCoordinates : this.gfx?.imagesTracker?.take();
+    return this.#rendererTask ? this.#rendererTask.imageCoordinates : this.#imagesTracker?.take();
   }
   get recordedBBoxes() {
-    return this.#rendererTask ? this.#rendererTask.recordedBBoxes : this.gfx?.dependencyTracker?.take();
+    return this.#rendererTask ? this.#rendererTask.recordedBBoxes : this.#dependencyTracker?.take();
+  }
+  get debugMetadata() {
+    return this.#dependencyTracker?.takeDebugMetadata() ?? null;
   }
   async initializeGraphics({
     transparency = false,
@@ -17645,6 +17657,8 @@ class InternalRenderTask {
         recordImages,
         recordDebugMetadata: recordForDebugger
       });
+      this.#dependencyTracker = dependencyTracker;
+      this.#imagesTracker = imagesTracker;
       this.gfx = new CanvasGraphics(canvasContext, this.commonObjs, this.objs, this.canvasFactory, this.filterFactory, {
         optionalContentConfig
       }, this.annotationCanvasMap, this.pageColors, dependencyTracker, imagesTracker);
@@ -17678,7 +17692,7 @@ class InternalRenderTask {
       this.graphicsReadyCallback ||= this._continueBound;
       return;
     }
-    this.gfx?.dependencyTracker?.growOperationsCount(this.operatorList.fnArray.length);
+    this.#dependencyTracker?.growOperationsCount(this.operatorList.fnArray.length);
     this.stepper?.updateOperatorList(this.operatorList);
     if (this.running) {
       return;
@@ -17739,7 +17753,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.5.0";
-const build = "68f5e21";
+const build = "e1412d3";
 
 ;// ./src/display/editor/color_picker.js
 
@@ -22736,7 +22750,7 @@ class DrawingEditor extends AnnotationEditor {
     return true;
   }
   onceAdded(focus) {
-    if (!this.annotationElementId) {
+    if (!this.annotationElementId && this._drawId !== null) {
       this.parent.addUndoableEditor(this);
     }
     this._isDraggable = true;
@@ -26263,6 +26277,7 @@ class SignatureEditor extends DrawingEditor {
   #description = null;
   #signatureData = null;
   #signatureUUID = null;
+  #isWaitingForSignature = false;
   static _type = "signature";
   static _editorType = AnnotationEditorType.SIGNATURE;
   static _defaultDrawingOptions = null;
@@ -26311,6 +26326,10 @@ class SignatureEditor extends DrawingEditor {
   }
   get isResizable() {
     return true;
+  }
+  onceAdded(focus) {
+    this.#isWaitingForSignature = this._drawId === null;
+    super.onceAdded(focus);
   }
   onScaleChanging() {
     if (this._drawId === null) {
@@ -26481,6 +26500,10 @@ class SignatureEditor extends DrawingEditor {
       }
     });
     this.div.hidden = false;
+    if (this.#isWaitingForSignature) {
+      this.#isWaitingForSignature = false;
+      this.parent.addUndoableEditor(this);
+    }
   }
   getFromImage(bitmap) {
     const {
@@ -27225,7 +27248,16 @@ class StampEditor extends AnnotationEditor {
       if (changes.isSameAltText) {
         delete serialized.accessibilityData;
       } else {
-        serialized.accessibilityData.structParent = this._initialData.structParent ?? -1;
+        const structParent = this._initialData.structParent ?? -1;
+        if (serialized.accessibilityData) {
+          serialized.accessibilityData.structParent = structParent;
+        } else if (structParent >= 0) {
+          serialized.accessibilityData = {
+            type: "Figure",
+            alt: "",
+            structParent
+          };
+        }
       }
       serialized.id = this.annotationElementId;
       delete serialized.bitmapId;
