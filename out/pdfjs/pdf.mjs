@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = e1412d3
+ * pdfjsBuild = 6c71c0b
  */
 
 ;// ./src/shared/util.js
@@ -2073,7 +2073,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "9cb94a57-de06-4c8f-8dbd-2edeac6d9f5c";
+const INTERNAL_EVT = "cc419742-fd3e-4f70-9fb7-ae72cde96708";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -15266,12 +15266,11 @@ class WorkerRenderTask {
     this.#onError = onError;
   }
   async initialize(transparency, optionalContentConfig) {
-    const handler = this.#rendererWorker.messageHandler;
-    if (!handler) {
+    if (!this.#rendererWorker.messageHandler) {
       return false;
     }
     try {
-      await handler.sendWithPromise("InitializeGraphics", {
+      await this.#rendererWorker.sendWithPromise("InitializeGraphics", {
         ...this.#initParams,
         width: this.#canvas.width,
         height: this.#canvas.height,
@@ -15279,7 +15278,9 @@ class WorkerRenderTask {
         optionalContentConfig: optionalContentConfig.serializable
       });
     } catch (ex) {
-      warn(`Failed to initialize graphics in renderer worker: ${ex.message}. ` + "Falling back to main-thread rendering.");
+      if (!this.#cancelled) {
+        warn(`Failed to initialize graphics in renderer worker: ${ex.message}. ` + "Falling back to main-thread rendering.");
+      }
       return false;
     }
     if (!this.#cancelled) {
@@ -15316,12 +15317,20 @@ class WorkerRenderTask {
       }
       this.#filteredLength = end;
     }
-    const response = await handler.sendWithPromise("ExecuteOperatorList", {
+    const response = await this.#rendererWorker.sendWithPromise("ExecuteOperatorList", {
       renderTaskId: this.#id,
       operatorListIdx,
       operatorListLength: end,
       operationsFilterMask,
       lastChunk
+    }).catch(reason => {
+      if (!this.#cancelled) {
+        throw reason;
+      }
+      return {
+        operatorListIdx,
+        aborted: true
+      };
     });
     if (response.aborted && !this.#cancelled) {
       throw new Error("Render task was aborted in the renderer worker.");
@@ -15393,9 +15402,11 @@ class RendererWorker {
   #messageHandler = null;
   #operatorListId = 0;
   #operatorLists = new WeakMap();
+  #pendingRequests = new Set();
   #renderTaskId = 0;
   #renderTasks = new Map();
   #webWorker = null;
+  #workerAC = null;
   destroyed = false;
   constructor({
     verbosity = getVerbosityLevel(),
@@ -15445,15 +15456,22 @@ class RendererWorker {
         this.#capability.reject(new Error(`Renderer worker failed to initialize: "${reason?.message ?? reason}".`));
       };
       const ac = new AbortController();
-      worker.addEventListener("error", event => {
+      const onError = (event, reason) => {
         if (!this.#webWorker) {
-          terminateEarly(event.error || event.message);
+          terminateEarly(reason);
+          return;
         }
-      }, {
+        event.preventDefault();
+        warn(`Renderer worker failed: "${reason}". ` + "Falling back to main-thread rendering.");
+        this.destroy();
+      };
+      worker.addEventListener("error", event => onError(event, event.error?.message ?? event.message), {
+        signal: ac.signal
+      });
+      worker.addEventListener("messageerror", event => onError(event, "Cannot deserialize a message."), {
         signal: ac.signal
       });
       messageHandler.on("ready", data => {
-        ac.abort();
         if (this.destroyed) {
           terminateEarly("Worker was destroyed.");
           return;
@@ -15469,6 +15487,7 @@ class RendererWorker {
         }
         this.#messageHandler = messageHandler;
         this.#webWorker = worker;
+        this.#workerAC = ac;
         this.#resolve();
       });
     } catch (reason) {
@@ -15477,10 +15496,32 @@ class RendererWorker {
   }
   destroy() {
     this.destroyed = true;
+    this.#workerAC?.abort();
+    this.#workerAC = null;
     this.#webWorker?.terminate();
     this.#webWorker = null;
     this.#messageHandler?.destroy();
     this.#messageHandler = null;
+    for (const reject of this.#pendingRequests) {
+      reject(new Error("Renderer worker was destroyed."));
+    }
+    this.#pendingRequests.clear();
+  }
+  sendWithPromise(action, data) {
+    const handler = this.#messageHandler;
+    if (!handler) {
+      return Promise.reject(new Error("Renderer worker was destroyed."));
+    }
+    const {
+      promise,
+      resolve,
+      reject
+    } = Promise.withResolvers();
+    this.#pendingRequests.add(reject);
+    handler.sendWithPromise(action, data).then(resolve, reject);
+    return promise.finally(() => {
+      this.#pendingRequests.delete(reject);
+    });
   }
   #sendObj(action, data, id, pageProxyId) {
     const handler = this.#messageHandler;
@@ -17204,7 +17245,7 @@ class WorkerTransport {
       pageCache: this.#pageCache,
       pdfBug: this._params.pdfBug
     });
-    this.rendererWorker?.messageHandler.on("FontFallback", data => this.destroyed ? null : messageHandler.sendWithPromise("FontFallback", data));
+    this.rendererWorker?.messageHandler?.on("FontFallback", data => this.destroyed ? null : messageHandler.sendWithPromise("FontFallback", data));
     messageHandler.on("commonobj", ([id, type, exportedData]) => {
       if (this.destroyed) {
         return null;
@@ -17753,7 +17794,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.5.0";
-const build = "e1412d3";
+const build = "6c71c0b";
 
 ;// ./src/display/editor/color_picker.js
 
