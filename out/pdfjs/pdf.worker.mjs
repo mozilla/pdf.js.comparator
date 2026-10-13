@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = 6c71c0b
+ * pdfjsBuild = 288892a
  */
 
 ;// ./src/shared/util.js
@@ -10252,7 +10252,7 @@ async function OpenJPEG(moduleArg = {}) {
   }
   function initRuntime() {
     runtimeInitialized = true;
-    wasmExports["s"]();
+    wasmExports["u"]();
   }
   function postRun() {
     var postRun = Module["postRun"];
@@ -10343,12 +10343,12 @@ async function OpenJPEG(moduleArg = {}) {
       }
     }
   };
-  var callUserCallback = func => {
+  var callUserCallback = (func, ...args) => {
     if (ABORT) {
       return;
     }
     try {
-      return func();
+      return func(...args);
     } catch (e) {
       handleException(e);
     } finally {
@@ -10364,7 +10364,7 @@ async function OpenJPEG(moduleArg = {}) {
     if (!timeout_ms) return 0;
     var id = setTimeout(() => {
       delete timers[which];
-      callUserCallback(() => __emscripten_timeout(which, _emscripten_get_now()));
+      callUserCallback(__emscripten_timeout, which, _emscripten_get_now());
     }, timeout_ms);
     timers[which] = {
       id,
@@ -10373,6 +10373,14 @@ async function OpenJPEG(moduleArg = {}) {
     return 0;
   };
   var HEAP32;
+  function _copy_component(comp_ptr, index, nb_comps, nb_pixels) {
+    comp_ptr >>= 2;
+    const imageData = Module.imageData;
+    const comp = HEAP32.subarray(comp_ptr, comp_ptr + nb_pixels);
+    for (let i = 0, j = index; i < nb_pixels; i++, j += nb_comps) {
+      imageData[j] = comp[i];
+    }
+  }
   function _copy_pixels_1(compG_ptr, nb_pixels) {
     compG_ptr >>= 2;
     const imageData = Module.imageData = new Uint8ClampedArray(nb_pixels);
@@ -10626,6 +10634,9 @@ async function OpenJPEG(moduleArg = {}) {
       imageData[4 * i + 3] = compA[i];
     }
   }
+  function _init_pixels(size) {
+    Module.imageData = new Uint8ClampedArray(size);
+  }
   function _jsPrintWarning(message_ptr) {
     const message = UTF8ToString(message_ptr);
     (Module.warn || console.warn)(`OpenJPEG: ${message}`);
@@ -10671,30 +10682,32 @@ async function OpenJPEG(moduleArg = {}) {
   Module["writeArrayToMemory"] = writeArrayToMemory;
   var _malloc, _free, _jp2_decode, __emscripten_timeout, memory, __indirect_function_table, wasmMemory;
   function assignWasmExports(wasmExports) {
-    _malloc = Module["_malloc"] = wasmExports["t"];
-    _free = Module["_free"] = wasmExports["u"];
-    _jp2_decode = Module["_jp2_decode"] = wasmExports["v"];
-    __emscripten_timeout = wasmExports["w"];
-    memory = wasmMemory = wasmExports["r"];
+    _malloc = Module["_malloc"] = wasmExports["v"];
+    _free = Module["_free"] = wasmExports["w"];
+    _jp2_decode = Module["_jp2_decode"] = wasmExports["x"];
+    __emscripten_timeout = wasmExports["y"];
+    memory = wasmMemory = wasmExports["t"];
     __indirect_function_table = wasmExports["__indirect_function_table"];
   }
   var wasmImports = {
-    m: __abort_js,
-    l: __emscripten_runtime_keepalive_clear,
-    i: __setitimer_js,
-    f: _copy_pixels_1,
-    e: _copy_pixels_3,
-    d: _copy_pixels_4,
-    j: _emscripten_resize_heap,
-    o: _environ_get,
-    p: _environ_sizes_get,
-    n: _fd_seek,
-    b: _fd_write,
-    q: _gray_to_rgba,
-    h: _graya_to_rgba,
-    c: _jsPrintWarning,
-    k: _proc_exit,
-    g: _rgb_to_rgba,
+    n: __abort_js,
+    m: __emscripten_runtime_keepalive_clear,
+    j: __setitimer_js,
+    c: _copy_component,
+    g: _copy_pixels_1,
+    f: _copy_pixels_3,
+    e: _copy_pixels_4,
+    k: _emscripten_resize_heap,
+    p: _environ_get,
+    q: _environ_sizes_get,
+    o: _fd_seek,
+    r: _fd_write,
+    i: _gray_to_rgba,
+    s: _graya_to_rgba,
+    d: _init_pixels,
+    b: _jsPrintWarning,
+    l: _proc_exit,
+    h: _rgb_to_rgba,
     a: _storeErrorMessage
   };
   async function run() {
@@ -10733,11 +10746,13 @@ class JpxImage extends WasmImage {
     return shadow(this, "instance", new JpxImage(true));
   }
   async decode(bytes, {
-    numComponents = 4,
+    numComponents,
     isIndexedColormap = false,
     smaskInData = false,
     reducePower = 0
   } = {}) {
+    const padComponents = numComponents !== undefined;
+    numComponents ??= 4;
     const module = await this._getModule(openjpeg);
     if (!module) {
       throw new JpxError("OpenJPEG failed to initialize");
@@ -10747,7 +10762,7 @@ class JpxImage extends WasmImage {
       const size = bytes.length;
       ptr = module._malloc(size);
       module.writeArrayToMemory(bytes, ptr);
-      const ret = module._jp2_decode(ptr, size, numComponents > 0 ? numComponents : 0, !!isIndexedColormap, !!smaskInData, reducePower);
+      const ret = module._jp2_decode(ptr, size, numComponents > 0 ? numComponents : 0, !!isIndexedColormap, !!smaskInData, reducePower, padComponents);
       if (ret) {
         const {
           errorMessages
@@ -31336,10 +31351,6 @@ class PsWasmCompiler {
   }
   _compileModNode(first, second) {
     if (first.type === PS_NODE.const && first.value === 0) {
-      if (!this._compileNode(second)) {
-        return false;
-      }
-      this._code.push(wasm_compiler_OP.drop);
       this._emitF64Const(0);
       return true;
     }
@@ -33223,9 +33234,9 @@ class PDFImage {
     if (filter instanceof Name) {
       filterName = filter.name;
     } else if (Array.isArray(filter)) {
-      const filterZero = xref.fetchIfRef(filter[0]);
-      if (filterZero instanceof Name) {
-        filterName = filterZero.name;
+      const lastFilter = xref.fetchIfRef(filter.at(-1));
+      if (lastFilter instanceof Name) {
+        filterName = lastFilter.name;
       }
     }
     switch (filterName) {
@@ -33342,7 +33353,7 @@ class PDFImage {
       });
       this.numComps = this.colorSpace.numComps;
       if (this.jpxDecoderOptions) {
-        this.jpxDecoderOptions.numComponents = hasColorSpace ? this.numComps : 0;
+        this.jpxDecoderOptions.numComponents = this.colorSpace.name === "DeviceRGBA" ? 0 : this.numComps;
         this.jpxDecoderOptions.isIndexedColormap = this.colorSpace.name === "Indexed";
       }
     } else {
