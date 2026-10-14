@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = 288892a
+ * pdfjsBuild = 6c5ef4c
  */
 
 ;// ./src/shared/util.js
@@ -3050,7 +3050,7 @@ class ChunkedStream extends Stream {
   }
 }
 class ChunkedStreamManager {
-  #aborted = false;
+  #abortReason = null;
   #requestId = 0;
   #chunksNeededByRequest = new Map();
   #loadedStreamCapability = Promise.withResolvers();
@@ -3072,7 +3072,7 @@ class ChunkedStreamManager {
         value,
         done
       } = await rangeReader.read();
-      if (this.#aborted) {
+      if (this.#abortReason) {
         chunks = null;
         return;
       }
@@ -3092,13 +3092,16 @@ class ChunkedStreamManager {
     });
   }
   requestAllChunks(noFetch = false) {
-    if (!noFetch) {
+    if (!noFetch && !this.#abortReason) {
       const missingChunks = this.stream.getMissingChunks();
-      this._requestChunks(missingChunks);
+      this.#requestChunks(missingChunks);
     }
     return this.#loadedStreamCapability.promise;
   }
-  _requestChunks(chunks) {
+  #requestChunks(chunks) {
+    if (this.#abortReason) {
+      return Promise.reject(this.#abortReason);
+    }
     const chunksNeeded = new Set();
     for (const chunk of chunks) {
       if (!this.stream.hasChunk(chunk)) {
@@ -3128,12 +3131,8 @@ class ChunkedStreamManager {
         this.sendRequest(begin, end).catch(capability.reject);
       }
     }
-    return capability.promise.catch(reason => {
-      if (this.#aborted) {
-        return;
-      }
-      throw reason;
-    });
+    capability.promise.catch(() => {});
+    return capability.promise;
   }
   getStream() {
     return this.stream;
@@ -3146,7 +3145,7 @@ class ChunkedStreamManager {
     for (let chunk = beginChunk; chunk < endChunk; ++chunk) {
       chunks.push(chunk);
     }
-    return this._requestChunks(chunks);
+    return this.#requestChunks(chunks);
   }
   requestRanges(ranges = []) {
     const chunksToRequest = [];
@@ -3160,7 +3159,7 @@ class ChunkedStreamManager {
       }
     }
     chunksToRequest.sort((a, b) => a - b);
-    return this._requestChunks(chunksToRequest);
+    return this.#requestChunks(chunksToRequest);
   }
   groupChunks(chunks) {
     const groupedChunks = [];
@@ -3224,7 +3223,7 @@ class ChunkedStreamManager {
         loadedRequests.push(requestId);
       }
     }
-    if (!this.disableAutoFetch && this._requestsByChunk.size === 0) {
+    if (!this.disableAutoFetch && !this._requestsByChunk.size && !this.#abortReason) {
       let nextEmptyChunk;
       if (stream.numChunksLoaded === 1) {
         const lastChunk = stream.numChunks - 1;
@@ -3235,7 +3234,7 @@ class ChunkedStreamManager {
         nextEmptyChunk = stream.nextEmptyChunk(endChunk);
       }
       if (Number.isInteger(nextEmptyChunk)) {
-        this._requestChunks([nextEmptyChunk]);
+        this.#requestChunks([nextEmptyChunk]);
       }
     }
     for (const requestId of loadedRequests) {
@@ -3255,7 +3254,8 @@ class ChunkedStreamManager {
     return Math.floor((end - 1) / this.chunkSize) + 1;
   }
   abort(reason) {
-    this.#aborted = true;
+    assert(reason instanceof Error, "abort must have a valid reason");
+    this.#abortReason = reason;
     this.pdfStream?.cancelAllRequests(reason);
     for (const capability of this._promisesByRequest.values()) {
       capability.reject(reason);
@@ -65329,9 +65329,8 @@ class WorkerMessageHandler {
       terminated = true;
       const waitOn = [];
       if (pdfManager) {
-        pdfManager.terminate(new AbortException("Worker was terminated."));
-        const cleanupPromise = pdfManager.cleanup();
-        waitOn.push(cleanupPromise);
+        await pdfManager.terminate(new AbortException("Worker was terminated."));
+        waitOn.push(pdfManager.cleanup());
         pdfManager = null;
       } else {
         clearGlobalCaches();
