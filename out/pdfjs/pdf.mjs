@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = 6c5ef4c
+ * pdfjsBuild = fcde2e1
  */
 
 ;// ./src/shared/util.js
@@ -2073,7 +2073,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "d245713e-16cd-43ad-bc35-6ce032c6f092";
+const INTERNAL_EVT = "5c83c17a-82bb-4e42-ab4a-9a0ba63dfab1";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -15268,7 +15268,12 @@ class WorkerRenderTask {
     this.#onError = onError;
   }
   async initialize(transparency, optionalContentConfig) {
-    if (!this.#rendererWorker.messageHandler) {
+    try {
+      await this.#rendererWorker.promise;
+    } catch {
+      return false;
+    }
+    if (!this.#rendererWorker.messageHandler || this.#cancelled) {
       return false;
     }
     try {
@@ -15404,9 +15409,11 @@ class RendererWorker {
   #messageHandler = null;
   #operatorListId = 0;
   #operatorLists = new WeakMap();
+  #pendingMessages = [];
   #pendingRequests = new Set();
   #renderTaskId = 0;
   #renderTasks = new Map();
+  #terminateEarly = null;
   #webWorker = null;
   #workerAC = null;
   destroyed = false;
@@ -15444,6 +15451,15 @@ class RendererWorker {
       enableHWA: this.#enableHWA,
       enableWebGPU: this.#enableWebGPU
     });
+    const pendingMessages = this.#pendingMessages;
+    this.#pendingMessages = null;
+    for (const send of pendingMessages) {
+      send();
+    }
+  }
+  #reject(reason) {
+    this.#pendingMessages = null;
+    this.#capability.reject(reason);
   }
   #initialize() {
     try {
@@ -15452,11 +15468,13 @@ class RendererWorker {
       });
       const messageHandler = new MessageHandler("main", "renderer", worker);
       const terminateEarly = reason => {
+        this.#terminateEarly = null;
         ac.abort();
         messageHandler.destroy();
         worker.terminate();
-        this.#capability.reject(new Error(`Renderer worker failed to initialize: "${reason?.message ?? reason}".`));
+        this.#reject(new Error(`Renderer worker failed to initialize: "${reason?.message ?? reason}".`));
       };
+      this.#terminateEarly = terminateEarly;
       const ac = new AbortController();
       const onError = (event, reason) => {
         if (!this.#webWorker) {
@@ -15474,10 +15492,6 @@ class RendererWorker {
         signal: ac.signal
       });
       messageHandler.on("ready", data => {
-        if (this.destroyed) {
-          terminateEarly("Worker was destroyed.");
-          return;
-        }
         if (!(data?.testObj instanceof Uint8Array)) {
           terminateEarly("TypedArray transfer test failed.");
           return;
@@ -15487,17 +15501,19 @@ class RendererWorker {
           terminateEarly(`The API version "${apiVersion}" does not match the Worker version "${data.workerVersion}".`);
           return;
         }
+        this.#terminateEarly = null;
         this.#messageHandler = messageHandler;
         this.#webWorker = worker;
         this.#workerAC = ac;
         this.#resolve();
       });
     } catch (reason) {
-      this.#capability.reject(reason);
+      this.#reject(reason);
     }
   }
   destroy() {
     this.destroyed = true;
+    this.#terminateEarly?.("Worker was destroyed.");
     this.#workerAC?.abort();
     this.#workerAC = null;
     this.#webWorker?.terminate();
@@ -15525,16 +15541,24 @@ class RendererWorker {
       this.#pendingRequests.delete(reject);
     });
   }
-  #sendObj(action, data, id, pageProxyId) {
-    const handler = this.#messageHandler;
-    if (!handler) {
+  #send(action, data) {
+    if (this.#pendingMessages) {
+      this.#pendingMessages.push(() => this.#send(action, data));
       return;
     }
+    this.#messageHandler?.send(action, data);
+  }
+  #sendObj(action, data, id, pageProxyId, isFont = false) {
     try {
-      handler.send(action, data);
+      if (this.#pendingMessages) {
+        const queuedData = isFont ? structuredClone(data) : data;
+        this.#pendingMessages.push(() => this.#sendObj(action, queuedData, id, pageProxyId));
+        return;
+      }
+      this.#messageHandler?.send(action, data);
     } catch (reason) {
       warn(`RendererWorker - failed to send "${action}": ${reason}`);
-      handler.send("objFailed", {
+      this.#send("objFailed", {
         id,
         pageProxyId,
         reason: reason.message
@@ -15542,18 +15566,18 @@ class RendererWorker {
     }
   }
   sendCommonObj(id, type, data) {
-    this.#sendObj("commonobj", [id, type, data], id, null);
+    this.#sendObj("commonobj", [id, type, data], id, null, type === "Font");
   }
   sendObj(id, pageProxyId, type, data) {
     this.#sendObj("obj", [id, pageProxyId, type, data], id, pageProxyId);
   }
   cleanup(keepLoadedFonts) {
-    this.#messageHandler?.send("Cleanup", {
+    this.#send("Cleanup", {
       keepLoadedFonts
     });
   }
   cleanupPage(pageProxyId) {
-    this.#messageHandler?.send("cleanupPage", {
+    this.#send("cleanupPage", {
       pageProxyId
     });
   }
@@ -15572,7 +15596,7 @@ class RendererWorker {
       canvasContext,
       background
     } = params;
-    if (!this.#messageHandler || canvasContext || background && typeof background !== "string" || pageColors || params.recordForDebugger) {
+    if (!this.#messageHandler && !this.#pendingMessages || canvasContext || background && typeof background !== "string" || pageColors || params.recordForDebugger) {
       return null;
     }
     const operatorListState = this.#operatorLists.getOrInsertComputed(operatorList, () => ({
@@ -16059,11 +16083,18 @@ function getDocument(src = {}) {
     task._worker = worker;
   }
   if (!disableWorkerRendering) {
-    task._rendererWorker = new RendererWorker({
+    const rendererWorker = new RendererWorker({
       verbosity,
       enableHWA,
       enableWebGPU
     });
+    rendererWorker.promise.catch(reason => {
+      if (!rendererWorker.destroyed) {
+        warn(`Renderer worker disabled: ${reason.message}`);
+        rendererWorker.destroy();
+      }
+    });
+    task._rendererWorker = rendererWorker;
   }
   const docParams = {
     docId,
@@ -16097,23 +16128,17 @@ function getDocument(src = {}) {
     ownerDocument,
     pdfBug,
     styleElement,
-    rendererWorker: null,
+    rendererWorker: task._rendererWorker,
     loadingParams: {
       disableAutoFetch,
       enableXfa
     }
   };
-  const rendererWorkerPromise = task._rendererWorker?.promise.catch(reason => {
-    warn(`Renderer worker disabled: ${reason.message}`);
-    task._rendererWorker.destroy();
-    task._rendererWorker = null;
-  });
-  Promise.all([worker.promise, gpuPromise, rendererWorkerPromise]).then(function ([, hasGPU]) {
+  Promise.all([worker.promise, gpuPromise]).then(function ([, hasGPU]) {
     if (worker.destroyed) {
       throw new Error("Worker was destroyed");
     }
     docParams.evaluatorOptions.hasGPU = hasGPU;
-    transportParams.rendererWorker = task._rendererWorker;
     const workerIdPromise = worker.messageHandler.sendWithPromise("GetDocRequest", docParams, data ? [data.buffer] : null);
     let networkStream;
     if (data) {} else if (rangeTransport) {
@@ -17247,7 +17272,9 @@ class WorkerTransport {
       pageCache: this.#pageCache,
       pdfBug: this._params.pdfBug
     });
-    this.rendererWorker?.messageHandler?.on("FontFallback", data => this.destroyed ? null : messageHandler.sendWithPromise("FontFallback", data));
+    this.rendererWorker?.promise.then(() => {
+      this.rendererWorker?.messageHandler?.on("FontFallback", data => this.destroyed ? null : messageHandler.sendWithPromise("FontFallback", data));
+    }, () => {});
     messageHandler.on("commonobj", ([id, type, exportedData]) => {
       if (this.destroyed) {
         return null;
@@ -17796,7 +17823,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.5.0";
-const build = "6c5ef4c";
+const build = "fcde2e1";
 
 ;// ./src/display/editor/color_picker.js
 
