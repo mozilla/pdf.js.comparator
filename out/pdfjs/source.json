@@ -2,6 +2,6 @@
   "name": "pdfjs",
   "repo": "https://github.com/mozilla/pdf.js.git",
   "ref": "master",
-  "commit": "fcde2e1f9a960e9d234caea43746d6223cd054df",
-  "fingerprint": "pdfjs=fcde2e1f9a960e9d234caea43746d6223cd054df"
+  "commit": "43c5e0d5e46529e2da98804236f5856a3022db85",
+  "fingerprint": "pdfjs=43c5e0d5e46529e2da98804236f5856a3022db85"
 }
