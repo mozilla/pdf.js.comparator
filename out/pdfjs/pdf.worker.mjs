@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = 0252c1f
+ * pdfjsBuild = e3790af
  */
 
 ;// ./src/shared/util.js
@@ -29386,7 +29386,7 @@ function _evalUnaryConst(op, v) {
         return Number.isFinite(r) ? r : undefined;
       }
     case TOKEN.cvi:
-      return Math.trunc(v);
+      return Math.trunc(v) | 0;
     case TOKEN.cvr:
       return v;
     case TOKEN.not:
@@ -30768,7 +30768,11 @@ const wasm_compiler_OP = {
   f64_min: 0xa4,
   f64_max: 0xa5,
   f64_convert_i32_s: 0xb7,
-  f64_store: 0x39
+  f64_store: 0x39,
+  prefix_fc: 0xfc
+};
+const FC_OP = {
+  i32_trunc_sat_f64_u: 0x03
 };
 const FUNC_TYPE = 0x60;
 const F64 = 0x7c;
@@ -30908,6 +30912,18 @@ class PsWasmCompiler {
     this._code.push(wasm_compiler_OP.local_tee);
     this._emitULEB128(idx);
   }
+  _emitToInt32() {
+    const code = this._code;
+    const local = this._allocLocal();
+    code.push(wasm_compiler_OP.f64_trunc);
+    this._emitLocalTee(local);
+    this._emitLocalGet(local);
+    this._emitF64Const(2 ** -32);
+    code.push(wasm_compiler_OP.f64_mul, wasm_compiler_OP.f64_floor);
+    this._emitF64Const(2 ** 32);
+    code.push(wasm_compiler_OP.f64_mul, wasm_compiler_OP.f64_sub, wasm_compiler_OP.prefix_fc, FC_OP.i32_trunc_sat_f64_u);
+    this._releaseLocal(local);
+  }
   _compileNode(node) {
     if (node.shared) {
       const entry = this._sharedLocals.get(node);
@@ -30994,7 +31010,8 @@ class PsWasmCompiler {
         if (!this._compileNode(node.operand)) {
           return false;
         }
-        code.push(wasm_compiler_OP.i32_trunc_f64_s, wasm_compiler_OP.i32_const, 0x7f, wasm_compiler_OP.i32_xor, wasm_compiler_OP.f64_convert_i32_s);
+        this._emitToInt32();
+        code.push(wasm_compiler_OP.i32_const, 0x7f, wasm_compiler_OP.i32_xor, wasm_compiler_OP.f64_convert_i32_s);
         return true;
       }
       return false;
@@ -31026,7 +31043,8 @@ class PsWasmCompiler {
         code.push(wasm_compiler_OP.f64_trunc);
         break;
       case TOKEN.cvi:
-        code.push(wasm_compiler_OP.i32_trunc_f64_s, wasm_compiler_OP.f64_convert_i32_s);
+        this._emitToInt32();
+        code.push(wasm_compiler_OP.f64_convert_i32_s);
         break;
       case TOKEN.cvr:
         break;
@@ -31084,7 +31102,7 @@ class PsWasmCompiler {
       return false;
     }
     const code = this._code;
-    code.push(wasm_compiler_OP.i32_trunc_f64_s);
+    this._emitToInt32();
     const shift = first.value;
     if (shift > 0) {
       code.push(wasm_compiler_OP.i32_const);
@@ -31193,7 +31211,7 @@ class PsWasmCompiler {
     if (!this._compileNode(node)) {
       return false;
     }
-    this._code.push(wasm_compiler_OP.i32_trunc_f64_s);
+    this._emitToInt32();
     return true;
   }
   _compileStandardBinaryNode(op, first, second) {
