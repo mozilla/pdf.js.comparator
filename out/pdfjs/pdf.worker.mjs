@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = dda8b72
+ * pdfjsBuild = 3dfb332
  */
 
 ;// ./src/shared/util.js
@@ -56766,7 +56766,8 @@ function calculateMD5(data, offset, length) {
     h2 = -1732584194,
     h3 = 271733878;
   const paddedLength = length + 72 & ~63;
-  const padded = new Uint8Array(paddedLength);
+  const padded = new Uint8Array(paddedLength),
+    view = new DataView(padded.buffer);
   let i, j;
   for (i = 0; i < length; ++i) {
     padded[i] = data[offset++];
@@ -56776,11 +56777,11 @@ function calculateMD5(data, offset, length) {
   if (i < n) {
     i = n;
   }
-  padded[i++] = length << 3 & 0xff;
-  padded[i++] = length >> 5 & 0xff;
-  padded[i++] = length >> 13 & 0xff;
-  padded[i++] = length >> 21 & 0xff;
-  padded[i++] = length >>> 29 & 0xff;
+  padded[i++] = length << 3;
+  padded[i++] = length >> 5;
+  padded[i++] = length >> 13;
+  padded[i++] = length >> 21;
+  padded[i++] = length >>> 29;
   i += 3;
   const w = new Int32Array(16);
   const {
@@ -56789,7 +56790,7 @@ function calculateMD5(data, offset, length) {
   } = PARAMS;
   for (i = 0; i < paddedLength;) {
     for (j = 0; j < 16; ++j, i += 4) {
-      w[j] = padded[i] | padded[i + 1] << 8 | padded[i + 2] << 16 | padded[i + 3] << 24;
+      w[j] = view.getInt32(i, true);
     }
     let a = h0,
       b = h1,
@@ -56824,7 +56825,7 @@ function calculateMD5(data, offset, length) {
     h2 = h2 + c | 0;
     h3 = h3 + d | 0;
   }
-  return new Uint8Array([h0 & 0xFF, h0 >> 8 & 0xFF, h0 >> 16 & 0xFF, h0 >>> 24 & 0xFF, h1 & 0xFF, h1 >> 8 & 0xFF, h1 >> 16 & 0xFF, h1 >>> 24 & 0xFF, h2 & 0xFF, h2 >> 8 & 0xFF, h2 >> 16 & 0xFF, h2 >>> 24 & 0xFF, h3 & 0xFF, h3 >> 8 & 0xFF, h3 >> 16 & 0xFF, h3 >>> 24 & 0xFF]);
+  return new Uint8Array([h0, h0 >> 8, h0 >> 16, h0 >>> 24, h1, h1 >> 8, h1 >> 16, h1 >>> 24, h2, h2 >> 8, h2 >> 16, h2 >>> 24, h3, h3 >> 8, h3 >> 16, h3 >>> 24]);
 }
 
 ;// ./src/core/dataset_reader.js
@@ -57335,7 +57336,8 @@ function calculateSHA256(data, offset, length) {
     h6 = 0x1f83d9ab,
     h7 = 0x5be0cd19;
   const paddedLength = Math.ceil((length + 9) / 64) * 64;
-  const padded = new Uint8Array(paddedLength);
+  const padded = new Uint8Array(paddedLength),
+    view = new DataView(padded.buffer);
   let i, j;
   for (i = 0; i < length; ++i) {
     padded[i] = data[offset++];
@@ -57346,19 +57348,18 @@ function calculateSHA256(data, offset, length) {
     i = n;
   }
   i += 3;
-  padded[i++] = length >>> 29 & 0xff;
-  padded[i++] = length >> 21 & 0xff;
-  padded[i++] = length >> 13 & 0xff;
-  padded[i++] = length >> 5 & 0xff;
-  padded[i++] = length << 3 & 0xff;
+  padded[i++] = length >>> 29;
+  padded[i++] = length >> 21;
+  padded[i++] = length >> 13;
+  padded[i++] = length >> 5;
+  padded[i++] = length << 3;
   const w = new Uint32Array(64);
   const {
     k
   } = calculate_sha256_PARAMS;
   for (i = 0; i < paddedLength;) {
-    for (j = 0; j < 16; ++j) {
-      w[j] = padded[i] << 24 | padded[i + 1] << 16 | padded[i + 2] << 8 | padded[i + 3];
-      i += 4;
+    for (j = 0; j < 16; ++j, i += 4) {
+      w[j] = view.getInt32(i);
     }
     for (j = 16; j < 64; ++j) {
       w[j] = calculate_sha256_littleSigmaPrime(w[j - 2]) + w[j - 7] + calculate_sha256_littleSigma(w[j - 15]) + w[j - 16] | 0;
@@ -57394,7 +57395,7 @@ function calculateSHA256(data, offset, length) {
     h6 = h6 + g | 0;
     h7 = h7 + h | 0;
   }
-  return new Uint8Array([h0 >> 24 & 0xFF, h0 >> 16 & 0xFF, h0 >> 8 & 0xFF, h0 & 0xFF, h1 >> 24 & 0xFF, h1 >> 16 & 0xFF, h1 >> 8 & 0xFF, h1 & 0xFF, h2 >> 24 & 0xFF, h2 >> 16 & 0xFF, h2 >> 8 & 0xFF, h2 & 0xFF, h3 >> 24 & 0xFF, h3 >> 16 & 0xFF, h3 >> 8 & 0xFF, h3 & 0xFF, h4 >> 24 & 0xFF, h4 >> 16 & 0xFF, h4 >> 8 & 0xFF, h4 & 0xFF, h5 >> 24 & 0xFF, h5 >> 16 & 0xFF, h5 >> 8 & 0xFF, h5 & 0xFF, h6 >> 24 & 0xFF, h6 >> 16 & 0xFF, h6 >> 8 & 0xFF, h6 & 0xFF, h7 >> 24 & 0xFF, h7 >> 16 & 0xFF, h7 >> 8 & 0xFF, h7 & 0xFF]);
+  return new Uint8Array([h0 >> 24, h0 >> 16, h0 >> 8, h0, h1 >> 24, h1 >> 16, h1 >> 8, h1, h2 >> 24, h2 >> 16, h2 >> 8, h2, h3 >> 24, h3 >> 16, h3 >> 8, h3, h4 >> 24, h4 >> 16, h4 >> 8, h4, h5 >> 24, h5 >> 16, h5 >> 8, h5, h6 >> 24, h6 >> 16, h6 >> 8, h6, h7 >> 24, h7 >> 16, h7 >> 8, h7]);
 }
 
 ;// ./src/core/decrypt_stream.js
