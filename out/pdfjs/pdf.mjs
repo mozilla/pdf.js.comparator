@@ -2073,7 +2073,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "1495ddca-d6a1-4c3c-91ca-742ad2969072";
+const INTERNAL_EVT = "b8963971-17f6-4323-bd1f-a87b4c5a0232";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
