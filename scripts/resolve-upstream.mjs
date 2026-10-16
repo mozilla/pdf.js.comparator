@@ -311,6 +311,7 @@ async function resolvePdfium() {
   const fastFloatRef = process.env.FAST_FLOAT_REF || "HEAD";
   const abseilRef = process.env.ABSEIL_REF || "HEAD";
   const dragonboxRef = process.env.DRAGONBOX_REF || "HEAD";
+  const highwayRef = process.env.HIGHWAY_REF || "HEAD";
   const pdfium = resolveGitHead(
     "https://pdfium.googlesource.com/pdfium.git",
     pdfiumRef,
@@ -327,8 +328,12 @@ async function resolvePdfium() {
     "https://github.com/jk-jeon/dragonbox.git",
     dragonboxRef,
   );
+  const highway = resolveGitHead(
+    "https://github.com/google/highway.git",
+    highwayRef,
+  );
   return {
-    fingerprint: `pdfium=${pdfium};fast_float=${fastFloat};abseil=${abseil};dragonbox=${dragonbox}`,
+    fingerprint: `pdfium=${pdfium};fast_float=${fastFloat};abseil=${abseil};dragonbox=${dragonbox};highway=${highway}`,
     values: {
       pdfium_ref: pdfiumRef,
       pdfium_commit: pdfium,
@@ -338,6 +343,8 @@ async function resolvePdfium() {
       abseil_commit: abseil,
       dragonbox_ref: dragonboxRef,
       dragonbox_commit: dragonbox,
+      highway_ref: highwayRef,
+      highway_commit: highway,
     },
   };
 }

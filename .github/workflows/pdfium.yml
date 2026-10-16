@@ -44,4 +44,5 @@ jobs:
         ABSEIL_REF=HEAD
         DRAGONBOX_REF=HEAD
         FAST_FLOAT_REF=HEAD
+        HIGHWAY_REF=HEAD
         PDFIUM_REF=main
