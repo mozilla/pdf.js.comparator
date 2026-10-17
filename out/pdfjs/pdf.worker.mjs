@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = f73a698
+ * pdfjsBuild = 157d30e
  */
 
 ;// ./src/shared/util.js
@@ -10088,9 +10088,10 @@ class FlateStream extends DecodeStream {
           codeLengths[i++] = len = code;
           continue;
         }
-        let repeatLength = this.getBits(bitsLength) + bitsOffset;
-        while (repeatLength-- > 0) {
-          codeLengths[i++] = what;
+        const repeatLen = this.getBits(bitsLength) + bitsOffset;
+        if (repeatLen > 0) {
+          codeLengths.fill(what, i, i + repeatLen);
+          i += repeatLen;
         }
       }
       litCodeTable = this.generateHuffmanTable(codeLengths.subarray(0, numLitCodes));
@@ -10134,8 +10135,14 @@ class FlateStream extends DecodeStream {
           buffer = this.ensureBuffer(pos + len);
           limit = buffer.length;
         }
-        for (let k = 0; k < len; ++k, ++pos) {
-          buffer[pos] = buffer[pos - dist];
+        if (len < dist) {
+          const startPos = pos - dist;
+          buffer.copyWithin(pos, startPos, startPos + len);
+          pos += len;
+        } else {
+          for (let k = 0; k < len; ++k, ++pos) {
+            buffer[pos] = buffer[pos - dist];
+          }
         }
       }
     } catch (ex) {
