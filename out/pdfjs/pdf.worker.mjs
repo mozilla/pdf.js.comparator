@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = 2a652b6
+ * pdfjsBuild = 28e406a
  */
 
 ;// ./src/shared/util.js
@@ -29175,6 +29175,7 @@ class PsArgNode extends PsNode {
     super(PS_NODE.arg);
     this.index = index;
     this.valueType = PS_VALUE_TYPE.numeric;
+    this.depth = 0;
   }
 }
 class PsConstNode extends PsNode {
@@ -29182,6 +29183,7 @@ class PsConstNode extends PsNode {
     super(PS_NODE.const);
     this.value = value;
     this.valueType = typeof value === "boolean" ? PS_VALUE_TYPE.boolean : PS_VALUE_TYPE.numeric;
+    this.depth = 0;
   }
 }
 class PsUnaryNode extends PsNode {
@@ -29190,6 +29192,7 @@ class PsUnaryNode extends PsNode {
     this.op = op;
     this.operand = operand;
     this.valueType = valueType;
+    this.depth = operand.depth + 1;
   }
 }
 class PsBinaryNode extends PsNode {
@@ -29199,6 +29202,7 @@ class PsBinaryNode extends PsNode {
     this.first = first;
     this.second = second;
     this.valueType = valueType;
+    this.depth = Math.max(first.depth, second.depth) + 1;
   }
 }
 class PsTernaryNode extends PsNode {
@@ -29208,12 +29212,15 @@ class PsTernaryNode extends PsNode {
     this.then = then;
     this.otherwise = otherwise;
     this.valueType = valueType;
+    this.depth = Math.max(cond.depth, then.depth, otherwise.depth) + 1;
   }
 }
+const MAX_NESTING_DEPTH = 1000;
 class ast_Parser {
   constructor(lexer) {
     this.lexer = lexer;
     this._token = null;
+    this._depth = 0;
   }
   static _isRegularOperator(id) {
     return id >= TOKEN.true && id < TOKEN.if;
@@ -29250,6 +29257,9 @@ class ast_Parser {
           break;
         case TOKEN.lbrace:
           {
+            if (++this._depth > MAX_NESTING_DEPTH) {
+              throw new FormatError("PostScript function: procedures are nested too deeply.");
+            }
             this._advance();
             const thenBlock = this._parseBlock();
             this._expect(TOKEN.rbrace);
@@ -29265,6 +29275,7 @@ class ast_Parser {
             } else {
               throw new FormatError("PostScript function: a procedure block must be followed by 'if' or '{…} ifelse'.");
             }
+            this._depth--;
             break;
           }
         case TOKEN.rbrace:
@@ -29286,28 +29297,6 @@ class ast_Parser {
 }
 function parsePostScriptFunction(source) {
   return new ast_Parser(new lexer_Lexer(source)).parse();
-}
-function _nodesEqual(a, b) {
-  if (a === b) {
-    return true;
-  }
-  if (a.type !== b.type) {
-    return false;
-  }
-  switch (a.type) {
-    case PS_NODE.arg:
-      return a.index === b.index;
-    case PS_NODE.const:
-      return a.value === b.value;
-    case PS_NODE.unary:
-      return a.op === b.op && _nodesEqual(a.operand, b.operand);
-    case PS_NODE.binary:
-      return a.op === b.op && _nodesEqual(a.first, b.first) && _nodesEqual(a.second, b.second);
-    case PS_NODE.ternary:
-      return _nodesEqual(a.cond, b.cond) && _nodesEqual(a.then, b.then) && _nodesEqual(a.otherwise, b.otherwise);
-    default:
-      return false;
-  }
 }
 function _evalBinaryConst(op, a, b) {
   switch (op) {
@@ -29408,6 +29397,9 @@ function _evalUnaryConst(op, v) {
   }
 }
 const MAX_STACK_SIZE = 100;
+const MAX_WORK = 100_000;
+const MAX_FORK_DEPTH = 1000;
+const MAX_TREE_DEPTH = 500;
 function _unaryValueType(op, operandType) {
   return op === TOKEN.not ? operandType : PS_VALUE_TYPE.numeric;
 }
@@ -29444,6 +29436,8 @@ class PSStackToTree {
       PSStackToTree.#init();
     }
     this._failed = false;
+    this._work = 0;
+    this._forkDepth = 0;
     if (numInputs > MAX_STACK_SIZE) {
       return null;
     }
@@ -29499,7 +29493,7 @@ class PSStackToTree {
   }
   _evalBlockFrom(instructions, startIdx, stack) {
     for (let idx = startIdx; idx < instructions.length; idx++) {
-      if (this._failed) {
+      if (this._failed || !this._checkWorkLimit()) {
         break;
       }
       const instr = instructions[idx];
@@ -29539,6 +29533,11 @@ class PSStackToTree {
                 }
                 break;
               }
+              if (this._forkDepth >= MAX_FORK_DEPTH) {
+                this._failed = true;
+                break;
+              }
+              this._forkDepth++;
               const trueStack = stack.slice();
               this._evalBlockFrom(instructions, idx + 1, trueStack);
               if (this._failed) {
@@ -29549,6 +29548,7 @@ class PSStackToTree {
               if (this._failed) {
                 break;
               }
+              this._forkDepth--;
               if (trueStack.length !== falseStack.length) {
                 const zero = new PsConstNode(0);
                 while (trueStack.length < falseStack.length) {
@@ -29734,6 +29734,41 @@ class PSStackToTree {
         break;
     }
   }
+  _checkWorkLimit() {
+    if (++this._work > MAX_WORK) {
+      this._failed = true;
+      return false;
+    }
+    return true;
+  }
+  _checkDepth(node) {
+    if (node.depth > MAX_TREE_DEPTH) {
+      this._failed = true;
+    }
+    return node;
+  }
+  _nodesEqual(a, b) {
+    if (a === b) {
+      return true;
+    }
+    if (a.type !== b.type || !this._checkWorkLimit()) {
+      return false;
+    }
+    switch (a.type) {
+      case PS_NODE.arg:
+        return a.index === b.index;
+      case PS_NODE.const:
+        return a.value === b.value;
+      case PS_NODE.unary:
+        return a.op === b.op && this._nodesEqual(a.operand, b.operand);
+      case PS_NODE.binary:
+        return a.op === b.op && this._nodesEqual(a.first, b.first) && this._nodesEqual(a.second, b.second);
+      case PS_NODE.ternary:
+        return this._nodesEqual(a.cond, b.cond) && this._nodesEqual(a.then, b.then) && this._nodesEqual(a.otherwise, b.otherwise);
+      default:
+        return false;
+    }
+  }
   _makeBinary(op, first, second) {
     if (first.type === PS_NODE.const && second.type === PS_NODE.const) {
       const v = _evalBinaryConst(op, second.value, first.value);
@@ -29741,7 +29776,7 @@ class PSStackToTree {
         return new PsConstNode(v);
       }
     }
-    if (_nodesEqual(first, second)) {
+    if (this._nodesEqual(first, second)) {
       switch (op) {
         case TOKEN.sub:
           return new PsConstNode(0);
@@ -29902,7 +29937,7 @@ class PSStackToTree {
           break;
       }
     }
-    return new PsBinaryNode(op, first, second, _binaryValueType(op, first.valueType, second.valueType));
+    return this._checkDepth(new PsBinaryNode(op, first, second, _binaryValueType(op, first.valueType, second.valueType)));
   }
   _makeUnary(op, operand) {
     if (operand.type === PS_NODE.const) {
@@ -29931,13 +29966,13 @@ class PSStackToTree {
         return operand;
       }
     }
-    return new PsUnaryNode(op, operand, _unaryValueType(op, operand.valueType));
+    return this._checkDepth(new PsUnaryNode(op, operand, _unaryValueType(op, operand.valueType)));
   }
   _makeTernary(cond, then, otherwise) {
     if (cond.type === PS_NODE.const) {
       return cond.value ? then : otherwise;
     }
-    if (_nodesEqual(then, otherwise)) {
+    if (this._nodesEqual(then, otherwise)) {
       return then;
     }
     if (then.type === PS_NODE.const && otherwise.type === PS_NODE.const) {
@@ -29955,22 +29990,22 @@ class PSStackToTree {
         second: cs
       } = cond;
       if (cop === TOKEN.gt || cop === TOKEN.ge) {
-        if (_nodesEqual(then, cf) && _nodesEqual(otherwise, cs)) {
+        if (this._nodesEqual(then, cf) && this._nodesEqual(otherwise, cs)) {
           return this._makeBinary(TOKEN.min, cf, cs);
         }
-        if (_nodesEqual(then, cs) && _nodesEqual(otherwise, cf)) {
+        if (this._nodesEqual(then, cs) && this._nodesEqual(otherwise, cf)) {
           return this._makeBinary(TOKEN.max, cf, cs);
         }
       } else if (cop === TOKEN.lt || cop === TOKEN.le) {
-        if (_nodesEqual(then, cf) && _nodesEqual(otherwise, cs)) {
+        if (this._nodesEqual(then, cf) && this._nodesEqual(otherwise, cs)) {
           return this._makeBinary(TOKEN.max, cf, cs);
         }
-        if (_nodesEqual(then, cs) && _nodesEqual(otherwise, cf)) {
+        if (this._nodesEqual(then, cs) && this._nodesEqual(otherwise, cf)) {
           return this._makeBinary(TOKEN.min, cf, cs);
         }
       }
     }
-    return new PsTernaryNode(cond, then, otherwise, then.valueType === otherwise.valueType ? then.valueType : PS_VALUE_TYPE.unknown);
+    return this._checkDepth(new PsTernaryNode(cond, then, otherwise, then.valueType === otherwise.valueType ? then.valueType : PS_VALUE_TYPE.unknown));
   }
 }
 
