@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = 69d5bca
+ * pdfjsBuild = 2a652b6
  */
 
 ;// ./src/shared/util.js
@@ -10136,7 +10136,7 @@ class FlateStream extends DecodeStream {
           buffer = this.ensureBuffer(pos + len);
           limit = buffer.length;
         }
-        if (len < dist) {
+        if (len <= dist) {
           const startPos = pos - dist;
           buffer.copyWithin(pos, startPos, startPos + len);
           pos += len;
@@ -61481,7 +61481,7 @@ async function writeStream(stream, buffer, transform) {
   const isFilterZeroImageDecode = isName(filterZero, "DCTDecode") || isName(filterZero, "JPXDecode") || isName(filterZero, "JBIG2Decode") || isName(filterZero, "CCITTFaxDecode") || isName(filterZero, "LZWDecode");
   const isFilterZeroCompressedObject = isFilterZeroFlateDecode || isFilterZeroImageDecode || isName(filterZero, "BrotliDecode");
   const MIN_LENGTH_FOR_COMPRESSING = 256;
-  if (!isFilterZeroCompressedObject && !cryptFilterName && bytes.length >= MIN_LENGTH_FOR_COMPRESSING) {
+  if (!isFilterZeroCompressedObject && !cryptFilterName && !isDict(dict, "Metadata") && bytes.length >= MIN_LENGTH_FOR_COMPRESSING) {
     try {
       const cs = new CompressionStream("deflate");
       const writer = cs.writable.getWriter();
@@ -61883,6 +61883,7 @@ async function incrementalUpdate({
 
 const MAX_LEAVES_PER_PAGES_NODE = 16;
 const MAX_IN_NAME_TREE_NODE = 64;
+const INFO_CONFORMANCE_KEYS = ["GTS_PDFXVersion", "GTS_PDFXConformance", "ISO_PDFEVersion"];
 class PageData {
   constructor(page, documentData) {
     this.page = page;
@@ -64186,6 +64187,9 @@ class PDFEditor {
         if (typeof value === "string") {
           infoMap.set(key, stringToPDFString(value));
         }
+      }
+      for (const key of INFO_CONFORMANCE_KEYS) {
+        infoMap.delete(key);
       }
     }
     infoMap.delete("ModDate");
