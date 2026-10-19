@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = bca81b5
+ * pdfjsBuild = 33734f1
  */
 
 ;// ./src/shared/util.js
@@ -2073,7 +2073,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "4cb0e83f-bad9-44f6-9d51-8254dc2ad0ff";
+const INTERNAL_EVT = "2d884b42-a843-4e4a-b6c5-0475223da303";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -15426,6 +15426,7 @@ class RendererWorker {
   #pendingMessages = [];
   #pendingRequests = new Set();
   #port = null;
+  #portNames = null;
   #renderTaskId = 0;
   #renderTasks = new Map();
   #terminateEarly = null;
@@ -15492,6 +15493,10 @@ class RendererWorker {
     const id = RendererWorker.#connectionId++;
     const sourceName = `main${id}`;
     const targetName = `renderer${id}`;
+    this.#portNames = {
+      sourceName,
+      targetName
+    };
     const handler = new MessageHandler("main", "renderer", port);
     handler.send("Connect", {
       sourceName: targetName,
@@ -15573,7 +15578,10 @@ class RendererWorker {
   destroy() {
     this.destroyed = true;
     if (this.#port) {
-      this.#messageHandler?.send("Disconnect", null);
+      if (this.#messageHandler) {
+        this.#closeStrayFrames(this.#port);
+        this.#messageHandler.send("Disconnect", null);
+      }
       RendererWorker.#usedPorts.delete(this.#port);
       this.#port = null;
     }
@@ -15588,6 +15596,29 @@ class RendererWorker {
       reject(new Error("Renderer worker was destroyed."));
     }
     this.#pendingRequests.clear();
+  }
+  #closeStrayFrames(port) {
+    const {
+      sourceName,
+      targetName
+    } = this.#portNames;
+    const ac = new AbortController();
+    const timeoutId = setTimeout(() => ac.abort(), PORT_CONNECTION_TIMEOUT);
+    port.addEventListener("message", ({
+      data
+    }) => {
+      if (data?.targetName !== sourceName || data.sourceName !== targetName) {
+        return;
+      }
+      if (data.action === "RenderFrame") {
+        closeFrame(data.data);
+      } else if (data.action === "Disconnected") {
+        clearTimeout(timeoutId);
+        ac.abort();
+      }
+    }, {
+      signal: ac.signal
+    });
   }
   static create({
     ports = [],
@@ -17902,7 +17933,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.5.0";
-const build = "bca81b5";
+const build = "33734f1";
 
 ;// ./src/display/editor/color_picker.js
 
