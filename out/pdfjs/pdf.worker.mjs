@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = 28e406a
+ * pdfjsBuild = bca81b5
  */
 
 ;// ./src/shared/util.js
@@ -58592,7 +58592,7 @@ class XRef {
           if (offsetByte === -1) {
             throw new FormatError("Invalid XRef byteWidths 'offset'.");
           }
-          offset = offset << 8 | offsetByte;
+          offset = offset * 256 + offsetByte;
         }
         for (let j = 0; j < generationFieldWidth; ++j) {
           const generationByte = stream.getByte();
