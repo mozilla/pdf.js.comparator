@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = 5d143c4
+ * pdfjsBuild = d2f4327
  */
 
 ;// ./src/shared/util.js
@@ -537,6 +537,11 @@ class Util {
   }
   static makeHexColor(r, g, b) {
     return `#${this.hexNums[r]}${this.hexNums[g]}${this.hexNums[b]}`;
+  }
+  static get identity0to256Map() {
+    return shadow(this, "identity0to256Map", Uint8Array.from({
+      length: 256
+    }, (_, i) => i));
   }
   static transform(m1, m2) {
     return [m1[0] * m2[0] + m1[2] * m2[1], m1[1] * m2[0] + m1[3] * m2[1], m1[0] * m2[2] + m1[2] * m2[3], m1[1] * m2[2] + m1[3] * m2[3], m1[0] * m2[4] + m1[2] * m2[5] + m1[4], m1[1] * m2[4] + m1[3] * m2[5] + m1[5]];
@@ -3846,16 +3851,27 @@ class DecodeStream extends BaseStream {
         writable
       } = new DecompressionStream(name);
       const writer = writable.getWriter();
-      await writer.ready;
-      writer.write(bytes).then(async () => {
-        await writer.ready;
-        await writer.close();
-      }).catch(() => {});
+      writer.write(bytes).catch(() => {});
+      writer.close().catch(() => {});
       const chunks = [];
       let totalLength = 0;
-      for await (const chunk of readable) {
+      const reader = readable.getReader();
+      while (true) {
+        const {
+          value: chunk,
+          done
+        } = await reader.read();
+        if (done) {
+          break;
+        }
         chunks.push(chunk);
         totalLength += chunk.byteLength;
+      }
+      if (chunks.length === 1) {
+        return {
+          decompressed: chunks[0],
+          compressed: bytes
+        };
       }
       const data = new Uint8Array(totalLength);
       let offset = 0;
@@ -6239,23 +6255,16 @@ function meshUpdateBounds(self) {
   self.bounds = [minX, minY, maxX, maxY];
 }
 function meshPackData(self) {
-  let i, j, ii;
   const coords = self.coords;
   const coordsPacked = new Float32Array(coords.length * 2);
-  for (i = 0, j = 0, ii = coords.length; i < ii; i++) {
-    const xy = coords[i];
-    coordsPacked[j++] = xy[0];
-    coordsPacked[j++] = xy[1];
+  for (let i = 0, ii = coords.length; i < ii; i++) {
+    coordsPacked.set(coords[i], i * 2);
   }
   self.coords = coordsPacked;
   const colors = self.colors;
   const colorsPacked = new Uint8Array(colors.length * 4);
-  for (i = 0, j = 0, ii = colors.length; i < ii; i++) {
-    const c = colors[i];
-    colorsPacked[j++] = c[0];
-    colorsPacked[j++] = c[1];
-    colorsPacked[j++] = c[2];
-    j++;
+  for (let i = 0, ii = colors.length; i < ii; i++) {
+    colorsPacked.set(colors[i], i * 4);
   }
   self.colors = colorsPacked;
   for (const figure of self.figures) {
@@ -10610,6 +10619,7 @@ class JpxStream extends DecodeStream {
 
 ;// ./src/core/lzw_stream.js
 
+
 class LZWStream extends DecodeStream {
   constructor(str, maybeLength, earlyChange) {
     super(maybeLength);
@@ -10628,9 +10638,7 @@ class LZWStream extends DecodeStream {
       currentSequence: new Uint8Array(maxLzwDictionarySize),
       currentSequenceLength: 0
     };
-    for (let i = 0; i < 256; ++i) {
-      lzwState.dictionaryValues[i] = i;
-    }
+    lzwState.dictionaryValues.set(Util.identity0to256Map, 0);
     this.lzwState = lzwState;
   }
   readBits(n) {
@@ -37527,6 +37535,8 @@ class TranslatedFont {
             if (!fontBBoxSize) {
               this.#guessType3FontBBox(operatorList);
             }
+            operatorList.fnArray.splice(1, 0, OPS.setGState);
+            operatorList.argsArray.splice(1, 0, [[["ca", 1], ["CA", 1]]]);
             break;
         }
         charProcOperatorList.set(key, operatorList.getIR());
@@ -57508,9 +57518,7 @@ class ARCFourCipher {
   a = 0;
   b = 0;
   constructor(key) {
-    const s = Uint8Array.from({
-      length: 256
-    }, (_, i) => i);
+    const s = Util.identity0to256Map.slice();
     const keyLength = key.length;
     for (let i = 0, j = 0; i < 256; ++i) {
       const tmp = s[i];
