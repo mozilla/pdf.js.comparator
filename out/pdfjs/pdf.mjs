@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = 8fb674c
+ * pdfjsBuild = 5d143c4
  */
 
 ;// ./src/shared/util.js
@@ -2073,7 +2073,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "d3479fe0-f203-4265-94f6-f5b620982578";
+const INTERNAL_EVT = "2dc6404d-068e-403b-b1d5-e8c7ea114ced";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -9375,6 +9375,7 @@ class TilingPattern {
         owner.ctx.drawImage(tmpCanvas.canvas, x0, y0, bboxWidth, bboxHeight);
         owner.canvasFactory.destroy(tmpCanvas);
       } else {
+        owner.resetGraphicsState();
         this.setFillAndStrokeStyleToContext(owner, this.paintType, this.color);
         this.clipBbox(owner, x0, y0, x1, y1);
         owner.baseTransformStack.push(owner.baseTransform);
@@ -10799,6 +10800,27 @@ class CanvasGraphics {
     this.pendingClip = null;
     this._cachedScaleForStroking[0] = -1;
   }
+  resetGraphicsState() {
+    const {
+      clipBox,
+      transferMaps,
+      transferMapsFallback
+    } = this.current;
+    const current = this.current = new CanvasExtraState(0, 0);
+    current.clipBox = clipBox;
+    current.transferMaps = transferMaps;
+    current.transferMapsFallback = transferMapsFallback;
+    const ctx = this.ctx;
+    ctx.lineWidth = 1;
+    ctx.lineCap = "butt";
+    ctx.lineJoin = "miter";
+    ctx.miterLimit = 10;
+    if (ctx.setLineDash !== undefined) {
+      ctx.setLineDash([]);
+      ctx.lineDashOffset = 0;
+    }
+    this._cachedScaleForStroking[0] = -1;
+  }
   transform(opIdx, a, b, c, d, e, f) {
     this.dependencyTracker?.recordIncrementalData("transform", opIdx);
     this.ctx.transform(a, b, c, d, e, f);
@@ -11382,7 +11404,7 @@ class CanvasGraphics {
         } else if (this.contentVisible) {
           this.save();
           if (operatorList.fnArray[0] === OPS.setCharWidth) {
-            current.fillAlpha = current.strokeAlpha = 1;
+            this.current.fillAlpha = this.current.strokeAlpha = 1;
             ctx.globalAlpha = 1;
           }
           ctx.scale(fontSize, fontSize);
@@ -17933,7 +17955,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.5.0";
-const build = "8fb674c";
+const build = "5d143c4";
 
 ;// ./src/display/editor/color_picker.js
 
