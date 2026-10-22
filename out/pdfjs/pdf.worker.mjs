@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = 3b2422e
+ * pdfjsBuild = 9f1775c
  */
 
 ;// ./src/shared/util.js
@@ -56835,9 +56835,11 @@ function calculateMD5(data, offset, length) {
   const paddedLength = length + 72 & ~63;
   const padded = new Uint8Array(paddedLength),
     view = new DataView(padded.buffer);
-  let i, j;
-  for (i = 0; i < length; ++i) {
-    padded[i] = data[offset++];
+  let i = 0,
+    j;
+  if (length > 0) {
+    padded.set(data.subarray(offset, offset + length), i);
+    i += length;
   }
   padded[i++] = 0x80;
   const n = paddedLength - 8;
@@ -57244,9 +57246,11 @@ function calculateSHA512(data, offset, length, mode384 = false) {
   const paddedLength = Math.ceil((length + 17) / 128) * 128;
   const padded = new Uint8Array(paddedLength),
     view = new DataView(padded.buffer);
-  let i, j;
-  for (i = 0; i < length; ++i) {
-    padded[i] = data[offset++];
+  let i = 0,
+    j;
+  if (length > 0) {
+    padded.set(data.subarray(offset, offset + length), i);
+    i += length;
   }
   padded[i++] = 0x80;
   const n = paddedLength - 16;
@@ -57401,9 +57405,11 @@ function calculateSHA256(data, offset, length) {
   const paddedLength = Math.ceil((length + 9) / 64) * 64;
   const padded = new Uint8Array(paddedLength),
     view = new DataView(padded.buffer);
-  let i, j;
-  for (i = 0; i < length; ++i) {
-    padded[i] = data[offset++];
+  let i = 0,
+    j;
+  if (length > 0) {
+    padded.set(data.subarray(offset, offset + length), i);
+    i += length;
   }
   padded[i++] = 0x80;
   const n = paddedLength - 8;
@@ -58220,9 +58226,10 @@ class CipherTransformFactory {
     let strf = Name.get("Identity");
     let eff = stmf;
     if (algorithm >= 4) {
-      cf = dict.get("CF");
-      if (cf instanceof Dict) {
-        cf.suppressEncryption = true;
+      const cfDict = dict.get("CF");
+      if (cfDict instanceof Dict) {
+        cfDict.suppressEncryption = true;
+        cf = cfDict;
       }
       stmf = dict.get("StmF") || Name.get("Identity");
       strf = dict.get("StrF") || Name.get("Identity");
@@ -58309,7 +58316,7 @@ class CipherTransformFactory {
         if (!(filterName instanceof Name)) {
           throw new FormatError("Invalid crypt filter name.");
         }
-        const cryptFilter = this.cf.get(filterName.name);
+        const cryptFilter = this.cf?.get(filterName.name);
         const cfm = cryptFilter?.get("CFM");
         if (!cfm || cfm.name === "None") {
           return NullCipher;
