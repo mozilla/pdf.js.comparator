@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = d213faf
+ * pdfjsBuild = d774262
  */
 
 ;// ./src/shared/util.js
@@ -28367,6 +28367,9 @@ class Font {
     builder.addTable("cmap", createCmapTable(newCharCodeToGlyphId, toUnicodeExtraMap, numGlyphs));
     builder.addTable("head", function fontTableHead() {
       const dateArr = [0x00, 0x00, 0x00, 0x00, 0x9e, 0x0b, 0x7e, 0x27];
+      const bbox = font.cff?.topDict.getByName("FontBBox") ?? properties.bbox;
+      const xMin = Math.min(Math.floor(bbox?.[0] || 0), 0);
+      const xMax = Math.max(Math.ceil(bbox?.[2] || 0), 0x0fff);
       const head = new DataBuilder({
         exactLength: 54
       });
@@ -28378,9 +28381,9 @@ class Font {
       head.setSafeInt16(unitsPerEm);
       head.setArray(dateArr);
       head.setArray(dateArr);
-      head.skip(2);
+      head.setSafeInt16(xMin);
       head.setSafeInt16(properties.descent);
-      head.setArray([0x0f, 0xff]);
+      head.setSafeInt16(xMax);
       head.setSafeInt16(properties.ascent);
       head.setInt16(properties.italicAngle ? 2 : 0);
       head.setArray([0x00, 0x11]);
