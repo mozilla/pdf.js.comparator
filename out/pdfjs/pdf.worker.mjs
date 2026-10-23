@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = 5b4187c
+ * pdfjsBuild = 67667f1
  */
 
 ;// ./src/shared/util.js
@@ -32421,10 +32421,7 @@ function bidi(str, startLevel = -1, vertical = false) {
       startLevel = 1;
     }
   }
-  const levels = [];
-  for (i = 0; i < strLength; ++i) {
-    levels[i] = startLevel;
-  }
+  const levels = new Array(strLength).fill(startLevel);
   const e = isOdd(startLevel) ? "R" : "L";
   const sor = e;
   const eor = sor;
