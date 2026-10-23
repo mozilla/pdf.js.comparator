@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = 32b6649
+ * pdfjsBuild = cfab9b7
  */
 
 ;// ./src/shared/util.js
@@ -17419,7 +17419,19 @@ class DataBuilder {
 
 
 const MAX_SUBR_NESTING = 10;
+const MAX_CHARSTRING_TOKENS = 64 * 1024 * 1024;
+const MAX_STACK_SIZE = 48;
 const MAX_FD_ARRAY_COUNT = 256;
+function removeCharStringByte(cursor, data, pos) {
+  const {
+    readStart
+  } = cursor;
+  if (pos > readStart) {
+    data.copyWithin(cursor.writePos, readStart, pos);
+    cursor.writePos += pos - readStart;
+  }
+  cursor.readStart = pos + 1;
+}
 function looksLikeUnsigned16BitNegative(coord) {
   return coord > 0x7fff && coord <= 0xffff;
 }
@@ -17876,12 +17888,34 @@ class CFFParser {
     if (!data || state.callDepth > MAX_SUBR_NESTING) {
       return false;
     }
+    const cursor = {
+      readStart: 0,
+      writePos: 0
+    };
+    try {
+      return this.#parseCharString(state, data, localSubrIndex, globalSubrIndex, cursor);
+    } finally {
+      const {
+        readStart,
+        writePos
+      } = cursor;
+      if (readStart > 0) {
+        data.copyWithin(writePos, readStart);
+        data.fill(14, data.length - readStart + writePos);
+      }
+    }
+  }
+  #parseCharString(state, data, localSubrIndex, globalSubrIndex, cursor) {
     const view = new DataView(data.buffer, data.byteOffset, data.bytesLength);
     let stackSize = state.stackSize;
     const stack = state.stack;
-    let length = data.length;
+    const length = data.length;
     for (let j = 0; j < length;) {
       const value = data[j++];
+      if (++state.tokens > MAX_CHARSTRING_TOKENS || stackSize > MAX_STACK_SIZE) {
+        warn("Charstring exceeds the execution limits.");
+        return false;
+      }
       let validationCommand = null;
       if (value === 12) {
         const q = data[j++];
@@ -17919,9 +17953,7 @@ class CFFParser {
       } else if (value === 19 || value === 20) {
         state.hints += stackSize >> 1;
         if (state.hints === 0) {
-          data.copyWithin(j - 1, j, -1);
-          j -= 1;
-          length -= 1;
+          removeCharStringByte(cursor, data, j - 1);
           continue;
         }
         j += state.hints + 7 >> 3;
@@ -17962,9 +17994,7 @@ class CFFParser {
         data[j - 1] = 14;
         validationCommand = CharstringValidationData[14];
       } else if (value === 9) {
-        data.copyWithin(j - 1, j, -1);
-        j -= 1;
-        length -= 1;
+        removeCharStringByte(cursor, data, j - 1);
         continue;
       } else {
         validationCommand = CharstringValidationData[value];
@@ -18009,9 +18039,6 @@ class CFFParser {
         }
       }
     }
-    if (length < data.length) {
-      data.fill(14, length);
-    }
     state.stackSize = stackSize;
     return true;
   }
@@ -18030,6 +18057,7 @@ class CFFParser {
       const charstring = charStrings.get(i);
       const state = {
         callDepth: 0,
+        tokens: 0,
         stackSize: 0,
         stack: [],
         hints: 0,
@@ -24879,6 +24907,10 @@ class OpenTypeFileBuilder {
 
 
 const HINTING_ENABLED = false;
+const type1_parser_MAX_SUBR_NESTING = 16;
+const type1_parser_MAX_CHARSTRING_TOKENS = 64 * 1024 * 1024;
+const type1_parser_MAX_STACK_SIZE = 48;
+const MAX_CHARSTRING_LENGTH = 65535;
 const COMMAND_MAP = {
   hstem: [1],
   vstem: [3],
@@ -24902,11 +24934,18 @@ class Type1CharString {
   flexing = false;
   output = [];
   stack = [];
-  convert(encoded, subrs, seacAnalysisEnabled) {
+  tokens = 0;
+  convert(encoded, subrs, seacAnalysisEnabled, depth = 0) {
+    if (depth > type1_parser_MAX_SUBR_NESTING) {
+      return true;
+    }
     const count = encoded.length;
     let error = false;
     let wx, sbx, subrNumber;
     for (let i = 0; i < count; i++) {
+      if (++this.tokens > type1_parser_MAX_CHARSTRING_TOKENS || this.stack.length > type1_parser_MAX_STACK_SIZE) {
+        return true;
+      }
       let value = encoded[i];
       if (value < 32) {
         if (value === 12) {
@@ -24964,7 +25003,7 @@ class Type1CharString {
               error = true;
               break;
             }
-            error = this.convert(subrs[subrNumber], subrs, seacAnalysisEnabled);
+            error = this.convert(subrs[subrNumber], subrs, seacAnalysisEnabled, depth + 1);
             break;
           case 11:
             return error;
@@ -24982,6 +25021,7 @@ class Type1CharString {
             break;
           case 14:
             this.output.push(COMMAND_MAP.endchar[0]);
+            error = this.output.length > MAX_CHARSTRING_LENGTH;
             break;
           case 21:
             if (this.flexing) {
@@ -25116,7 +25156,7 @@ class Type1CharString {
     } else {
       this.stack.length = 0;
     }
-    return false;
+    return this.output.length > MAX_CHARSTRING_LENGTH;
   }
 }
 const EEXEC_ENCRYPT_KEY = 55665;
@@ -29386,7 +29426,7 @@ function _evalUnaryConst(op, v) {
       return undefined;
   }
 }
-const MAX_STACK_SIZE = 100;
+const ast_MAX_STACK_SIZE = 100;
 const MAX_WORK = 100_000;
 const MAX_FORK_DEPTH = 1000;
 const MAX_TREE_DEPTH = 500;
@@ -29428,7 +29468,7 @@ class PSStackToTree {
     this._failed = false;
     this._work = 0;
     this._forkDepth = 0;
-    if (numInputs > MAX_STACK_SIZE) {
+    if (numInputs > ast_MAX_STACK_SIZE) {
       return null;
     }
     const stack = [];
@@ -29490,7 +29530,7 @@ class PSStackToTree {
       switch (instr.type) {
         case PS_NODE.number:
           stack.push(new PsConstNode(instr.value));
-          if (stack.length > MAX_STACK_SIZE) {
+          if (stack.length > ast_MAX_STACK_SIZE) {
             this._failed = true;
           }
           break;
@@ -29616,13 +29656,13 @@ class PSStackToTree {
     switch (op) {
       case TOKEN.true:
         stack.push(new PsConstNode(true));
-        if (stack.length > MAX_STACK_SIZE) {
+        if (stack.length > ast_MAX_STACK_SIZE) {
           this._failed = true;
         }
         break;
       case TOKEN.false:
         stack.push(new PsConstNode(false));
-        if (stack.length > MAX_STACK_SIZE) {
+        if (stack.length > ast_MAX_STACK_SIZE) {
           this._failed = true;
         }
         break;
@@ -29632,7 +29672,7 @@ class PSStackToTree {
           break;
         }
         stack.push(stack.at(-1));
-        if (stack.length > MAX_STACK_SIZE) {
+        if (stack.length > ast_MAX_STACK_SIZE) {
           this._failed = true;
         }
         break;
@@ -29667,7 +29707,7 @@ class PSStackToTree {
               this._failed = true;
             } else {
               stack.push(...stack.slice(-n));
-              if (stack.length > MAX_STACK_SIZE) {
+              if (stack.length > ast_MAX_STACK_SIZE) {
                 this._failed = true;
               }
             }
