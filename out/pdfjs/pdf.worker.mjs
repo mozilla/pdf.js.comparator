@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = 4c99803
+ * pdfjsBuild = e2a5e1d
  */
 
 ;// ./src/shared/util.js
@@ -17422,15 +17422,15 @@ const MAX_SUBR_NESTING = 10;
 const MAX_CHARSTRING_TOKENS = 64 * 1024 * 1024;
 const MAX_STACK_SIZE = 48;
 const MAX_FD_ARRAY_COUNT = 256;
-function removeCharStringByte(cursor, data, pos) {
+function removeCharStringBytes(cursor, data, start, end) {
   const {
     readStart
   } = cursor;
-  if (pos > readStart) {
-    data.copyWithin(cursor.writePos, readStart, pos);
-    cursor.writePos += pos - readStart;
+  if (start > readStart) {
+    data.copyWithin(cursor.writePos, readStart, start);
+    cursor.writePos += start - readStart;
   }
-  cursor.readStart = pos + 1;
+  cursor.readStart = end;
 }
 function isEmptyCharString(data) {
   const b0 = data[0];
@@ -17925,9 +17925,13 @@ class CFFParser {
   #parseCharString(state, data, localSubrIndex, globalSubrIndex, cursor) {
     const view = new DataView(data.buffer, data.byteOffset, data.bytesLength);
     let stackSize = state.stackSize;
-    const stack = state.stack;
+    const {
+      stack,
+      argStarts
+    } = state;
     const length = data.length;
     for (let j = 0; j < length;) {
+      argStarts[stackSize] = j;
       const value = data[j++];
       if (++state.tokens > MAX_CHARSTRING_TOKENS || stackSize > MAX_STACK_SIZE) {
         warn("Charstring exceeds the execution limits.");
@@ -17970,7 +17974,7 @@ class CFFParser {
       } else if (value === 19 || value === 20) {
         state.hints += stackSize >> 1;
         if (state.hints === 0) {
-          removeCharStringByte(cursor, data, j - 1);
+          removeCharStringBytes(cursor, data, j - 1, j);
           continue;
         }
         j += state.hints + 7 >> 3;
@@ -18003,6 +18007,7 @@ class CFFParser {
         }
         state.callDepth--;
         stackSize = state.stackSize;
+        argStarts[0] = -1;
         continue;
       } else if (value === 11) {
         state.stackSize = stackSize;
@@ -18011,7 +18016,7 @@ class CFFParser {
         data[j - 1] = 14;
         validationCommand = CharstringValidationData[14];
       } else if (value === 9) {
-        removeCharStringByte(cursor, data, j - 1);
+        removeCharStringBytes(cursor, data, j - 1, j);
         continue;
       } else {
         validationCommand = CharstringValidationData[value];
@@ -18034,16 +18039,14 @@ class CFFParser {
           }
           return false;
         }
-        if (state.firstStackClearing && validationCommand.stackClearing) {
-          state.firstStackClearing = false;
-          stackSize -= validationCommand.min;
-          if (stackSize >= 2 && validationCommand.stem) {
-            stackSize %= 2;
-          } else if (stackSize > 1) {
-            warn("Found too many parameters for stack-clearing command");
+        if (validationCommand.stackClearing) {
+          let extraArgs = validationCommand.stem ? stackSize % 2 : stackSize - validationCommand.min;
+          if (state.firstStackClearing && extraArgs > 0) {
+            state.width = stack[--extraArgs];
           }
-          if (stackSize > 0) {
-            state.width = stack[stackSize - 1];
+          state.firstStackClearing = false;
+          if (extraArgs > 0 && state.callDepth === 0 && argStarts[0] >= cursor.readStart) {
+            removeCharStringBytes(cursor, data, argStarts[0], argStarts[extraArgs]);
           }
         }
         if ("stackDelta" in validationCommand) {
@@ -18051,6 +18054,7 @@ class CFFParser {
             validationCommand.stackFn(stack, stackSize);
           }
           stackSize += validationCommand.stackDelta;
+          argStarts[0] = -1;
         } else if (validationCommand.stackClearing || validationCommand.resetStack) {
           stackSize = 0;
         }
@@ -18077,6 +18081,7 @@ class CFFParser {
         tokens: 0,
         stackSize: 0,
         stack: [],
+        argStarts: [],
         hints: 0,
         firstStackClearing: true,
         seac: null,
