@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = 67667f1
+ * pdfjsBuild = 850b390
  */
 
 ;// ./src/shared/util.js
@@ -17432,6 +17432,20 @@ function removeCharStringByte(cursor, data, pos) {
   }
   cursor.readStart = pos + 1;
 }
+function isEmptyCharString(data) {
+  const b0 = data[0];
+  let pos = 0;
+  if (b0 === 28) {
+    pos = 3;
+  } else if (b0 >= 32 && b0 <= 246) {
+    pos = 1;
+  } else if (b0 >= 247 && b0 <= 254) {
+    pos = 2;
+  } else if (b0 === 255) {
+    pos = 5;
+  }
+  return data[pos] === 14;
+}
 function looksLikeUnsigned16BitNegative(coord) {
   return coord > 0x7fff && coord <= 0xffff;
 }
@@ -17651,6 +17665,9 @@ const CharstringValidationData12 = [null, null, null, {
   resetStack: true
 }];
 class CFFParser {
+  #privateDicts = new Map();
+  #privateDataLength = 0;
+  #subrsIndexes = new Map();
   constructor(file, properties, seacAnalysisEnabled) {
     this.bytes = file.getBytes();
     this.properties = properties;
@@ -18112,6 +18129,12 @@ class CFFParser {
     parentDict.setByKey(18, [0, 0]);
     parentDict.privateDict = privateDict;
   }
+  #addPrivateDataLength(length) {
+    this.#privateDataLength += length;
+    if (this.#privateDataLength > this.bytes.length) {
+      throw new FormatError("CFF Private DICT data exceeds the font length");
+    }
+  }
   parsePrivateDict(parentDict) {
     if (!parentDict.hasName("Private")) {
       this.emptyPrivateDictionary(parentDict);
@@ -18131,11 +18154,19 @@ class CFFParser {
     if (offset + size > this.bytes.length) {
       throw new FormatError("CFF Private DICT extends past end of font");
     }
+    const cacheKey = `${offset}_${size}`;
+    const cachedDict = this.#privateDicts.get(cacheKey);
+    if (cachedDict) {
+      parentDict.privateDict = cachedDict;
+      return;
+    }
     const privateDictEnd = offset + size;
     const dictData = this.bytes.subarray(offset, privateDictEnd);
+    this.#addPrivateDataLength(dictData.length);
     const dict = this.parseDict(dictData);
     const privateDict = this.createDict(CFFPrivateDict, dict, parentDict.strings);
     parentDict.privateDict = privateDict;
+    this.#privateDicts.set(cacheKey, privateDict);
     const blueScale = privateDict.getByName("BlueScale");
     const blueShift = privateDict.getByName("BlueShift");
     const blueFuzz = privateDict.getByName("BlueFuzz");
@@ -18178,10 +18209,17 @@ class CFFParser {
     const relativeOffset = offset + subrsOffset;
     if (subrsOffset === 0 || relativeOffset >= this.bytes.length) {
       this.emptyPrivateDictionary(parentDict);
+      this.#privateDicts.set(cacheKey, parentDict.privateDict);
       return;
     }
-    const subrsIndex = this.parseIndex(relativeOffset);
-    privateDict.subrsIndex = subrsIndex.obj;
+    privateDict.subrsIndex = this.#subrsIndexes.getOrInsertComputed(relativeOffset, () => {
+      const {
+        obj,
+        endPos
+      } = this.parseIndex(relativeOffset);
+      this.#addPrivateDataLength(Math.max(endPos - relativeOffset, obj.count));
+      return obj;
+    });
   }
   parseCharsets(pos, length, strings, cid) {
     if (pos === 0) {
@@ -18342,16 +18380,31 @@ class CFF {
   constructor(rawFileLength = 0) {
     this.rawFileLength = rawFileLength;
   }
-  duplicateFirstGlyph() {
-    if (this.charStrings.count >= 65535) {
-      warn("Not enough space in charstrings to duplicate first glyph.");
-      return;
+  duplicateFirstGlyph(replaceEmptyGlyph = false) {
+    const {
+      charStrings,
+      fdSelect
+    } = this;
+    const glyphZero = charStrings.get(0);
+    let id = charStrings.count;
+    if (id < 65535) {
+      charStrings.add(glyphZero);
+    } else {
+      id = replaceEmptyGlyph ? id - 1 : 0;
+      while (id > 0 && (this.seacs.has(id) || !isEmptyCharString(charStrings.get(id)))) {
+        id--;
+      }
+      if (id === 0) {
+        warn("Not enough space in charstrings to duplicate first glyph.");
+        return 0;
+      }
+      charStrings.set(id, glyphZero);
     }
-    const glyphZero = this.charStrings.get(0);
-    this.charStrings.add(glyphZero);
+    this.widths[id] = this.widths[0];
     if (this.isCIDFont) {
-      this.fdSelect.fdSelect.push(this.fdSelect.fdSelect[0]);
+      fdSelect.fdSelect[id] = fdSelect.fdSelect[0];
     }
+    return id;
   }
   hasGlyphId(id) {
     if (id < 0 || id >= this.charStrings.count) {
@@ -18739,11 +18792,18 @@ class CFFCompiler {
     };
   }
   compilePrivateDicts(dicts, trackers, output) {
+    const locations = new Map();
+    const subrs = new Map();
     for (let i = 0, ii = dicts.length; i < ii; ++i) {
       const fontDict = dicts[i];
       const privateDict = fontDict.privateDict;
       if (!privateDict || !fontDict.hasName("Private")) {
         throw new FormatError("There must be a private dictionary.");
+      }
+      let location = locations.get(privateDict);
+      if (location) {
+        trackers[i].setEntryLocation("Private", location, output);
+        continue;
       }
       const privateDictTracker = new CFFOffsetTracker();
       const privateDictData = this.compileDict(privateDict, privateDictTracker);
@@ -18752,13 +18812,20 @@ class CFFCompiler {
       if (!privateDictData.length) {
         outputLength = 0;
       }
-      trackers[i].setEntryLocation("Private", [privateDictData.length, outputLength], output);
+      location = [privateDictData.length, outputLength];
+      locations.set(privateDict, location);
+      trackers[i].setEntryLocation("Private", location, output);
       output.setArray(privateDictData);
       if (privateDict.subrsIndex && privateDict.hasName("Subrs")) {
-        const subrs = this.compileIndex(privateDict.subrsIndex);
-        privateDictTracker.setEntryLocation("Subrs", [privateDictData.length], output);
-        output.setArray(subrs);
+        subrs.getOrInsertComputed(privateDict.subrsIndex, makeArr).push([privateDictTracker, outputLength]);
       }
+    }
+    for (const [subrsIndex, users] of subrs) {
+      const subrsStart = output.length;
+      for (const [privateDictTracker, privateDictStart] of users) {
+        privateDictTracker.setEntryLocation("Subrs", [subrsStart - privateDictStart], output);
+      }
+      output.setArray(this.compileIndex(subrsIndex));
     }
   }
   compileDict(dict, offsetTracker) {
@@ -20660,11 +20727,18 @@ class IdentityToUnicodeMap {
 
 
 class CFFFont {
+  #replacedGlyphId = -1;
   constructor(file, properties) {
     this.properties = properties;
     const parser = new CFFParser(file, properties, (/* inlined export .SEAC_ANALYSIS_ENABLED */true));
     this.cff = parser.parse();
-    this.cff.duplicateFirstGlyph();
+    const {
+      charStringCount
+    } = this.cff;
+    this.glyphZeroId = this.cff.duplicateFirstGlyph(true);
+    if (this.glyphZeroId > 0 && this.glyphZeroId < charStringCount) {
+      this.#replacedGlyphId = this.glyphZeroId;
+    }
     const compiler = new CFFCompiler(this.cff);
     this.seacs = this.cff.seacs;
     try {
@@ -20724,7 +20798,7 @@ class CFFFont {
     return type1FontGlyphMapping(properties, encoding, charsets);
   }
   hasGlyphId(id) {
-    return this.cff.hasGlyphId(id);
+    return id !== this.#replacedGlyphId && this.cff.hasGlyphId(id);
   }
   _createBuiltInEncoding() {
     const {
@@ -28332,7 +28406,7 @@ class Font {
     if (properties.builtInEncoding) {
       adjustType1ToUnicode(properties, properties.builtInEncoding);
     }
-    const glyphZeroId = font instanceof CFFFont ? font.numGlyphs - 1 : 1;
+    const glyphZeroId = font instanceof CFFFont ? font.glyphZeroId : 1;
     const mapping = font.getGlyphMapping(properties);
     let newMapping = null;
     let newCharCodeToGlyphId = mapping;
