@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = c85e80c
+ * pdfjsBuild = f99d131
  */
 
 ;// ./src/shared/util.js
@@ -6242,19 +6242,12 @@ class RadialAxialShading extends BaseShading {
   }
 }
 function meshUpdateBounds(self) {
-  let minX = self.coords[0][0],
-    minY = self.coords[0][1],
-    maxX = minX,
-    maxY = minY;
-  for (let i = 1, ii = self.coords.length; i < ii; i++) {
-    const x = self.coords[i][0],
-      y = self.coords[i][1];
-    minX = minX > x ? x : minX;
-    minY = minY > y ? y : minY;
-    maxX = maxX < x ? x : maxX;
-    maxY = maxY < y ? y : maxY;
+  const coords = self.coords,
+    bounds = BBOX_INIT.slice();
+  for (let i = 0, ii = coords.length; i < ii; i++) {
+    Util.pointBoundingBox(coords[i][0], coords[i][1], bounds);
   }
-  self.bounds = [minX, minY, maxX, maxY];
+  self.bounds = bounds;
 }
 function meshPackData(self) {
   const coords = self.coords;
