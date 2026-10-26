@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = 606bd6a
+ * pdfjsBuild = c85e80c
  */
 
 ;// ./src/shared/util.js
@@ -29,6 +29,8 @@ const isNodeJS = typeof process === "object" && process + "" === "[object proces
 const BBOX_INIT = [Infinity, Infinity, -Infinity, -Infinity];
 const F32_BBOX_INIT = new Float32Array(BBOX_INIT);
 const FONT_IDENTITY_MATRIX = [0.001, 0, 0, 0.001, 0, 0];
+const DEFAULT_VERTICAL_ORIGIN_Y = 880;
+const DEFAULT_VERTICAL_ADVANCE = 1000;
 const LINE_FACTOR = 1.35;
 const LINE_DESCENT_FACTOR = 0.35;
 const BASELINE_FACTOR = LINE_DESCENT_FACTOR / LINE_FACTOR;
@@ -17199,6 +17201,7 @@ const getVerticalPresentationForm = getLookupTableFactory(t => {
   t[0xff5b] = 0xfe37;
   t[0xff5d] = 0xfe38;
 });
+const VERTICAL_ROTATED_CHARS = new Set([0x2010, 0x2015, 0x2016, 0x3018, 0x3019, 0x301c, 0x30a0, 0x30fc, 0xff1d, 0xff5c, 0xff5e, 0xff5f, 0xff60]);
 const MAX_SIZE_TO_COMPILE = 1000;
 function compileType3Glyph({
   data: img,
@@ -26196,7 +26199,7 @@ function amendFallbackToUnicode(properties) {
   properties.toUnicode.amend(toUnicode);
 }
 class fonts_Glyph {
-  constructor(originalCharCode, fontChar, unicode, accent, width, vmetric, operatorListId, isSpace, isInFont) {
+  constructor(originalCharCode, fontChar, unicode, accent, width, vmetric, operatorListId, isSpace, isInFont, isRotated) {
     this.originalCharCode = originalCharCode;
     this.fontChar = fontChar;
     this.unicode = unicode;
@@ -26206,6 +26209,7 @@ class fonts_Glyph {
     this.operatorListId = operatorListId;
     this.isSpace = isSpace;
     this.isInFont = isInFont;
+    this.isRotated = isRotated;
   }
   get category() {
     return shadow(this, "category", getCharUnicodeCategory(this.unicode), true);
@@ -28648,15 +28652,34 @@ class Font {
         warn(`charToGlyph - invalid fontCharCode: ${fontCharCode}`);
       }
     }
-    if (this.missingFile && this.vertical && fontChar.length === 1) {
-      const vertical = getVerticalPresentationForm()[fontChar.charCodeAt(0)];
+    let isRotated = false;
+    if (this.missingFile && this.vertical && fontChar.length === 1 && this.#hasVerticalVariant(charcode)) {
+      const charCode = fontChar.charCodeAt(0);
+      const vertical = getVerticalPresentationForm()[charCode];
       if (vertical) {
         fontChar = unicode = String.fromCharCode(vertical);
+      } else {
+        isRotated = VERTICAL_ROTATED_CHARS.has(charCode);
       }
     }
-    glyph = new fonts_Glyph(charcode, fontChar, unicode, accent, width, vmetric, operatorListId, isSpace, isInFont);
+    glyph = new fonts_Glyph(charcode, fontChar, unicode, accent, width, vmetric, operatorListId, isSpace, isInFont, isRotated);
     this.#glyphCache.set(charcode, glyph);
     return glyph;
+  }
+  #hasVerticalVariant(charcode) {
+    const {
+      cMap
+    } = this;
+    if (!cMap?.builtInCMap) {
+      return true;
+    }
+    let {
+      useCMap
+    } = cMap;
+    while (useCMap?.vertical) {
+      useCMap = useCMap.useCMap;
+    }
+    return !useCMap || cMap.lookup(charcode) !== useCMap.lookup(charcode);
   }
   charsToGlyphs(chars) {
     let glyphs = this.#charsCache.get(chars);
@@ -37055,7 +37078,7 @@ class PartialEvaluator {
       }
       if (properties.vertical) {
         const dw2 = dict.getArray("DW2");
-        let vmetrics = isNumberArray(dw2, 2) ? dw2 : [880, -1000];
+        let vmetrics = isNumberArray(dw2, 2) ? dw2 : [(/* inlined export .DEFAULT_VERTICAL_ORIGIN_Y */880), -(/* inlined export .DEFAULT_VERTICAL_ADVANCE */1000)];
         defaultVMetrics = [vmetrics[1], defaultWidth * 0.5, vmetrics[0]];
         vmetrics = dict.get("W2");
         if (Array.isArray(vmetrics)) {
