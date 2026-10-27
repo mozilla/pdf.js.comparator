@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = ea6cf5c
+ * pdfjsBuild = 2a1b241
  */
 
 ;// ./src/shared/util.js
@@ -26192,8 +26192,10 @@ function amendFallbackToUnicode(properties) {
   properties.toUnicode.amend(toUnicode);
 }
 class fonts_Glyph {
-  constructor(originalCharCode, fontChar, unicode, accent, width, vmetric, operatorListId, isSpace, isInFont, isRotated) {
-    this.originalCharCode = originalCharCode;
+  constructor(fontExtraProperties, originalCharCode, fontChar, unicode, accent, width, vmetric, operatorListId, isSpace, isInFont, isRotated) {
+    if (fontExtraProperties) {
+      this.originalCharCode = originalCharCode;
+    }
     this.fontChar = fontChar;
     this.unicode = unicode;
     this.accent = accent;
@@ -28655,7 +28657,7 @@ class Font {
         isRotated = VERTICAL_ROTATED_CHARS.has(charCode);
       }
     }
-    glyph = new fonts_Glyph(charcode, fontChar, unicode, accent, width, vmetric, operatorListId, isSpace, isInFont, isRotated);
+    glyph = new fonts_Glyph(this.fontExtraProperties, charcode, fontChar, unicode, accent, width, vmetric, operatorListId, isSpace, isInFont, isRotated);
     this.#glyphCache.set(charcode, glyph);
     return glyph;
   }
@@ -36247,8 +36249,7 @@ class PartialEvaluator {
       for (let i = 0, ii = glyphs.length; i < ii; i++) {
         const glyph = glyphs[i];
         const {
-          category,
-          originalCharCode
+          category
         } = glyph;
         if (category.isInvisibleFormatMark) {
           continue;
@@ -36256,7 +36257,7 @@ class PartialEvaluator {
         let charSpacing = baseCharSpacing + (i + 1 === ii ? extraSpacing : 0);
         const glyphWidth = font.vertical ? glyph.vmetric[0] : glyph.width;
         let scaledDim = glyphWidth * scale;
-        if (originalCharCode === 0x20) {
+        if (glyph.isSpace) {
           charSpacing += textState.wordSpacing;
         }
         if (!keepWhiteSpace && category.isWhitespace) {
@@ -60803,17 +60804,16 @@ class PDFDocument {
     return shadow(this, "hasJSActions", promise);
   }
   get calculationOrderIds() {
-    const calculationOrder = this.catalog.acroForm?.get("CO");
-    if (!Array.isArray(calculationOrder) || calculationOrder.length === 0) {
-      return shadow(this, "calculationOrderIds", null);
-    }
-    const ids = [];
-    for (const id of calculationOrder) {
-      if (id instanceof Ref) {
-        ids.push(id.toString());
+    const co = this.catalog.acroForm?.get("CO");
+    let ids = null;
+    if (Array.isArray(co)) {
+      for (const id of co) {
+        if (id instanceof Ref) {
+          (ids ??= []).push(id.toString());
+        }
       }
     }
-    return shadow(this, "calculationOrderIds", ids.length ? ids : null);
+    return shadow(this, "calculationOrderIds", ids);
   }
   get annotationGlobals() {
     return shadow(this, "annotationGlobals", AnnotationFactory.createGlobals(this.pdfManager));
