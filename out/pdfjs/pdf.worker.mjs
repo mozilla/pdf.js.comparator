@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = 2a1b241
+ * pdfjsBuild = 279175b
  */
 
 ;// ./src/shared/util.js
@@ -18246,6 +18246,10 @@ class CFFParser {
         break;
       case 1:
         while (charset.length <= length) {
+          if (pos + 3 > bytes.length) {
+            warn("parseCharsets: Truncated charset.");
+            break;
+          }
           id = bytes[pos++] << 8 | bytes[pos++];
           count = bytes[pos++];
           for (i = 0; i <= count; i++) {

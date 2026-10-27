@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = 2a1b241
+ * pdfjsBuild = 279175b
  */
 
 ;// ./src/shared/util.js
@@ -2080,7 +2080,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "15411378-0d16-4568-b2a4-685bec27c583";
+const INTERNAL_EVT = "2d7cc1c5-8dec-4534-9527-df8d7213aa25";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -11367,24 +11367,25 @@ class CanvasGraphics {
         scaledY = 0;
       }
       const glyphWidth = glyph.isRotated ? glyph.width : width;
+      let characterScaleX = 1;
       if ((font.remeasure || glyph.isRotated) && glyphWidth > 0) {
         measure ??= ctx.measureText(character);
         const measuredWidth = measure.width * 1000 / fontSize * fontSizeScale;
         if (glyphWidth < measuredWidth && this.isFontSubpixelAAEnabled) {
-          const characterScaleX = glyphWidth / measuredWidth;
+          characterScaleX = glyphWidth / measuredWidth;
           if (!restoreNeeded) {
             restoreNeeded = true;
             ctx.save();
           }
           ctx.scale(characterScaleX, 1);
           scaledX /= characterScaleX;
-          if (font.missingFile && (patternFillTransform || patternStrokeTransform)) {
-            glyphPatterns ||= new Map();
-            [ctx.fillStyle, ctx.strokeStyle] = glyphPatterns.getOrInsertComputed(glyph.isRotated ? -characterScaleX : characterScaleX, () => [patternFillTransform ? this.#getTextPattern(current.fillColor, PathType.FILL, opIdx)[0] : ctx.fillStyle, patternStrokeTransform ? this.#getTextPattern(current.strokeColor, PathType.STROKE, opIdx)[0] : ctx.strokeStyle]);
-          }
         } else if (glyphWidth !== measuredWidth) {
           scaledX += (glyphWidth - measuredWidth) / 2000 * fontSize / fontSizeScale;
         }
+      }
+      if (restoreNeeded && font.missingFile && (patternFillTransform || patternStrokeTransform)) {
+        glyphPatterns ||= new Map();
+        [ctx.fillStyle, ctx.strokeStyle] = glyphPatterns.getOrInsertComputed(glyph.isRotated ? -characterScaleX : characterScaleX, () => [patternFillTransform ? this.#getTextPattern(current.fillColor, PathType.FILL, opIdx)[0] : ctx.fillStyle, patternStrokeTransform ? this.#getTextPattern(current.strokeColor, PathType.STROKE, opIdx)[0] : ctx.strokeStyle]);
       }
       if (this.contentVisible && (glyph.isInFont || font.missingFile)) {
         if (simpleFillText && !accent) {
@@ -18012,7 +18013,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.5.0";
-const build = "2a1b241";
+const build = "279175b";
 
 ;// ./src/display/editor/color_picker.js
 
