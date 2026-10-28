@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = 279175b
+ * pdfjsBuild = 24a63a4
  */
 
 ;// ./src/shared/util.js
@@ -2080,7 +2080,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "2d7cc1c5-8dec-4534-9527-df8d7213aa25";
+const INTERNAL_EVT = "5963d3f7-ddcf-47e5-b0f8-be17d6b17398";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -7271,6 +7271,211 @@ class StatTimer {
   }
 }
 
+;// ./src/display/webgpu.js
+const MESH_WGSL = `
+struct Uniforms {
+  offsetX      : f32,
+  offsetY      : f32,
+  scaleX       : f32,
+  scaleY       : f32,
+  paddedWidth  : f32,
+  paddedHeight : f32,
+  borderSize   : f32,
+  _pad         : f32,
+};
+
+@group(0) @binding(0) var<uniform> u : Uniforms;
+
+struct VertexInput {
+  @location(0) position : vec2<f32>,
+  @location(1) color    : vec4<f32>,
+};
+
+struct VertexOutput {
+  @builtin(position) position : vec4<f32>,
+  @location(0)       color    : vec3<f32>,
+};
+
+@vertex
+fn vs_main(in : VertexInput) -> VertexOutput {
+  var out : VertexOutput;
+  let cx = (in.position.x + u.offsetX) * u.scaleX;
+  let cy = (in.position.y + u.offsetY) * u.scaleY;
+  out.position = vec4<f32>(
+    ((cx + u.borderSize) / u.paddedWidth) * 2.0 - 1.0,
+    1.0 - ((cy + u.borderSize) / u.paddedHeight) * 2.0,
+    0.0,
+    1.0
+  );
+  out.color = in.color.rgb;
+  return out;
+}
+
+@fragment
+fn fs_main(in : VertexOutput) -> @location(0) vec4<f32> {
+  return vec4<f32>(in.color, 1.0);
+}
+`;
+class WebGPU {
+  #initPromise = null;
+  #device = null;
+  #meshPipeline = null;
+  #preferredFormat = null;
+  async #initGPU() {
+    if (!globalThis.navigator?.gpu) {
+      return false;
+    }
+    try {
+      const adapter = await navigator.gpu.requestAdapter();
+      if (!adapter) {
+        return false;
+      }
+      this.#preferredFormat = navigator.gpu.getPreferredCanvasFormat();
+      this.#device = await adapter.requestDevice();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  init() {
+    return this.#initPromise ||= this.#initGPU();
+  }
+  get isReady() {
+    return this.#device !== null;
+  }
+  loadMeshShader() {
+    if (!this.#device || this.#meshPipeline) {
+      return;
+    }
+    const shaderModule = this.#device.createShaderModule({
+      code: MESH_WGSL
+    });
+    this.#meshPipeline = this.#device.createRenderPipeline({
+      layout: "auto",
+      vertex: {
+        module: shaderModule,
+        entryPoint: "vs_main",
+        buffers: [{
+          arrayStride: 2 * 4,
+          attributes: [{
+            shaderLocation: 0,
+            offset: 0,
+            format: "float32x2"
+          }]
+        }, {
+          arrayStride: 4,
+          attributes: [{
+            shaderLocation: 1,
+            offset: 0,
+            format: "unorm8x4"
+          }]
+        }]
+      },
+      fragment: {
+        module: shaderModule,
+        entryPoint: "fs_main",
+        targets: [{
+          format: this.#preferredFormat
+        }]
+      },
+      primitive: {
+        topology: "triangle-list"
+      }
+    });
+  }
+  draw(posData, colData, vertexCount, context, backgroundColor, paddedWidth, paddedHeight, borderSize) {
+    this.loadMeshShader();
+    const device = this.#device;
+    const {
+      offsetX,
+      offsetY,
+      scaleX,
+      scaleY
+    } = context;
+    const posBuffer = device.createBuffer({
+      size: Math.max(posData.byteLength, 4),
+      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
+    });
+    if (posData.byteLength > 0) {
+      device.queue.writeBuffer(posBuffer, 0, posData);
+    }
+    const colBuffer = device.createBuffer({
+      size: Math.max(colData.byteLength, 4),
+      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
+    });
+    if (colData.byteLength > 0) {
+      device.queue.writeBuffer(colBuffer, 0, colData);
+    }
+    const uniformBuffer = device.createBuffer({
+      size: 8 * 4,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+    });
+    device.queue.writeBuffer(uniformBuffer, 0, new Float32Array([offsetX, offsetY, scaleX, scaleY, paddedWidth, paddedHeight, borderSize, 0]));
+    const bindGroup = device.createBindGroup({
+      layout: this.#meshPipeline.getBindGroupLayout(0),
+      entries: [{
+        binding: 0,
+        resource: {
+          buffer: uniformBuffer
+        }
+      }]
+    });
+    const offscreen = new OffscreenCanvas(paddedWidth, paddedHeight);
+    const gpuCtx = offscreen.getContext("webgpu");
+    gpuCtx.configure({
+      device,
+      format: this.#preferredFormat,
+      alphaMode: backgroundColor ? "opaque" : "premultiplied"
+    });
+    const clearValue = backgroundColor ? {
+      r: backgroundColor[0] / 255,
+      g: backgroundColor[1] / 255,
+      b: backgroundColor[2] / 255,
+      a: 1
+    } : {
+      r: 0,
+      g: 0,
+      b: 0,
+      a: 0
+    };
+    const commandEncoder = device.createCommandEncoder();
+    const renderPass = commandEncoder.beginRenderPass({
+      colorAttachments: [{
+        view: gpuCtx.getCurrentTexture().createView(),
+        clearValue,
+        loadOp: "clear",
+        storeOp: "store"
+      }]
+    });
+    if (vertexCount > 0) {
+      renderPass.setPipeline(this.#meshPipeline);
+      renderPass.setBindGroup(0, bindGroup);
+      renderPass.setVertexBuffer(0, posBuffer);
+      renderPass.setVertexBuffer(1, colBuffer);
+      renderPass.draw(vertexCount);
+    }
+    renderPass.end();
+    device.queue.submit([commandEncoder.finish()]);
+    posBuffer.destroy();
+    colBuffer.destroy();
+    uniformBuffer.destroy();
+    return offscreen.transferToImageBitmap();
+  }
+}
+const _webGPU = new WebGPU();
+function initGPU() {
+  return _webGPU.init();
+}
+function isGPUReady() {
+  return _webGPU.isReady;
+}
+function loadMeshShader() {
+  _webGPU.loadMeshShader();
+}
+function drawMeshWithGPU(posData, colData, vertexCount, context, backgroundColor, paddedWidth, paddedHeight, borderSize) {
+  return _webGPU.draw(posData, colData, vertexCount, context, backgroundColor, paddedWidth, paddedHeight, borderSize);
+}
+
 ;// ./src/shared/message_handler.js
 
 const CallbackKind = {
@@ -8733,211 +8938,6 @@ function grayToRGBA(src, dest) {
       dest[i] = src[i] * 0x1010100 | 0x000000ff;
     }
   }
-}
-
-;// ./src/display/webgpu.js
-const MESH_WGSL = `
-struct Uniforms {
-  offsetX      : f32,
-  offsetY      : f32,
-  scaleX       : f32,
-  scaleY       : f32,
-  paddedWidth  : f32,
-  paddedHeight : f32,
-  borderSize   : f32,
-  _pad         : f32,
-};
-
-@group(0) @binding(0) var<uniform> u : Uniforms;
-
-struct VertexInput {
-  @location(0) position : vec2<f32>,
-  @location(1) color    : vec4<f32>,
-};
-
-struct VertexOutput {
-  @builtin(position) position : vec4<f32>,
-  @location(0)       color    : vec3<f32>,
-};
-
-@vertex
-fn vs_main(in : VertexInput) -> VertexOutput {
-  var out : VertexOutput;
-  let cx = (in.position.x + u.offsetX) * u.scaleX;
-  let cy = (in.position.y + u.offsetY) * u.scaleY;
-  out.position = vec4<f32>(
-    ((cx + u.borderSize) / u.paddedWidth) * 2.0 - 1.0,
-    1.0 - ((cy + u.borderSize) / u.paddedHeight) * 2.0,
-    0.0,
-    1.0
-  );
-  out.color = in.color.rgb;
-  return out;
-}
-
-@fragment
-fn fs_main(in : VertexOutput) -> @location(0) vec4<f32> {
-  return vec4<f32>(in.color, 1.0);
-}
-`;
-class WebGPU {
-  #initPromise = null;
-  #device = null;
-  #meshPipeline = null;
-  #preferredFormat = null;
-  async #initGPU() {
-    if (!globalThis.navigator?.gpu) {
-      return false;
-    }
-    try {
-      const adapter = await navigator.gpu.requestAdapter();
-      if (!adapter) {
-        return false;
-      }
-      this.#preferredFormat = navigator.gpu.getPreferredCanvasFormat();
-      this.#device = await adapter.requestDevice();
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  init() {
-    return this.#initPromise ||= this.#initGPU();
-  }
-  get isReady() {
-    return this.#device !== null;
-  }
-  loadMeshShader() {
-    if (!this.#device || this.#meshPipeline) {
-      return;
-    }
-    const shaderModule = this.#device.createShaderModule({
-      code: MESH_WGSL
-    });
-    this.#meshPipeline = this.#device.createRenderPipeline({
-      layout: "auto",
-      vertex: {
-        module: shaderModule,
-        entryPoint: "vs_main",
-        buffers: [{
-          arrayStride: 2 * 4,
-          attributes: [{
-            shaderLocation: 0,
-            offset: 0,
-            format: "float32x2"
-          }]
-        }, {
-          arrayStride: 4,
-          attributes: [{
-            shaderLocation: 1,
-            offset: 0,
-            format: "unorm8x4"
-          }]
-        }]
-      },
-      fragment: {
-        module: shaderModule,
-        entryPoint: "fs_main",
-        targets: [{
-          format: this.#preferredFormat
-        }]
-      },
-      primitive: {
-        topology: "triangle-list"
-      }
-    });
-  }
-  draw(posData, colData, vertexCount, context, backgroundColor, paddedWidth, paddedHeight, borderSize) {
-    this.loadMeshShader();
-    const device = this.#device;
-    const {
-      offsetX,
-      offsetY,
-      scaleX,
-      scaleY
-    } = context;
-    const posBuffer = device.createBuffer({
-      size: Math.max(posData.byteLength, 4),
-      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
-    });
-    if (posData.byteLength > 0) {
-      device.queue.writeBuffer(posBuffer, 0, posData);
-    }
-    const colBuffer = device.createBuffer({
-      size: Math.max(colData.byteLength, 4),
-      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
-    });
-    if (colData.byteLength > 0) {
-      device.queue.writeBuffer(colBuffer, 0, colData);
-    }
-    const uniformBuffer = device.createBuffer({
-      size: 8 * 4,
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
-    });
-    device.queue.writeBuffer(uniformBuffer, 0, new Float32Array([offsetX, offsetY, scaleX, scaleY, paddedWidth, paddedHeight, borderSize, 0]));
-    const bindGroup = device.createBindGroup({
-      layout: this.#meshPipeline.getBindGroupLayout(0),
-      entries: [{
-        binding: 0,
-        resource: {
-          buffer: uniformBuffer
-        }
-      }]
-    });
-    const offscreen = new OffscreenCanvas(paddedWidth, paddedHeight);
-    const gpuCtx = offscreen.getContext("webgpu");
-    gpuCtx.configure({
-      device,
-      format: this.#preferredFormat,
-      alphaMode: backgroundColor ? "opaque" : "premultiplied"
-    });
-    const clearValue = backgroundColor ? {
-      r: backgroundColor[0] / 255,
-      g: backgroundColor[1] / 255,
-      b: backgroundColor[2] / 255,
-      a: 1
-    } : {
-      r: 0,
-      g: 0,
-      b: 0,
-      a: 0
-    };
-    const commandEncoder = device.createCommandEncoder();
-    const renderPass = commandEncoder.beginRenderPass({
-      colorAttachments: [{
-        view: gpuCtx.getCurrentTexture().createView(),
-        clearValue,
-        loadOp: "clear",
-        storeOp: "store"
-      }]
-    });
-    if (vertexCount > 0) {
-      renderPass.setPipeline(this.#meshPipeline);
-      renderPass.setBindGroup(0, bindGroup);
-      renderPass.setVertexBuffer(0, posBuffer);
-      renderPass.setVertexBuffer(1, colBuffer);
-      renderPass.draw(vertexCount);
-    }
-    renderPass.end();
-    device.queue.submit([commandEncoder.finish()]);
-    posBuffer.destroy();
-    colBuffer.destroy();
-    uniformBuffer.destroy();
-    return offscreen.transferToImageBitmap();
-  }
-}
-const _webGPU = new WebGPU();
-function initGPU() {
-  return _webGPU.init();
-}
-function isGPUReady() {
-  return _webGPU.isReady;
-}
-function loadMeshShader() {
-  _webGPU.loadMeshShader();
-}
-function drawMeshWithGPU(posData, colData, vertexCount, context, backgroundColor, paddedWidth, paddedHeight, borderSize) {
-  return _webGPU.draw(posData, colData, vertexCount, context, backgroundColor, paddedWidth, paddedHeight, borderSize);
 }
 
 ;// ./src/display/pattern_helper.js
@@ -16232,7 +16232,9 @@ function getDocument(src = {}) {
   const BinaryDataFactory = src.BinaryDataFactory || (isNodeJS ? NodeBinaryDataFactory : DOMBinaryDataFactory);
   const enableHWA = src.enableHWA === true;
   const enableWebGPU = src.enableWebGPU === true;
-  const gpuPromise = enableWebGPU ? initGPU() : Promise.resolve(false);
+  if (enableWebGPU) {
+    initGPU();
+  }
   const useWasm = src.useWasm !== false;
   const pagesMapper = src.pagesMapper || new PagesMapper();
   const styleElement = null;
@@ -16301,8 +16303,7 @@ function getDocument(src = {}) {
       cMapPacked,
       iccUrl,
       standardFontDataUrl,
-      wasmUrl,
-      hasGPU: false
+      wasmUrl
     }
   };
   const transportParams = {
@@ -16310,16 +16311,16 @@ function getDocument(src = {}) {
     pdfBug,
     styleElement,
     rendererWorker: task._rendererWorker,
+    enableWebGPU,
     loadingParams: {
       disableAutoFetch,
       enableXfa
     }
   };
-  Promise.all([worker.promise, gpuPromise]).then(function ([, hasGPU]) {
+  worker.promise.then(function () {
     if (worker.destroyed) {
       throw new Error("Worker was destroyed");
     }
-    docParams.evaluatorOptions.hasGPU = hasGPU;
     const workerIdPromise = worker.messageHandler.sendWithPromise("GetDocRequest", docParams, data ? [data.buffer] : null);
     let networkStream;
     if (data) {} else if (rangeTransport) {
@@ -16753,7 +16754,8 @@ class PDFPageProxy {
       pdfBug: this._pdfBug,
       pageColors,
       operationsFilter,
-      rendererWorker: this._transport.rendererWorker
+      rendererWorker: this._transport.rendererWorker,
+      waitForGPU: () => this._transport.waitForGPU()
     });
     (intentState.renderTasks ||= new Set()).add(internalRenderTask);
     const renderTask = internalRenderTask.task;
@@ -17196,6 +17198,7 @@ class PDFWorker {
 class WorkerTransport {
   downloadInfoCapability = Promise.withResolvers();
   #fullReader = null;
+  #hasMeshPattern = false;
   #methodPromises = new Map();
   #networkStream = null;
   #pageCache = new Map();
@@ -17485,12 +17488,18 @@ class WorkerTransport {
       rendererWorker?.sendCommonObj(id, type, exportedData);
       if (!this.commonObjs.has(id)) {
         objectHandler.resolveCommonObject(id, type, exportedData);
+        if (type === "Pattern" && this.commonObjs.get(id)[0] === "Mesh") {
+          this.#hasMeshPattern = true;
+        }
       }
       return null;
     });
     messageHandler.on("obj", ([id, pageProxyId, type, imageData]) => {
       if (this.destroyed) {
         return;
+      }
+      if (type === "Pattern" && imageData[0] === "Mesh") {
+        this.#hasMeshPattern = true;
       }
       if (objectHandler.resolveObject(id, pageProxyId, type, imageData)) {
         this.rendererWorker?.sendObj(id, pageProxyId, type, imageData);
@@ -17585,6 +17594,9 @@ class WorkerTransport {
     return this.messageHandler.sendWithPromise("ExtractPages", params, transfer).finally(() => {
       this.annotationStorage.resetModified();
     });
+  }
+  waitForGPU() {
+    return this._params.enableWebGPU && this.#hasMeshPattern && !isGPUReady() ? initGPU() : null;
   }
   getPage(pageNumber) {
     if (!Number.isInteger(pageNumber) || pageNumber <= 0 || pageNumber > this.pagesMapper.pagesNumber) {
@@ -17802,6 +17814,7 @@ class InternalRenderTask {
   #imagesTracker = null;
   #rAF = null;
   #rendererTask = null;
+  #waitForGPU = null;
   static #canvasInUse = new WeakSet();
   constructor({
     callback,
@@ -17818,7 +17831,8 @@ class InternalRenderTask {
     pdfBug = false,
     pageColors = null,
     operationsFilter = null,
-    rendererWorker = null
+    rendererWorker = null,
+    waitForGPU = null
   }) {
     this.callback = callback;
     this.params = params;
@@ -17846,6 +17860,7 @@ class InternalRenderTask {
     this._canvas = params.canvas;
     this._canvasContext = params.canvas ? null : params.canvasContext;
     this._operationsFilter = operationsFilter;
+    this.#waitForGPU = waitForGPU;
     this.#rendererTask = rendererWorker?.createRenderTask({
       pageProxyId,
       operatorList,
@@ -17984,6 +17999,15 @@ class InternalRenderTask {
     if (this.cancelled) {
       return;
     }
+    if (!this.#rendererTask) {
+      const gpuPromise = this.#waitForGPU?.();
+      if (gpuPromise) {
+        await gpuPromise;
+        if (this.cancelled) {
+          return;
+        }
+      }
+    }
     const {
       operatorList
     } = this;
@@ -18013,7 +18037,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.5.0";
-const build = "279175b";
+const build = "24a63a4";
 
 ;// ./src/display/editor/color_picker.js
 
