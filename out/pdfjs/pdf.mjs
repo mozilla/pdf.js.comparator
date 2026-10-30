@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = aa89148
+ * pdfjsBuild = 743102c
  */
 
 ;// ./src/shared/util.js
@@ -2080,7 +2080,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "bfaa94ce-d982-4cf2-ab35-c830c9b8cd01";
+const INTERNAL_EVT = "9b7a17a0-d479-4090-8728-2f96f435507e";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -18037,7 +18037,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.5.0";
-const build = "aa89148";
+const build = "743102c";
 
 ;// ./src/display/editor/color_picker.js
 
@@ -18548,7 +18548,6 @@ class AnnotationElement {
     this.downloadManager = parameters.downloadManager;
     this.imageResourcesPath = parameters.imageResourcesPath;
     this.renderForms = parameters.renderForms;
-    this.svgFactory = parameters.svgFactory;
     this.annotationStorage = parameters.annotationStorage;
     this.enableComment = parameters.enableComment;
     this.enableAnnotationEditing = parameters.enableAnnotationEditing !== false;
@@ -18569,6 +18568,9 @@ class AnnotationElement {
     richText
   }) {
     return !!(contentsObj?.str || richText?.str);
+  }
+  static get _svgFactory() {
+    return shadow(this, "_svgFactory", new DOMSVGFactory());
   }
   get _isEditable() {
     return this.enableAnnotationEditing && this.data.isEditable;
@@ -18999,9 +19001,7 @@ class AnnotationElement {
     }
     const width = rectTrX - rectBlX;
     const height = rectTrY - rectBlY;
-    const {
-      svgFactory
-    } = this;
+    const svgFactory = AnnotationElement._svgFactory;
     const svg = svgFactory.createElement("svg");
     svg.classList.add("quadrilateralsContainer");
     svg.setAttribute("width", 0);
@@ -21068,8 +21068,9 @@ class LineAnnotationElement extends AnnotationElement {
       width,
       height
     } = this;
-    const svg = this.svgFactory.create(width, height, true);
-    const line = this.#line = this.svgFactory.createElement("svg:line");
+    const svgFactory = AnnotationElement._svgFactory;
+    const svg = svgFactory.create(width, height, true);
+    const line = this.#line = svgFactory.createElement("svg:line");
     line.setAttribute("x1", data.rect[2] - data.lineCoordinates[0]);
     line.setAttribute("y1", data.rect[3] - data.lineCoordinates[1]);
     line.setAttribute("x2", data.rect[2] - data.lineCoordinates[2]);
@@ -21107,9 +21108,10 @@ class SquareAnnotationElement extends AnnotationElement {
       width,
       height
     } = this;
-    const svg = this.svgFactory.create(width, height, true);
+    const svgFactory = AnnotationElement._svgFactory;
+    const svg = svgFactory.create(width, height, true);
     const borderWidth = data.borderStyle.width;
-    const square = this.#square = this.svgFactory.createElement("svg:rect");
+    const square = this.#square = svgFactory.createElement("svg:rect");
     square.setAttribute("x", borderWidth / 2);
     square.setAttribute("y", borderWidth / 2);
     square.setAttribute("width", width - borderWidth);
@@ -21147,9 +21149,10 @@ class CircleAnnotationElement extends AnnotationElement {
       width,
       height
     } = this;
-    const svg = this.svgFactory.create(width, height, true);
+    const svgFactory = AnnotationElement._svgFactory;
+    const svg = svgFactory.create(width, height, true);
     const borderWidth = data.borderStyle.width;
-    const circle = this.#circle = this.svgFactory.createElement("svg:ellipse");
+    const circle = this.#circle = svgFactory.createElement("svg:ellipse");
     circle.setAttribute("cx", width / 2);
     circle.setAttribute("cy", height / 2);
     circle.setAttribute("rx", width / 2 - borderWidth / 2);
@@ -21197,7 +21200,8 @@ class PolylineAnnotationElement extends AnnotationElement {
     if (!vertices) {
       return this.container;
     }
-    const svg = this.svgFactory.create(width, height, true);
+    const svgFactory = AnnotationElement._svgFactory;
+    const svg = svgFactory.create(width, height, true);
     let points = [];
     for (let i = 0, ii = vertices.length; i < ii; i += 2) {
       const x = vertices[i] - rect[0];
@@ -21205,7 +21209,7 @@ class PolylineAnnotationElement extends AnnotationElement {
       points.push(`${x},${y}`);
     }
     points = points.join(" ");
-    const polyline = this.#polyline = this.svgFactory.createElement(this.svgElementName);
+    const polyline = this.#polyline = svgFactory.createElement(this.svgElementName);
     polyline.setAttribute("points", points);
     polyline.setAttribute("stroke-width", borderStyle.width || 1);
     polyline.setAttribute("stroke", "transparent");
@@ -21304,8 +21308,9 @@ class InkAnnotationElement extends AnnotationElement {
       width,
       height
     } = this.#getTransform(rotation, rect);
-    const svg = this.svgFactory.create(width, height, true);
-    const g = this.#polylinesGroupElement = this.svgFactory.createElement("svg:g");
+    const svgFactory = AnnotationElement._svgFactory;
+    const svg = svgFactory.create(width, height, true);
+    const g = this.#polylinesGroupElement = svgFactory.createElement("svg:g");
     svg.append(g);
     g.setAttribute("stroke-width", borderStyle.width || 1);
     g.setAttribute("stroke-linecap", "round");
@@ -21315,7 +21320,7 @@ class InkAnnotationElement extends AnnotationElement {
     g.setAttribute("fill", "transparent");
     g.setAttribute("transform", transform);
     for (const inkList of inkLists) {
-      const polyline = this.svgFactory.createElement(this.svgElementName);
+      const polyline = svgFactory.createElement(this.svgElementName);
       this.#polylines.push(polyline);
       polyline.setAttribute("points", inkList.join(","));
       g.append(polyline);
@@ -21741,7 +21746,6 @@ class AnnotationLayer {
       downloadManager: params.downloadManager,
       imageResourcesPath: params.imageResourcesPath || "",
       renderForms: params.renderForms !== false,
-      svgFactory: new DOMSVGFactory(),
       annotationStorage: this.#annotationStorage,
       enableComment: params.enableComment === true,
       enableAnnotationEditing: params.enableAnnotationEditing !== false,
@@ -21897,7 +21901,6 @@ class AnnotationLayer {
       data: null,
       layer: this.div,
       linkService: this.#linkService,
-      svgFactory: new DOMSVGFactory(),
       parent: this
     };
     for (const data of annotations) {
