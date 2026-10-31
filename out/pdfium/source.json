@@ -7,7 +7,7 @@
     "abseil": {
       "repo": "https://github.com/abseil/abseil-cpp.git",
       "ref": "HEAD",
-      "commit": "5490566029e4c2abd6bb06bb0ca0942e6ae2ba62"
+      "commit": "8ca2addca1c4011b6161671dfa89066e7108425f"
     },
     "fast_float": {
       "repo": "https://github.com/fastfloat/fast_float.git",
@@ -22,8 +22,8 @@
     "highway": {
       "repo": "https://github.com/google/highway.git",
       "ref": "HEAD",
-      "commit": "62868412cf235b2064000a339010e200e93ac754"
+      "commit": "76425c7874a9ee6987a57214c2227a7f73eccded"
     }
   },
-  "fingerprint": "pdfium=5f092b52993bfd98f94f04deff391918fe0fdcfd;fast_float=33785d5d61993b8c22eacc58108e1cf109eca490;abseil=5490566029e4c2abd6bb06bb0ca0942e6ae2ba62;dragonbox=beeeef91cf6fef89a4d4ba5e95d47ca64ccb3a44;highway=62868412cf235b2064000a339010e200e93ac754"
+  "fingerprint": "pdfium=5f092b52993bfd98f94f04deff391918fe0fdcfd;fast_float=33785d5d61993b8c22eacc58108e1cf109eca490;abseil=8ca2addca1c4011b6161671dfa89066e7108425f;dragonbox=beeeef91cf6fef89a4d4ba5e95d47ca64ccb3a44;highway=76425c7874a9ee6987a57214c2227a7f73eccded"
 }
