@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = 743102c
+ * pdfjsBuild = b1b2849
  */
 
 ;// ./src/shared/util.js
@@ -3273,6 +3273,7 @@ class ChunkedStreamManager {
 
 ;// ./src/shared/image_utils.js
 
+
 function convertToRGBA(params) {
   switch (params.kind) {
     case ImageKind.GRAYSCALE_1BPP:
@@ -3335,7 +3336,7 @@ function convertRGBToRGBA({
   let i = 0;
   const len = width * height * 3;
   const byteOffset = src.byteOffset + srcPos;
-  const len32 = byteOffset % 4 === 0 ? Math.floor(len / 4) : 0;
+  const len32 = byteOffset % 4 === 0 ? Math.floor(MathClamp(src.length - srcPos, 0, len) / 4) : 0;
   const src32 = len32 > 0 ? new Uint32Array(src.buffer, byteOffset, len32) : null;
   const alphaMask = FeatureTest.isLittleEndian ? 0xff000000 : 0xff;
   if (FeatureTest.isLittleEndian) {
@@ -53021,6 +53022,8 @@ class XFAFactory {
 
 
 
+
+
 class AnnotationFactory {
   static createGlobals(pdfManager) {
     return Promise.all([pdfManager.ensureCatalog("acroForm"), pdfManager.ensureDoc("xfaDatasets"), pdfManager.ensureCatalog("structTreeRoot"), pdfManager.ensureCatalog("baseUrl"), pdfManager.ensureCatalog("attachments"), pdfManager.ensureCatalog("globalColorSpaceCache")]).then(([acroForm, xfaDatasets, structTreeRoot, baseUrl, attachments, globalColorSpaceCache]) => ({
@@ -53671,6 +53674,7 @@ class Annotation {
       }
     } else {
       this.borderStyle.setWidth(0);
+      this._noBorderEntries = true;
     }
   }
   setAppearance(dict) {
@@ -54269,7 +54273,7 @@ class WidgetAnnotation extends Annotation {
     }
     return rotation === 0 ? IDENTITY_MATRIX : getRotationMatrix(rotation, this.width, this.height);
   }
-  getBorderAndBackgroundAppearances(annotationStorage) {
+  getBorderAndBackgroundAppearances(annotationStorage, isCircle = false) {
     let rotation = annotationStorage?.get(this.data.id)?.rotation;
     if (rotation === undefined) {
       rotation = this.rotation;
@@ -54277,14 +54281,25 @@ class WidgetAnnotation extends Annotation {
     if (!this.backgroundColor && !this.borderColor) {
       return "";
     }
-    const rect = rotation === 0 || rotation === 180 ? `0 0 ${this.width} ${this.height} re` : `0 0 ${this.height} ${this.width} re`;
+    const [width, height] = rotation === 0 || rotation === 180 ? [this.width, this.height] : [this.height, this.width];
+    const borderWidth = this.borderColor ? this.borderStyle.width || (this._noBorderEntries ? 1 : 0) : 0;
+    let path;
+    if (isCircle) {
+      const r = (Math.min(width, height) - borderWidth) / 2;
+      const k = r * (4 / 3) * Math.tan(Math.PI / 8);
+      const cx = width / 2;
+      const cy = height / 2;
+      const p = (x, y) => `${numberToString(x)} ${numberToString(y)}`;
+      path = `${p(cx + r, cy)} m ` + `${p(cx + r, cy + k)} ${p(cx + k, cy + r)} ${p(cx, cy + r)} c ` + `${p(cx - k, cy + r)} ${p(cx - r, cy + k)} ${p(cx - r, cy)} c ` + `${p(cx - r, cy - k)} ${p(cx - k, cy - r)} ${p(cx, cy - r)} c ` + `${p(cx + k, cy - r)} ${p(cx + r, cy - k)} ${p(cx + r, cy)} c h`;
+    } else {
+      path = `0 0 ${width} ${height} re`;
+    }
     let str = "";
     if (this.backgroundColor) {
-      str = `${getPdfColor(this.backgroundColor, true)} ${rect} f `;
+      str = `${getPdfColor(this.backgroundColor, true)} ${path} f `;
     }
-    if (this.borderColor) {
-      const borderWidth = this.borderStyle.width || 1;
-      str += `${borderWidth} w ${getPdfColor(this.borderColor, false)} ${rect} S `;
+    if (borderWidth > 0) {
+      str += `${borderWidth} w ${getPdfColor(this.borderColor, false)} ${path} S `;
     }
     return str;
   }
@@ -54339,14 +54354,21 @@ class WidgetAnnotation extends Annotation {
       separateCanvas: isUsingOwnCanvas
     };
   }
-  _getMKDict(rotation) {
-    const mk = new Dict(null);
+  _setMKDict(dict, rotation) {
+    const oldMK = dict.get("MK");
+    const mk = oldMK instanceof Dict ? oldMK.clone() : new Dict(null);
     if (rotation) {
       mk.set("R", rotation);
+    } else {
+      mk.delete("R");
     }
     mk.setIfArray("BC", getPdfColorArray(this.borderColor));
     mk.setIfArray("BG", getPdfColorArray(this.backgroundColor));
-    return mk.size > 0 ? mk : null;
+    if (mk.size > 0) {
+      dict.set("MK", mk);
+    } else {
+      dict.delete("MK");
+    }
   }
   amendSavedDict(annotationStorage, dict) {}
   setValue(dict, value, xref, changes) {
@@ -54423,10 +54445,7 @@ class WidgetAnnotation extends Annotation {
     };
     const newParentDict = this.setValue(dict, Array.isArray(value) ? value.map(stringToAsciiOrUTF16BE) : stringToAsciiOrUTF16BE(value), xref, changes);
     this.amendSavedDict(annotationStorage, newParentDict || dict);
-    const maybeMK = this._getMKDict(rotation);
-    if (maybeMK) {
-      dict.set("MK", maybeMK);
-    }
+    this._setMKDict(dict, rotation);
     changes.put(this.ref, {
       data: dict,
       xfa,
@@ -55101,10 +55120,7 @@ class ButtonWidgetAnnotation extends WidgetAnnotation {
     if (flags !== undefined) {
       dict.set("F", flags);
     }
-    const maybeMK = this._getMKDict(rotation);
-    if (maybeMK) {
-      dict.set("MK", maybeMK);
-    }
+    this._setMKDict(dict, rotation);
     changes.put(this.ref, {
       data: dict,
       xfa,
@@ -55152,57 +55168,80 @@ class ButtonWidgetAnnotation extends WidgetAnnotation {
     if (flags !== undefined) {
       dict.set("F", flags);
     }
-    const maybeMK = this._getMKDict(rotation);
-    if (maybeMK) {
-      dict.set("MK", maybeMK);
-    }
+    this._setMKDict(dict, rotation);
     changes.put(this.ref, {
       data: dict,
       xfa,
       needAppearances: false
     });
   }
-  _getDefaultCheckedAppearance(params, type) {
-    const {
-      width,
-      height
-    } = this;
-    const bbox = [0, 0, width, height];
-    const FONT_RATIO = 0.8;
-    const fontSize = Math.min(width, height) * FONT_RATIO;
-    let metrics, char;
-    if (type === "check") {
-      metrics = {
-        width: 0.755 * fontSize,
-        height: 0.705 * fontSize
-      };
-      char = "\x33";
-    } else if (type === "disc") {
-      metrics = {
-        width: 0.791 * fontSize,
-        height: 0.705 * fontSize
-      };
-      char = "\x6C";
-    } else {
-      unreachable(`_getDefaultCheckedAppearance - unsupported type: ${type}`);
+  #getZapfDingbatsWidth(char) {
+    const glyphName = ZapfDingbatsEncoding[char.charCodeAt(0)];
+    return getMetrics().ZapfDingbats()[glyphName];
+  }
+  #getCaptionMark(dict) {
+    const mk = dict.get("MK");
+    const caption = mk instanceof Dict ? mk.get("CA") : null;
+    if (typeof caption !== "string") {
+      return null;
     }
-    const xShift = numberToString((width - metrics.width) / 2);
-    const yShift = numberToString((height - metrics.height) / 2);
-    const appearance = `q BT /PdfJsZaDb ${fontSize} Tf 0 g ${xShift} ${yShift} Td (${char}) Tj ET Q`;
-    const appearanceStreamDict = new Dict(params.xref);
+    const char = stringToPDFString(caption)[0];
+    return char && this.#getZapfDingbatsWidth(char) ? char : null;
+  }
+  #setAppearances(params, checked, unchecked, defaultMark) {
+    if (this._needAppearances) {
+      this.appearance = null;
+      checked = unchecked = null;
+    }
+    const hasChecked = checked instanceof BaseStream;
+    const mark = this.#getCaptionMark(params.dict) ?? defaultMark;
+    this.checkedAppearance = hasChecked ? checked : this.#createAppearance(params.xref, mark, true);
+    this.uncheckedAppearance = unchecked instanceof BaseStream ? unchecked : null;
+    if (!hasChecked) {
+      this.uncheckedAppearance ??= this.#createAppearance(params.xref, mark, false);
+    }
+    for (const stream of [this.checkedAppearance, this.uncheckedAppearance]) {
+      if (stream) {
+        this._streams.push(stream);
+      }
+    }
+  }
+  #createAppearance(xref, mark, isChecked) {
+    const {
+      rotation
+    } = this;
+    const [width, height] = rotation % 180 === 0 ? [this.width, this.height] : [this.height, this.width];
+    const isCircle = this.data.radioButton && mark === "\x6C";
+    let appearance = this.getBorderAndBackgroundAppearances(null, isCircle);
+    if (isChecked) {
+      const {
+        fontColor,
+        fontSize: daFontSize
+      } = this.data.defaultAppearanceData;
+      const FONT_RATIO = 0.8;
+      const fontSize = daFontSize || Math.min(width, height) * FONT_RATIO;
+      const glyphWidth = this.#getZapfDingbatsWidth(mark) / 1000 * fontSize;
+      const xShift = numberToString((width - glyphWidth) / 2);
+      const yShift = numberToString((height - 0.705 * fontSize) / 2);
+      const color = getPdfColor(fontColor, true);
+      appearance += `BT /PdfJsZaDb ${fontSize} Tf ${color} ${xShift} ${yShift} Td (${escapeString(mark)}) Tj ET`;
+    } else if (!appearance) {
+      return null;
+    }
+    appearance = `q ${appearance} Q`;
+    const appearanceStreamDict = new Dict(xref);
     appearanceStreamDict.set("FormType", 1);
     appearanceStreamDict.setIfName("Subtype", "Form");
     appearanceStreamDict.setIfName("Type", "XObject");
-    appearanceStreamDict.set("BBox", bbox);
-    appearanceStreamDict.set("Matrix", [1, 0, 0, 1, 0, 0]);
+    appearanceStreamDict.set("BBox", [0, 0, width, height]);
+    appearanceStreamDict.set("Matrix", this.getRotationMatrix());
     appearanceStreamDict.set("Length", appearance.length);
-    const resources = new Dict(params.xref);
-    const font = new Dict(params.xref);
+    const resources = new Dict(xref);
+    const font = new Dict(xref);
     font.set("PdfJsZaDb", this.fallbackFontDict);
     resources.set("Font", font);
     appearanceStreamDict.set("Resources", resources);
-    this.checkedAppearance = new StringStream(appearance, appearanceStreamDict);
-    this._streams.push(this.checkedAppearance);
+    return new StringStream(appearance, appearanceStreamDict);
   }
   _getOnStateName(dict) {
     const appearanceStates = dict.get("AP");
@@ -55325,18 +55364,7 @@ class ButtonWidgetAnnotation extends WidgetAnnotation {
     }
     this.data.fieldValue = this._getExportValue(this.data.fieldValue, optInfo, params.xref);
     this.data.defaultFieldValue = this._getExportValue(this.data.defaultFieldValue, optInfo, params.xref);
-    const checkedAppearance = normalAppearance?.get(onState);
-    this.checkedAppearance = checkedAppearance instanceof BaseStream ? checkedAppearance : null;
-    const uncheckedAppearance = normalAppearance?.get("Off");
-    this.uncheckedAppearance = uncheckedAppearance instanceof BaseStream ? uncheckedAppearance : null;
-    if (this.checkedAppearance) {
-      this._streams.push(this.checkedAppearance);
-    } else {
-      this._getDefaultCheckedAppearance(params, "check");
-    }
-    if (this.uncheckedAppearance) {
-      this._streams.push(this.uncheckedAppearance);
-    }
+    this.#setAppearances(params, normalAppearance?.get(onState), normalAppearance?.get("Off"), "\x33");
     this._fallbackFontDict = this.fallbackFontDict;
     if (this.data.defaultFieldValue === null) {
       this.data.defaultFieldValue = "Off";
@@ -55376,18 +55404,7 @@ class ButtonWidgetAnnotation extends WidgetAnnotation {
     this.data.buttonValue = this._getExportValue(onState, optInfo, params.xref);
     this.data.fieldValue = this._getExportValue(this.data.fieldValue, optInfo, params.xref);
     this.data.defaultFieldValue = this._getExportValue(this.data.defaultFieldValue, optInfo, params.xref);
-    const checkedAppearance = normalAppearance.get(onState);
-    this.checkedAppearance = checkedAppearance instanceof BaseStream ? checkedAppearance : null;
-    const uncheckedAppearance = normalAppearance.get("Off");
-    this.uncheckedAppearance = uncheckedAppearance instanceof BaseStream ? uncheckedAppearance : null;
-    if (this.checkedAppearance) {
-      this._streams.push(this.checkedAppearance);
-    } else {
-      this._getDefaultCheckedAppearance(params, "disc");
-    }
-    if (this.uncheckedAppearance) {
-      this._streams.push(this.uncheckedAppearance);
-    }
+    this.#setAppearances(params, normalAppearance.get(onState), normalAppearance.get("Off"), "\x6C");
     this._fallbackFontDict = this.fallbackFontDict;
     if (this.data.defaultFieldValue === null) {
       this.data.defaultFieldValue = "Off";

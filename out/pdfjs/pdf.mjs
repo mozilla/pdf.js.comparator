@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = 743102c
+ * pdfjsBuild = b1b2849
  */
 
 ;// ./src/shared/util.js
@@ -2080,7 +2080,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "9b7a17a0-d479-4090-8728-2f96f435507e";
+const INTERNAL_EVT = "31e565f9-faec-48b6-a674-24083b951e7f";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -8831,6 +8831,7 @@ function createCanvasTrackers(canvas, operationsCount, {
 /* unused harmony import specifier */ var image_utils_ImageKind;
 /* unused harmony import specifier */ var image_utils_FeatureTest;
 
+
 function convertToRGBA(params) {
   switch (params.kind) {
     case image_utils_ImageKind.GRAYSCALE_1BPP:
@@ -8893,7 +8894,7 @@ function convertRGBToRGBA({
   let i = 0;
   const len = width * height * 3;
   const byteOffset = src.byteOffset + srcPos;
-  const len32 = byteOffset % 4 === 0 ? Math.floor(len / 4) : 0;
+  const len32 = byteOffset % 4 === 0 ? Math.floor(MathClamp(src.length - srcPos, 0, len) / 4) : 0;
   const src32 = len32 > 0 ? new Uint32Array(src.buffer, byteOffset, len32) : null;
   const alphaMask = FeatureTest.isLittleEndian ? 0xff000000 : 0xff;
   if (FeatureTest.isLittleEndian) {
@@ -18037,7 +18038,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.5.0";
-const build = "743102c";
+const build = "b1b2849";
 
 ;// ./src/display/editor/color_picker.js
 
