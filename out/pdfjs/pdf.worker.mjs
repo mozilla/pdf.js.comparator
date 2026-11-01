@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = ab3819f
+ * pdfjsBuild = 0a41533
  */
 
 ;// ./src/shared/util.js
@@ -59058,6 +59058,8 @@ class XRef {
         if (e instanceof MissingDataException) {
           throw e;
         }
+        delete this._tableState;
+        delete this.streamState;
         this.#xrefSectionsComplete = false;
         info("(while reading XRef): " + e);
       }
@@ -64664,7 +64666,7 @@ class PDFWorkerStreamReader extends BasePDFStreamReader {
     };
   }
   cancel(reason) {
-    this._reader.cancel(reason);
+    this._reader.cancel(reason).catch(() => {});
   }
 }
 class PDFWorkerStreamRangeReader extends BasePDFStreamRangeReader {
@@ -64694,7 +64696,7 @@ class PDFWorkerStreamRangeReader extends BasePDFStreamRangeReader {
     };
   }
   cancel(reason) {
-    this._reader.cancel(reason);
+    this._reader.cancel(reason).catch(() => {});
   }
 }
 

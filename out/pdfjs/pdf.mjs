@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = ab3819f
+ * pdfjsBuild = 0a41533
  */
 
 ;// ./src/shared/util.js
@@ -2080,7 +2080,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "d6314369-2205-460e-b672-2b7c761d5edf";
+const INTERNAL_EVT = "01d753da-a7da-4ee8-8759-35f54a99d86e";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -13521,7 +13521,7 @@ class PDFFetchStreamReader extends BasePDFStreamReader {
     };
   }
   cancel(reason) {
-    this._reader?.cancel(reason);
+    this._reader?.cancel(reason).catch(() => {});
     this._abortController.abort();
   }
 }
@@ -13561,7 +13561,7 @@ class PDFFetchStreamRangeReader extends BasePDFStreamRangeReader {
     };
   }
   cancel(reason) {
-    this._reader?.cancel(reason);
+    this._reader?.cancel(reason).catch(() => {});
     this._abortController.abort();
   }
 }
@@ -14146,7 +14146,7 @@ class PDFNodeStreamReader extends BasePDFStreamReader {
     };
   }
   cancel(reason) {
-    this._reader?.cancel(reason);
+    this._reader?.cancel(reason).catch(() => {});
   }
 }
 class PDFNodeStreamRangeReader extends BasePDFStreamRangeReader {
@@ -14184,7 +14184,7 @@ class PDFNodeStreamRangeReader extends BasePDFStreamRangeReader {
     };
   }
   cancel(reason) {
-    this._reader?.cancel(reason);
+    this._reader?.cancel(reason).catch(() => {});
   }
 }
 
@@ -18038,7 +18038,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.5.0";
-const build = "ab3819f";
+const build = "0a41533";
 
 ;// ./src/display/editor/color_picker.js
 
