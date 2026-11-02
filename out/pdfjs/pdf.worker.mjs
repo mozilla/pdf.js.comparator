@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = f70fabb
+ * pdfjsBuild = a4e6780
  */
 
 ;// ./src/shared/util.js
@@ -8718,16 +8718,78 @@ async function JBig2(moduleArg = {}) {
   return Module;
 }
 /* harmony default export */ const jbig2 = (JBig2);
+;// ./src/core/wasm_loader.js
+
+
+class WasmLoader {
+  static #modules = new Map();
+  static async fetch(context, kind, filename) {
+    const {
+      handler,
+      options
+    } = context;
+    if (options.useWorkerFetch) {
+      return fetchBinaryData(`${options[kind]}${filename}`);
+    }
+    return handler.sendWithPromise("FetchBinaryData", {
+      kind,
+      filename
+    });
+  }
+  static #compile(context, filename) {
+    return this.#modules.getOrInsertComputed(filename, () => this.fetch(context, "wasmUrl", filename).then(bytes => WebAssembly.compile(bytes)).catch(ex => {
+      this.#modules.delete(filename);
+      throw ex;
+    }));
+  }
+  static #importFallback(wasmUrl, filename) {
+    if (isNodeJS && !/^[a-z][a-z0-9\-+.]+:/i.test(wasmUrl)) {
+      wasmUrl = process.getBuiltinModule("url").pathToFileURL(wasmUrl).href;
+    }
+    return import(
+    /*webpackIgnore: true*/
+    /*@vite-ignore*/
+    `${wasmUrl}${filename}`);
+  }
+  static async load(context, filename, noWasmFilename, init) {
+    const {
+      useWasm,
+      wasmUrl
+    } = context.options;
+    if (useWasm) {
+      try {
+        const module = await this.#compile(context, filename);
+        init(imports => new WebAssembly.Instance(module, imports).exports);
+        return true;
+      } catch (ex) {
+        warn(`WasmLoader - "${filename}": "${ex}".`);
+      }
+    }
+    if (wasmUrl) {
+      try {
+        const {
+          default: instantiate
+        } = await this.#importFallback(wasmUrl, noWasmFilename);
+        init(instantiate);
+        return true;
+      } catch (ex) {
+        warn(`WasmLoader - "${noWasmFilename}": "${ex}".`);
+      }
+    }
+    return false;
+  }
+}
+
 ;// ./src/core/wasm_image.js
 
 
 class WasmImage {
-  static #getHandler = null;
   static #instances = new Set();
-  static #useWasm = true;
-  static #useWorkerFetch = true;
-  static #wasmUrl = null;
-  #buffer = null;
+  static #options = {
+    useWasm: true,
+    useWorkerFetch: true,
+    wasmUrl: null
+  };
   #modulePromise = null;
   _filename = null;
   _noWasmFilename = null;
@@ -8737,12 +8799,12 @@ class WasmImage {
     useWorkerFetch,
     wasmUrl
   }) {
-    WasmImage.#useWasm = useWasm;
-    WasmImage.#useWorkerFetch = useWorkerFetch;
-    WasmImage.#wasmUrl = wasmUrl;
-    if (!useWorkerFetch) {
-      WasmImage.#getHandler = getHandler;
-    }
+    WasmImage.#options = {
+      getHandler,
+      useWasm,
+      useWorkerFetch,
+      wasmUrl
+    };
   }
   static get instance() {
     unreachable("Abstract getter `instance` accessed");
@@ -8757,46 +8819,17 @@ class WasmImage {
       WasmImage.#instances.add(this);
     }
   }
-  async #getJsInstance(imports) {
-    const {
-      default: instantiate
-    } = await import(
-    /*webpackIgnore: true*/
-    /*@vite-ignore*/
-    `${WasmImage.#wasmUrl}${this._noWasmFilename}`);
-    return {
-      exports: instantiate(imports)
-    };
-  }
-  async #getWasmInstance(imports) {
-    if (!this.#buffer) {
-      if (WasmImage.#useWorkerFetch) {
-        this.#buffer = await fetchBinaryData(`${WasmImage.#wasmUrl}${this._filename}`);
-      } else {
-        this.#buffer = await WasmImage.#getHandler().sendWithPromise("FetchBinaryData", {
-          kind: "wasmUrl",
-          filename: this._filename
-        });
-      }
-    }
-    const results = await WebAssembly.instantiate(this.#buffer, imports);
-    return results.instance;
-  }
   async #instantiateWasm(failureCallback, imports, successCallback) {
-    if (WasmImage.#useWasm) {
-      try {
-        return successCallback(await this.#getWasmInstance(imports));
-      } catch (ex) {
-        warn(`#getWasmInstance: ${ex}`);
-      }
+    const context = {
+      handler: WasmImage.#options.getHandler?.(),
+      options: WasmImage.#options
+    };
+    const loaded = await WasmLoader.load(context, this._filename, this._noWasmFilename, instantiate => successCallback({
+      exports: instantiate(imports)
+    }));
+    if (!loaded) {
+      failureCallback(null);
     }
-    try {
-      return successCallback(await this.#getJsInstance(imports));
-    } catch (ex) {
-      warn(`#getJsInstance: ${ex}`);
-    }
-    failureCallback(null);
-    return null;
   }
   _getModule(ImageDecoder) {
     if (!this.#modulePromise) {
