@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = a4e6780
+ * pdfjsBuild = c7ca8a3
  */
 
 ;// ./src/shared/util.js
@@ -8737,10 +8737,16 @@ class WasmLoader {
     });
   }
   static #compile(context, filename) {
-    return this.#modules.getOrInsertComputed(filename, () => this.fetch(context, "wasmUrl", filename).then(bytes => WebAssembly.compile(bytes)).catch(ex => {
+    const cached = this.#modules.get(filename);
+    if (cached) {
+      return cached.catch(() => this.#compile(context, filename));
+    }
+    const promise = this.fetch(context, "wasmUrl", filename).then(bytes => WebAssembly.compile(bytes)).catch(ex => {
       this.#modules.delete(filename);
       throw ex;
-    }));
+    });
+    this.#modules.set(filename, promise);
+    return promise;
   }
   static #importFallback(wasmUrl, filename) {
     if (isNodeJS && !/^[a-z][a-z0-9\-+.]+:/i.test(wasmUrl)) {
@@ -8820,11 +8826,10 @@ class WasmImage {
     }
   }
   async #instantiateWasm(failureCallback, imports, successCallback) {
-    const context = {
+    const loaded = await WasmLoader.load({
       handler: WasmImage.#options.getHandler?.(),
       options: WasmImage.#options
-    };
-    const loaded = await WasmLoader.load(context, this._filename, this._noWasmFilename, instantiate => successCallback({
+    }, this._filename, this._noWasmFilename, instantiate => successCallback({
       exports: instantiate(imports)
     }));
     if (!loaded) {
