@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = 236ed7f
+ * pdfjsBuild = bfe4cca
  */
 
 ;// ./src/shared/util.js
@@ -5144,7 +5144,7 @@ class JpegImage {
     const scaleX = this.width / width,
       scaleY = this.height / height;
     let component, componentScaleX, componentScaleY, blocksPerScanline;
-    let x, y, i, j, k;
+    let x, y, i, j;
     let offset = 0;
     const numComponents = this.components.length;
     const dataLength = width * height * numComponents;
@@ -8820,10 +8820,8 @@ class WasmImage {
       instance.#modulePromise = null;
     }
   }
-  constructor(trackInstance = false) {
-    if (trackInstance) {
-      WasmImage.#instances.add(this);
-    }
+  constructor() {
+    WasmImage.#instances.add(this);
   }
   async #instantiateWasm(failureCallback, imports, successCallback) {
     const loaded = await WasmLoader.load({
@@ -8867,7 +8865,7 @@ class JBig2CCITTFaxImage extends WasmImage {
   _filename = "jbig2.wasm";
   _noWasmFilename = "jbig2_nowasm_fallback.js";
   static get instance() {
-    return shadow(this, "instance", new JBig2CCITTFaxImage(true));
+    return shadow(this, "instance", new JBig2CCITTFaxImage());
   }
   async decode(bytes, width, height, globals, CCITTOptions) {
     const module = await this._getModule(jbig2);
@@ -9585,7 +9583,6 @@ async function OpenJPEG(moduleArg = {}) {
 
 
 
-
 class JpxError extends BaseException {
   constructor(msg) {
     super(msg, "JpxError");
@@ -9595,7 +9592,7 @@ class JpxImage extends WasmImage {
   _filename = "openjpeg.wasm";
   _noWasmFilename = "openjpeg_nowasm_fallback.js";
   static get instance() {
-    return shadow(this, "instance", new JpxImage(true));
+    return shadow(this, "instance", new JpxImage());
   }
   async decode(bytes, {
     numComponents,

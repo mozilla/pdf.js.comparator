@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = 236ed7f
+ * pdfjsBuild = bfe4cca
  */
 
 ;// ./src/shared/util.js
@@ -2080,7 +2080,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "29626484-19d4-450b-ab46-bd976b747623";
+const INTERNAL_EVT = "f419803d-f7fd-4349-b4a5-7262698543b5";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -16045,8 +16045,8 @@ class TextLayer {
       top = tx[5] - fontAscent * Math.cos(angle);
     }
     const divStyle = textDiv.style;
-    divStyle.left = `${(100 * left / this.#pageWidth).toFixed(2)}%`;
-    divStyle.top = `${(100 * top / this.#pageHeight).toFixed(2)}%`;
+    divStyle.left = `${(100 * left / this.#pageWidth).toFixed(3)}%`;
+    divStyle.top = `${(100 * top / this.#pageHeight).toFixed(3)}%`;
     const roundedFontHeight = Math.round(fontHeight * 100) / 100;
     divStyle.setProperty("--font-height", `${roundedFontHeight}px`);
     divStyle.fontFamily = fontFamily;
@@ -18075,7 +18075,7 @@ class InternalRenderTask {
   }
 }
 const version = "6.5.0";
-const build = "236ed7f";
+const build = "bfe4cca";
 
 ;// ./src/display/editor/color_picker.js
 
