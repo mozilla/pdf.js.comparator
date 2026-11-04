@@ -2,7 +2,7 @@
   "name": "pdfium",
   "repo": "https://pdfium.googlesource.com/pdfium.git",
   "ref": "main",
-  "commit": "d67c95230de8010ac5bb716e178fc767a5d10fe0",
+  "commit": "3fe8d0814a101347702dbf2c67cc8257101a1680",
   "dependencies": {
     "abseil": {
       "repo": "https://github.com/abseil/abseil-cpp.git",
@@ -25,5 +25,5 @@
       "commit": "a3f6f68fcc368e5e3025ca25805eabda9d8a456f"
     }
   },
-  "fingerprint": "pdfium=d67c95230de8010ac5bb716e178fc767a5d10fe0;fast_float=dbeabeeb3e6791cb96994c2a7a084c36e62ccfb2;abseil=d9b93ccc244c39cb02fc9a3413dbeeed0ac95e70;dragonbox=beeeef91cf6fef89a4d4ba5e95d47ca64ccb3a44;highway=a3f6f68fcc368e5e3025ca25805eabda9d8a456f"
+  "fingerprint": "pdfium=3fe8d0814a101347702dbf2c67cc8257101a1680;fast_float=dbeabeeb3e6791cb96994c2a7a084c36e62ccfb2;abseil=d9b93ccc244c39cb02fc9a3413dbeeed0ac95e70;dragonbox=beeeef91cf6fef89a4d4ba5e95d47ca64ccb3a44;highway=a3f6f68fcc368e5e3025ca25805eabda9d8a456f"
 }
