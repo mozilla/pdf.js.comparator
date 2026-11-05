@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 6.5.0
- * pdfjsBuild = bfe4cca
+ * pdfjsBuild = 1c3fdc2
  */
 
 ;// ./src/shared/util.js
@@ -34971,10 +34971,10 @@ class PartialEvaluator {
       font.cacheKey = `cacheKey_${fontID}`;
       this.fontCache.put(font.cacheKey, promise);
     }
-    font.loadedName = `${this.idFactory.getDocId()}_${fontID}`;
-    this.translateFont(preEvaluatedFont).then(async translatedFont => {
+    const loadedName = `${this.idFactory.getDocId()}_${fontID}`;
+    this.translateFont(preEvaluatedFont, loadedName).then(async translatedFont => {
       const translated = new TranslatedFont({
-        loadedName: font.loadedName,
+        loadedName,
         font: translatedFont,
         dict: font
       });
@@ -34989,7 +34989,7 @@ class PartialEvaluator {
     }).catch(reason => {
       warn(`loadFont - translateFont failed: "${reason}".`);
       resolve(new TranslatedFont({
-        loadedName: font.loadedName,
+        loadedName,
         font: new ErrorFont(reason?.message),
         dict: font
       }));
@@ -37202,7 +37202,7 @@ class PartialEvaluator {
     lastChar,
     toUnicode,
     cssFontInfo
-  }) {
+  }, loadedName) {
     const isType3Font = type === "Type3";
     if (!descriptor) {
       if (isType3Font) {
@@ -37221,7 +37221,7 @@ class PartialEvaluator {
         const properties = {
           type,
           name: baseFontName,
-          loadedName: baseDict.loadedName,
+          loadedName,
           systemFontInfo: null,
           widths: metrics.widths,
           defaultWidth: metrics.defaultWidth,
@@ -37375,7 +37375,7 @@ class PartialEvaluator {
       length1,
       length2,
       length3,
-      loadedName: baseDict.loadedName,
+      loadedName,
       composite,
       fixedPitch: false,
       fontMatrix,
@@ -54478,19 +54478,10 @@ class WidgetAnnotation extends Annotation {
     return `/Tx BMC q ${colors}BT ` + defaultAppearance + ` 1 0 0 1 0 0 Tm ${renderedText}` + " ET Q EMC";
   }
   static async _getFontData(evaluator, task, appearanceData, resources) {
-    const operatorList = new OperatorList();
-    const initialState = {
-      font: null,
-      clone() {
-        return this;
-      }
-    };
     const {
-      fontName,
-      fontSize
-    } = appearanceData;
-    await evaluator.handleSetFont(resources, [fontName && Name.get(fontName), fontSize], null, operatorList, task, initialState, null);
-    return initialState.font;
+      font
+    } = await evaluator.loadFont(appearanceData.fontName || null, null, resources, task);
+    return font;
   }
   _getTextWidth(text, font) {
     return Math.sumPrecise(font.charsToGlyphs(text).map(g => g.width)) / 1000;
