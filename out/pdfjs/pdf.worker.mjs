@@ -20,8 +20,8 @@
  */
 
 /**
- * pdfjsVersion = 6.5.0
- * pdfjsBuild = 1c3fdc2
+ * pdfjsVersion = 7.0.0
+ * pdfjsBuild = 2b183c9
  */
 
 ;// ./src/shared/util.js
@@ -8398,12 +8398,13 @@ let makeBrotliDecode = () => {
   }
   return decode;
 };
-let BrotliDecode = makeBrotliDecode();
+
 ;// ./src/core/brotli_stream.js
 
 
 
 class BrotliStream extends DecodeStream {
+  static #decode = null;
   #isAsync = true;
   constructor(stream, maybeLength) {
     super(maybeLength);
@@ -8412,7 +8413,8 @@ class BrotliStream extends DecodeStream {
   }
   readBlock() {
     const bytes = this.stream.getBytes();
-    const decodedData = BrotliDecode(new Int8Array(bytes.buffer, bytes.byteOffset, bytes.length));
+    BrotliStream.#decode ??= makeBrotliDecode();
+    const decodedData = BrotliStream.#decode(new Int8Array(bytes.buffer, bytes.byteOffset, bytes.length));
     this.buffer = new Uint8Array(decodedData.buffer, decodedData.byteOffset, decodedData.length);
     this.bufferLength = this.buffer.length;
     this.eof = true;
@@ -16752,7 +16754,7 @@ class CFFParser {
     this.properties = properties;
     this.seacAnalysisEnabled = !!seacAnalysisEnabled;
   }
-  parse() {
+  parse(validate = true) {
     const properties = this.properties;
     const cff = new CFF(this.bytes.length);
     this.cff = cff;
@@ -16820,6 +16822,10 @@ class CFFParser {
     }
     cff.charset = charset;
     cff.encoding = encoding;
+    if (!validate) {
+      cff.charStrings = charStringIndex;
+      return cff;
+    }
     const charStringsAndSeacs = this.parseCharStrings({
       charStrings: charStringIndex,
       localSubrIndex: topDict.privateDict.subrsIndex,
@@ -19158,6 +19164,7 @@ class IdentityToUnicodeMap {
 
 class CFFFont {
   #replacedGlyphId = -1;
+  isCompiled = false;
   constructor(file, properties) {
     this.properties = properties;
     const parser = new CFFParser(file, properties, (/* inlined export .SEAC_ANALYSIS_ENABLED */true));
@@ -19173,6 +19180,7 @@ class CFFFont {
     this.seacs = this.cff.seacs;
     try {
       this.data = compiler.compile();
+      this.isCompiled = true;
     } catch (ex) {
       warn(`Failed to compile font "${properties.loadedName}": "${ex}".`);
       file.reset();
@@ -19563,10 +19571,10 @@ function parseCmap(data, start, end) {
   }
   throw new FormatError(`unsupported cmap: ${format}`);
 }
-function parseCff(data, start, end, seacAnalysisEnabled) {
+function parseCff(data, start, end, seacAnalysisEnabled, validate) {
   const properties = {};
   const parser = new CFFParser(new Stream(data, start, end - start), properties, seacAnalysisEnabled);
-  const cff = parser.parse();
+  const cff = parser.parse(validate);
   return {
     glyphs: cff.charStrings.objects,
     subrs: cff.topDict.privateDict?.subrsIndex?.objects,
@@ -20262,7 +20270,7 @@ class Type2Compiled extends CompiledFont {
   }
 }
 class FontRendererFactory {
-  static create(font, seacAnalysisEnabled) {
+  static create(font, seacAnalysisEnabled, validate = true) {
     const data = new Uint8Array(font.data),
       view = new DataView(data.buffer);
     let cmap, glyf, loca, cff, indexToLocFormat, unitsPerEm;
@@ -20286,7 +20294,7 @@ class FontRendererFactory {
           indexToLocFormat = view.getUint16(offset + 50);
           break;
         case "CFF ":
-          cff = parseCff(data, offset, offset + length, seacAnalysisEnabled);
+          cff = parseCff(data, offset, offset + length, seacAnalysisEnabled, validate);
           break;
       }
     }
@@ -24404,6 +24412,7 @@ function isCidKeyedType1File(file) {
 }
 class Type1Font {
   #rawFileLength;
+  isCompiled = true;
   constructor(name, file, properties) {
     let data;
     if (properties.composite && isCidKeyedType1File(file)) {
@@ -25326,6 +25335,7 @@ class Font {
   #glyphCache = new Map();
   #generatedCodePoints = null;
   #id = null;
+  #isCFFCompiled = false;
   #withoutFile = false;
   charProcOperatorList;
   standardFontName = null;
@@ -25454,7 +25464,7 @@ class Font {
     this.seacMap = properties.seacMap;
   }
   get renderer() {
-    const renderer = FontRendererFactory.create(this, (/* inlined export .SEAC_ANALYSIS_ENABLED */true));
+    const renderer = FontRendererFactory.create(this, (/* inlined export .SEAC_ANALYSIS_ENABLED */true), !this.#isCFFCompiled);
     return shadow(this, "renderer", renderer);
   }
   #getExportData(props) {
@@ -26717,6 +26727,7 @@ class Font {
       try {
         parsedCff.duplicateFirstGlyph();
         tables["CFF "].data = new CFFCompiler(parsedCff).compile();
+        this.#isCFFCompiled = true;
         numGlyphsFromCFF = parsedCff.charStringCount;
       } catch {
         warn("Failed to compile font " + properties.loadedName);
@@ -26991,6 +27002,7 @@ class Font {
     return builder.toArray();
   }
   convert(fontName, font, properties) {
+    this.#isCFFCompiled = font.isCompiled;
     properties.fixedPitch = false;
     if (properties.builtInEncoding) {
       adjustType1ToUnicode(properties, properties.builtInEncoding);
@@ -54121,6 +54133,10 @@ class WidgetAnnotation extends Annotation {
     if (renderForms) {
       return this.viewable;
     }
+    const noView = annotationStorage?.get(this.data.id)?.noView;
+    if (noView !== undefined) {
+      return !noView;
+    }
     return super.mustBeViewed(annotationStorage, renderForms) && !this._hasFlag(this.flags, AnnotationFlag.NOVIEW);
   }
   getRotationMatrix(annotationStorage) {
@@ -64598,7 +64614,7 @@ class WorkerMessageHandler {
       docId,
       apiVersion
     } = docParams;
-    const workerVersion = "6.5.0";
+    const workerVersion = "7.0.0";
     if (apiVersion !== workerVersion) {
       throw new Error(`The API version "${apiVersion}" does not match the Worker version "${workerVersion}".`);
     }
@@ -64622,6 +64638,16 @@ class WorkerMessageHandler {
     function finishWorkerTask(task) {
       task.finish();
       WorkerTasks.delete(task);
+    }
+    async function runPageTask(manager, pageIndex, name, callback) {
+      const page = await manager.getPage(pageIndex);
+      const task = new WorkerTask(`${name}: page ${pageIndex}`);
+      startWorkerTask(task);
+      try {
+        return await callback(page, task);
+      } finally {
+        finishWorkerTask(task);
+      }
     }
     async function loadDocument(recoveryMode) {
       await pdfManager.initDocument(recoveryMode);
@@ -64917,18 +64943,11 @@ class WorkerMessageHandler {
       const stream = await pdfManager.requestLoadedStream();
       return stream.bytes;
     });
-    handler.on("GetAnnotations", async function ({
+    handler.on("GetAnnotations", function ({
       pageIndex,
       intent
     }) {
-      const page = await pdfManager.getPage(pageIndex);
-      const task = new WorkerTask(`GetAnnotations: page ${pageIndex}`);
-      startWorkerTask(task);
-      try {
-        return await page.getAnnotationsData(handler, task, intent);
-      } finally {
-        finishWorkerTask(task);
-      }
+      return runPageTask(pdfManager, pageIndex, "GetAnnotations", (page, task) => page.getAnnotationsData(handler, task, intent));
     });
     handler.on("GetFieldObjects", async function () {
       const fieldObjects = await pdfManager.ensureDoc("fieldObjects");
@@ -65036,14 +65055,14 @@ class WorkerMessageHandler {
         managers?.forEach(manager => manager.terminate(new AbortException("ExtractPages was finished.")));
       }
     });
-    handler.on("SaveDocument", async function ({
+    async function saveDocument(manager, {
       isPureXfa,
       numPages,
       annotationStorage,
       supportsPrintToPDF,
       filename
     }) {
-      const globalPromises = [pdfManager.requestLoadedStream(), pdfManager.ensureCatalog("acroForm"), pdfManager.ensureCatalog("acroFormRef"), pdfManager.ensureDoc("startXRef"), pdfManager.ensureDoc("xref"), pdfManager.ensureCatalog("structTreeRoot")];
+      const globalPromises = [manager.requestLoadedStream(), manager.ensureCatalog("acroForm"), manager.ensureCatalog("acroFormRef"), manager.ensureDoc("startXRef"), manager.ensureDoc("xref"), manager.ensureCatalog("structTreeRoot")];
       const changes = new RefMap();
       const promises = [];
       const newAnnotationsByPage = !isPureXfa ? getNewAnnotationsMap(annotationStorage) : null;
@@ -65054,55 +65073,43 @@ class WorkerMessageHandler {
         if (!_structTreeRoot) {
           if (await StructTreeRoot.canCreateStructureTree({
             catalogRef,
-            pdfManager,
+            pdfManager: manager,
             newAnnotationsByPage
           })) {
             structTreeRoot = null;
           }
         } else if (await _structTreeRoot.canUpdateStructTree({
-          pdfManager,
+          pdfManager: manager,
           newAnnotationsByPage
         })) {
           structTreeRoot = _structTreeRoot;
         }
-        const imagePromises = AnnotationFactory.generateImages(annotationStorage.values(), xref, pdfManager.evaluatorOptions.isOffscreenCanvasSupported);
+        const imagePromises = AnnotationFactory.generateImages(annotationStorage.values(), xref, manager.evaluatorOptions.isOffscreenCanvasSupported);
         const newAnnotationPromises = structTreeRoot === undefined ? promises : [];
         for (const [pageIndex, annotations] of newAnnotationsByPage) {
-          newAnnotationPromises.push(pdfManager.getPage(pageIndex).then(page => {
-            const task = new WorkerTask(`Save (editor): page ${pageIndex}`);
-            startWorkerTask(task);
-            return page.saveNewAnnotations(handler, task, annotations, imagePromises, changes).finally(() => {
-              finishWorkerTask(task);
-            });
-          }));
+          newAnnotationPromises.push(runPageTask(manager, pageIndex, "Save (editor)", (page, task) => page.saveNewAnnotations(handler, task, annotations, imagePromises, changes)));
         }
         if (structTreeRoot === null) {
           promises.push(Promise.all(newAnnotationPromises).then(() => StructTreeRoot.createStructureTree({
             newAnnotationsByPage,
             xref,
             catalogRef,
-            pdfManager,
+            pdfManager: manager,
             changes
           })));
         } else if (structTreeRoot) {
           promises.push(Promise.all(newAnnotationPromises).then(() => structTreeRoot.updateStructureTree({
             newAnnotationsByPage,
-            pdfManager,
+            pdfManager: manager,
             changes
           })));
         }
       }
       if (isPureXfa) {
-        promises.push(pdfManager.ensureDoc("serializeXfaData", [annotationStorage]));
+        promises.push(manager.ensureDoc("serializeXfaData", [annotationStorage]));
       } else {
         for (let pageIndex = 0; pageIndex < numPages; pageIndex++) {
-          promises.push(pdfManager.getPage(pageIndex).then(function (page) {
-            const task = new WorkerTask(`Save: page ${pageIndex}`);
-            startWorkerTask(task);
-            return page.save(handler, task, annotationStorage, changes).finally(() => {
-              finishWorkerTask(task);
-            });
-          }));
+          promises.push(runPageTask(manager, pageIndex, "Save", (page, task) => page.save(handler, task, annotationStorage, changes)));
         }
       }
       const refs = await Promise.all(promises);
@@ -65115,8 +65122,9 @@ class WorkerMessageHandler {
       } else if (changes.size === 0) {
         return stream.bytes;
       }
-      const needAppearances = acroFormRef && acroForm instanceof Dict && changes.values().some(ref => ref.needAppearances);
-      const xfa = acroForm instanceof Dict && acroForm.get("XFA") || null;
+      const hasAcroForm = acroForm instanceof Dict;
+      const needAppearances = acroFormRef && hasAcroForm && changes.values().some(ref => ref.needAppearances);
+      const xfa = hasAcroForm && acroForm.get("XFA") || null;
       let xfaDatasetsRef = null;
       let hasXfaDatasetsEntry = false;
       if (Array.isArray(xfa)) {
@@ -65170,7 +65178,8 @@ class WorkerMessageHandler {
       }).finally(() => {
         xref.resetNewTemporaryRef();
       });
-    });
+    }
+    handler.on("SaveDocument", data => saveDocument(pdfManager, data));
     handler.on("GetOperatorList", function ({
       pageId,
       pageIndex,

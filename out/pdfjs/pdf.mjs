@@ -20,8 +20,8 @@
  */
 
 /**
- * pdfjsVersion = 6.5.0
- * pdfjsBuild = 1c3fdc2
+ * pdfjsVersion = 7.0.0
+ * pdfjsBuild = 2b183c9
  */
 
 ;// ./src/shared/util.js
@@ -2080,7 +2080,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "b3e12515-0e29-4f67-9fe7-3d3808020f31";
+const INTERNAL_EVT = "065f39d9-24a0-4c3d-85b4-e5a46a30ff90";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -15670,7 +15670,7 @@ class RendererWorker {
         terminateEarly("TypedArray transfer test failed.");
         return;
       }
-      const apiVersion = "6.5.0";
+      const apiVersion = "7.0.0";
       if (apiVersion !== data.workerVersion) {
         terminateEarly(`The API version "${apiVersion}" does not match the Worker version "${data.workerVersion}".`);
         return;
@@ -16319,7 +16319,7 @@ function getDocument(src = {}) {
   }
   const docParams = {
     docId,
-    apiVersion: "6.5.0",
+    apiVersion: "7.0.0",
     data,
     password,
     disableAutoFetch,
@@ -16566,8 +16566,8 @@ class PDFDocumentProxy {
   getData() {
     return this._transport.getData();
   }
-  saveDocument(printToPDF) {
-    return this._transport.saveDocument(printToPDF);
+  saveDocument(params) {
+    return this._transport.saveDocument(params);
   }
   extractPages(pageInfos, copyLevels = null) {
     return this._transport.extractPages(pageInfos, copyLevels);
@@ -17562,7 +17562,9 @@ class WorkerTransport {
   getData() {
     return this.messageHandler.sendWithPromise("GetData", null);
   }
-  saveDocument(printToPDF = null) {
+  saveDocument({
+    printToPDF = null
+  } = {}) {
     if (this.annotationStorage.size <= 0) {
       warn("saveDocument called while `annotationStorage` is empty, " + "please use the getData-method instead.");
     }
@@ -18074,8 +18076,8 @@ class InternalRenderTask {
     }
   }
 }
-const version = "6.5.0";
-const build = "1c3fdc2";
+const version = "7.0.0";
+const build = "2b183c9";
 
 ;// ./src/display/editor/color_picker.js
 
@@ -29252,11 +29254,11 @@ globalThis.pdfjsLib = {
   updateUrlHash: updateUrlHash,
   Util: Util,
   VerbosityLevel: VerbosityLevel,
-  version: (/* inlined export .version */"6.5.0"),
+  version: (/* inlined export .version */"7.0.0"),
   XfaLayer: XfaLayer
 };
 
-const __webpack_exports__version = (/* inlined export .version */"6.5.0");
+const __webpack_exports__version = (/* inlined export .version */"7.0.0");
 export { AbortException, AnnotationEditorLayer, AnnotationEditorParamsType, AnnotationEditorType, AnnotationEditorUIManager, AnnotationLayer, AnnotationMode, AnnotationType, CSSConstants, ColorPicker, DOMSVGFactory, DrawLayer, FeatureTest, GlobalWorkerOptions, ImageKind, InvalidPDFException, MathClamp, OPS, OutputScale, PDFDataRangeTransport, PDFDateString, PDFWorker, PasswordException, PasswordResponses, PermissionFlag, PixelsPerInch, RenderingCancelledException, ResponseException, SignatureExtractor, SupportedImageMimeTypes, TextLayer, TextLayerImages, TouchManager, Util, VerbosityLevel, XfaLayer, applyOpacity, build, createValidAbsoluteUrl, fetchData, findContrastColor, getDocument, getFilenameFromUrl, getPdfFilenameFromUrl, getRGB, getRGBA, getUuid, isDataScheme, isPdfFile, isValidExplicitDest, makeArr, makeMap, makeObj, makeSet, noContextMenu, normalizeUnicode, renderRichText, setLayerDimensions, shadow, stopEvent, updateUrlHash, __webpack_exports__version as version };
 
 //# sourceMappingURL=pdf.mjs.map
