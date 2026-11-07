@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = d44cfef
+ * pdfjsBuild = a4800c8
  */
 
 ;// ./src/shared/util.js
@@ -896,7 +896,7 @@ class OutputScale {
     if (maxPixels > 0) {
       maxAreaScale = Math.sqrt(maxPixels / (width * height));
     }
-    if (maxDim !== -1) {
+    if (maxDim > 0) {
       maxWidthScale = maxDim / width;
       maxHeightScale = maxDim / height;
     }
@@ -2080,7 +2080,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "6311d6ce-207f-41c5-9070-f658c11acb9c";
+const INTERNAL_EVT = "4e37d050-22d7-4a6a-82bc-c35cea7b8577";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -18077,7 +18077,7 @@ class InternalRenderTask {
   }
 }
 const version = "7.0.0";
-const build = "d44cfef";
+const build = "a4800c8";
 
 ;// ./src/display/editor/color_picker.js
 

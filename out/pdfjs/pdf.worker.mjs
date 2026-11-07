@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = d44cfef
+ * pdfjsBuild = a4800c8
  */
 
 ;// ./src/shared/util.js
@@ -29308,15 +29308,12 @@ class PSStackToTree {
           break;
         case TOKEN.idiv:
           if (b === 1) {
-            return second;
+            return this._makeUnary(TOKEN.truncate, second);
           }
           break;
         case TOKEN.exp:
           if (b === 1) {
             return second;
-          }
-          if (b === -1) {
-            return this._makeBinary(TOKEN.div, second, new PsConstNode(1));
           }
           if (b === 0.5) {
             return this._makeUnary(TOKEN.sqrt, second);
