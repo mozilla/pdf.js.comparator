@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = ce50f71
+ * pdfjsBuild = d44cfef
  */
 
 ;// ./src/shared/util.js
@@ -8799,8 +8799,6 @@ class WasmImage {
     wasmUrl: null
   };
   #modulePromise = null;
-  _filename = null;
-  _noWasmFilename = null;
   static setOptions({
     getHandler,
     useWasm,
@@ -8822,7 +8820,9 @@ class WasmImage {
       instance.#modulePromise = null;
     }
   }
-  constructor() {
+  constructor(filename, noWasmFilename) {
+    this._filename = filename;
+    this._noWasmFilename = noWasmFilename;
     WasmImage.#instances.add(this);
   }
   async #instantiateWasm(failureCallback, imports, successCallback) {
@@ -8864,10 +8864,8 @@ class Jbig2Error extends BaseException {
   }
 }
 class JBig2CCITTFaxImage extends WasmImage {
-  _filename = "jbig2.wasm";
-  _noWasmFilename = "jbig2_nowasm_fallback.js";
   static get instance() {
-    return shadow(this, "instance", new JBig2CCITTFaxImage());
+    return shadow(this, "instance", new JBig2CCITTFaxImage("jbig2.wasm", "jbig2_nowasm_fallback.js"));
   }
   async decode(bytes, width, height, globals, CCITTOptions) {
     const module = await this._getModule(jbig2);
@@ -8895,7 +8893,6 @@ class JBig2CCITTFaxImage extends WasmImage {
       const {
         imageData
       } = module;
-      module.imageData = null;
       return imageData;
     } finally {
       if (ptr) {
@@ -8904,6 +8901,7 @@ class JBig2CCITTFaxImage extends WasmImage {
       if (globalsPtr) {
         module._free(globalsPtr);
       }
+      module.imageData = null;
     }
   }
 }
@@ -9591,10 +9589,8 @@ class JpxError extends BaseException {
   }
 }
 class JpxImage extends WasmImage {
-  _filename = "openjpeg.wasm";
-  _noWasmFilename = "openjpeg_nowasm_fallback.js";
   static get instance() {
-    return shadow(this, "instance", new JpxImage());
+    return shadow(this, "instance", new JpxImage("openjpeg.wasm", "openjpeg_nowasm_fallback.js"));
   }
   async decode(bytes, {
     numComponents,
@@ -9627,12 +9623,12 @@ class JpxImage extends WasmImage {
       const {
         imageData
       } = module;
-      module.imageData = null;
       return imageData;
     } finally {
       if (ptr) {
         module._free(ptr);
       }
+      module.imageData = null;
     }
   }
   static parseImageProperties(stream) {
@@ -58735,14 +58731,17 @@ class XRef {
     const streamState = this.streamState;
     stream.pos = streamState.streamPos;
     const [typeFieldWidth, offsetFieldWidth, generationFieldWidth] = streamState.byteWidths;
+    if (![typeFieldWidth, offsetFieldWidth, generationFieldWidth].every(width => Number.isInteger(width) && width >= 0)) {
+      throw new FormatError(`Invalid XRef entry fields length: ${streamState.byteWidths}`);
+    }
+    if (typeFieldWidth + offsetFieldWidth + generationFieldWidth === 0) {
+      return;
+    }
     const entryRanges = streamState.entryRanges;
     while (entryRanges.length > 0) {
       const [first, n] = entryRanges;
       if (!Number.isInteger(first) || !Number.isInteger(n)) {
         throw new FormatError(`Invalid XRef range fields: ${first}, ${n}`);
-      }
-      if (![typeFieldWidth, offsetFieldWidth, generationFieldWidth].every(width => Number.isInteger(width) && width >= 0) || typeFieldWidth + offsetFieldWidth + generationFieldWidth === 0) {
-        throw new FormatError(`Invalid XRef entry fields length: ${first}, ${n}`);
       }
       for (let i = streamState.entryNum; i < n; ++i) {
         streamState.entryNum = i;
