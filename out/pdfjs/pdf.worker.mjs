@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = bba96a3
+ * pdfjsBuild = 0519c64
  */
 
 ;// ./src/shared/util.js
@@ -34096,7 +34096,6 @@ class PDFImage {
 
 
 const DefaultPartialEvaluatorOptions = Object.freeze({
-  maxImageSize: -1,
   disableFontFace: false,
   ignoreErrors: false,
   isOffscreenCanvasSupported: false,
@@ -34456,7 +34455,6 @@ class PartialEvaluator {
     localColorSpaceCache
   }) {
     const {
-      maxImageSize,
       ignoreErrors,
       isOffscreenCanvasSupported
     } = this.options;
@@ -34468,14 +34466,6 @@ class PartialEvaluator {
     const h = dict.get("H", "Height");
     if (!(w && typeof w === "number") || !(h && typeof h === "number")) {
       warn("Image dimensions are missing, or not numbers.");
-      return;
-    }
-    if (maxImageSize !== -1 && w * h > maxImageSize) {
-      const msg = "Image exceeded maximum allowed size and was removed.";
-      if (!ignoreErrors) {
-        throw new Error(msg);
-      }
-      warn(msg);
       return;
     }
     let optionalContent;

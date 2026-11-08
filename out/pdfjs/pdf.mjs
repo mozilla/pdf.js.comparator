@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = bba96a3
+ * pdfjsBuild = 0519c64
  */
 
 ;// ./src/shared/util.js
@@ -2080,7 +2080,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "97f72782-d033-4a7c-87cc-1c4ec4604ef7";
+const INTERNAL_EVT = "9c4f729f-9c04-4f13-be0f-e236f5bc1550";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -16253,7 +16253,6 @@ function getDocument(src = {}) {
   const standardFontDataUrl = getFactoryUrlProp(src.standardFontDataUrl);
   const wasmUrl = getFactoryUrlProp(src.wasmUrl);
   const ignoreErrors = src.stopAtErrors !== true;
-  const maxImageSize = Number.isInteger(src.maxImageSize) && src.maxImageSize > -1 ? src.maxImageSize : -1;
   const isOffscreenCanvasSupported = typeof src.isOffscreenCanvasSupported === "boolean" ? src.isOffscreenCanvasSupported : !isNodeJS;
   const isImageDecoderSupported = typeof src.isImageDecoderSupported === "boolean" ? src.isImageDecoderSupported : !isNodeJS;
   const canvasMaxAreaInBytes = Number.isInteger(src.canvasMaxAreaInBytes) ? src.canvasMaxAreaInBytes : -1;
@@ -16327,7 +16326,6 @@ function getDocument(src = {}) {
     docBaseUrl,
     enableXfa,
     evaluatorOptions: {
-      maxImageSize,
       disableFontFace,
       ignoreErrors,
       isOffscreenCanvasSupported,
@@ -18077,7 +18075,7 @@ class InternalRenderTask {
   }
 }
 const version = "7.0.0";
-const build = "bba96a3";
+const build = "0519c64";
 
 ;// ./src/display/editor/color_picker.js
 
