@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = a4800c8
+ * pdfjsBuild = bba96a3
  */
 
 ;// ./src/shared/util.js
@@ -2080,7 +2080,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "4e37d050-22d7-4a6a-82bc-c35cea7b8577";
+const INTERNAL_EVT = "97f72782-d033-4a7c-87cc-1c4ec4604ef7";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -18077,7 +18077,7 @@ class InternalRenderTask {
   }
 }
 const version = "7.0.0";
-const build = "a4800c8";
+const build = "bba96a3";
 
 ;// ./src/display/editor/color_picker.js
 
@@ -26734,7 +26734,7 @@ class SignatureEditor extends DrawingEditor {
     this._willKeepAspectRatio = true;
     this.#signatureData = params.signatureData || null;
     this.#description = null;
-    this.defaultL10nId = "pdfjs-editor-signature-editor1";
+    this.defaultL10nId = "pdfjs-editor-signature-editor2";
   }
   static initialize(l10n, uiManager) {
     AnnotationEditor.initialize(l10n, uiManager);
