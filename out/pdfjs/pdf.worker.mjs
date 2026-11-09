@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = c34a271
+ * pdfjsBuild = 50e7be9
  */
 
 ;// ./src/shared/util.js
@@ -10606,6 +10606,9 @@ class Parser {
         case "JBIG2Decode":
           return new Jbig2Stream(stream, maybeLength, params);
         case "BrotliDecode":
+          if (params) {
+            return new PredictorStream(new BrotliStream(stream, maybeLength), maybeLength, params);
+          }
           return new BrotliStream(stream, maybeLength);
         case "Crypt":
           {
