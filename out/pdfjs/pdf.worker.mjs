@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = 2710e05
+ * pdfjsBuild = 94a48f3
  */
 
 ;// ./src/shared/util.js
@@ -8731,31 +8731,50 @@ class WasmLoader {
       options
     } = context;
     if (options.useWorkerFetch) {
-      const url = `${options[kind]}${filename}`,
-        response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch file "${url}" with "${response.statusText}".`);
-      }
-      return response.bytes();
+      return (await this.#workerFetch(options[kind], filename)).bytes();
     }
     return handler.sendWithPromise("FetchBinaryData", {
       kind,
       filename
     });
   }
+  static async #workerFetch(baseUrl, filename) {
+    const url = `${baseUrl}${filename}`,
+      response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch file "${url}" with "${response.statusText}".`);
+    }
+    return response;
+  }
+  static async #fetchAndCompile(context, filename) {
+    const {
+      options
+    } = context;
+    if (!options.useWorkerFetch) {
+      return WebAssembly.compile(await this.fetch(context, "wasmUrl", filename));
+    }
+    const {
+      body
+    } = await this.#workerFetch(options.wasmUrl, filename);
+    return WebAssembly.compileStreaming(new Response(body, {
+      headers: {
+        "Content-Type": "application/wasm"
+      }
+    }));
+  }
   static #compile(context, filename) {
     const cached = this.#modules.get(filename);
     if (cached) {
       return cached.catch(() => this.#compile(context, filename));
     }
-    const promise = this.fetch(context, "wasmUrl", filename).then(bytes => WebAssembly.compile(bytes)).catch(ex => {
+    const promise = this.#fetchAndCompile(context, filename).catch(ex => {
       this.#modules.delete(filename);
       throw ex;
     });
     this.#modules.set(filename, promise);
     return promise;
   }
-  static #importFallback(wasmUrl, filename) {
+  static async #importFallback(wasmUrl, filename) {
     if (isNodeJS && !/^[a-z][a-z0-9\-+.]+:/i.test(wasmUrl)) {
       wasmUrl = process.getBuiltinModule("url").pathToFileURL(wasmUrl).href;
     }
