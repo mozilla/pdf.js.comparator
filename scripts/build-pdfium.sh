@@ -235,6 +235,10 @@ if [ ! -f "${WASM_PREFIX}/lib/libpdfium.a" ] || \
     # is behind `#if defined(PDF_USE_SKIA)` / `PDF_ENABLE_RUST_*`, so dropping
     # the .cpp files is safe.
     #
+    # core/fxge/fx_libyuv_wrappers.cpp is dropped likewise: gn compiles it only
+    # under pdf_use_libyuv, and every caller has a `#if defined(PDF_USE_LIBYUV)`
+    # fallback. We never fetch libyuv (it has no wasm SIMD paths anyway).
+    #
     # core/fxcrt/cfx_bidi_resolver.cpp is dropped for a DIFFERENT reason than the
     # files above — read this before touching it. It #includes ICU's
     # third_party/icu/.../ubidi.h (a real UBiDi engine, unstubbable, and we ship
@@ -269,6 +273,7 @@ if [ ! -f "${WASM_PREFIX}/lib/libpdfium.a" ] || \
         ! -name "codec_memory_sk_stream.cpp" \
         ! -name "skia_*.cpp" \
         ! -name "rust_*.cpp" \
+        ! -name "fx_libyuv_wrappers.cpp" \
         ! -name "cfx_bidi_resolver.cpp" \
         2>/dev/null | sort)
 
