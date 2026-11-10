@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = 50e7be9
+ * pdfjsBuild = b600aec
  */
 
 ;// ./src/shared/util.js
@@ -52223,8 +52223,7 @@ class XhtmlObject extends XmlObject {
       this[$content] += str;
     }
   }
-  [$pushGlyphs](measure, mustPop = true) {
-    const xfaFont = Object.create(null);
+  [$pushGlyphs](measure, mustPop = true, xfaFont = Object.create(null)) {
     const margin = {
       top: NaN,
       bottom: NaN,
@@ -52342,11 +52341,9 @@ class B extends XhtmlObject {
     super(attributes, "b");
   }
   [$pushGlyphs](measure) {
-    measure.pushFont({
+    super[$pushGlyphs](measure, true, {
       weight: "bold"
     });
-    super[$pushGlyphs](measure);
-    measure.popFont();
   }
 }
 class Body extends XhtmlObject {
@@ -52423,11 +52420,9 @@ class I extends XhtmlObject {
     super(attributes, "i");
   }
   [$pushGlyphs](measure) {
-    measure.pushFont({
+    super[$pushGlyphs](measure, true, {
       posture: "italic"
     });
-    super[$pushGlyphs](measure);
-    measure.popFont();
   }
 }
 class Li extends XhtmlObject {
