@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = 94a48f3
+ * pdfjsBuild = 421ff37
  */
 
 ;// ./src/shared/util.js
@@ -2080,7 +2080,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "8976e266-3092-400d-a690-fdc30d12a496";
+const INTERNAL_EVT = "413e2905-9387-4351-903b-8b5fe91ac61b";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -13210,6 +13210,7 @@ class BasePDFStreamReader {
   _stream = null;
   constructor(stream) {
     this._stream = stream;
+    this._headersCapability.promise.catch(() => {});
   }
   _callOnProgress() {
     this.onProgress?.({
@@ -18075,7 +18076,7 @@ class InternalRenderTask {
   }
 }
 const version = "7.0.0";
-const build = "94a48f3";
+const build = "421ff37";
 
 ;// ./src/display/editor/color_picker.js
 

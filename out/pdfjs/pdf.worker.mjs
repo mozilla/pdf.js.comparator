@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = 94a48f3
+ * pdfjsBuild = 421ff37
  */
 
 ;// ./src/shared/util.js
@@ -64607,6 +64607,7 @@ class BasePDFStreamReader {
   _stream = null;
   constructor(stream) {
     this._stream = stream;
+    this._headersCapability.promise.catch(() => {});
   }
   _callOnProgress() {
     this.onProgress?.({
