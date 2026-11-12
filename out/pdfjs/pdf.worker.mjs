@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = 2b5c986
+ * pdfjsBuild = bf3e12f
  */
 
 ;// ./src/shared/util.js
@@ -34128,6 +34128,7 @@ class PDFImage {
 
 
 
+
 const DefaultPartialEvaluatorOptions = Object.freeze({
   disableFontFace: false,
   ignoreErrors: false,
@@ -34376,13 +34377,17 @@ class PartialEvaluator {
       cMapUrl,
       useWorkerFetch
     } = this.options;
-    const cMapData = await WasmLoader.fetch({
+    let cMapData = await WasmLoader.fetch({
       handler: this.handler,
       options: {
         cMapUrl,
         useWorkerFetch: useWorkerFetch && cMapPacked
       }
-    }, "cMapUrl", `${name}${cMapPacked ? ".bcmap" : ""}`);
+    }, "cMapUrl", `${name}${cMapPacked ? ".bcmap.br" : ""}`);
+    if (cMapPacked) {
+      const stream = new BrotliStream(new Stream(cMapData), cMapData.length);
+      cMapData = (await stream.asyncGetBytes()) ?? stream.getBytes();
+    }
     return {
       cMapData,
       cMapPacked
@@ -35781,7 +35786,8 @@ class PartialEvaluator {
     disableNormalization = false,
     keepWhiteSpace = false,
     prevRefs = null,
-    intersector = null
+    intersector = null,
+    markedContentScope = ""
   }) {
     if (stream.isAsync) {
       const bytes = await stream.asyncGetBytes();
@@ -36601,6 +36607,7 @@ class PartialEvaluator {
                 xObjStateManager.transform(matrix);
               }
               const localResources = dict.get("Resources");
+              const xObjMarkedContentScope = Number.isInteger(dict.get("StructParents")) && dict.objId ? `_x${dict.objId}` : markedContentScope;
               enqueueChunk();
               const sinkWrapper = textSinkWrapper(sink);
               self.getTextContent({
@@ -36615,7 +36622,8 @@ class PartialEvaluator {
                 lang,
                 disableNormalization,
                 keepWhiteSpace,
-                prevRefs: seenRefs
+                prevRefs: seenRefs,
+                markedContentScope: xObjMarkedContentScope
               }).then(function () {
                 if (!sinkWrapper.enqueueInvoked) {
                   emptyXObjectCache.set(name, dict.objId, true);
@@ -36689,7 +36697,7 @@ class PartialEvaluator {
               const mcid = args[1] instanceof Dict ? args[1].get("MCID") : null;
               textContent.items.push({
                 type: "beginMarkedContentProps",
-                id: Number.isInteger(mcid) ? `${self.idFactory.getPageObjId()}_mc${mcid}` : null,
+                id: Number.isInteger(mcid) ? `${self.idFactory.getPageObjId()}${markedContentScope}_mc${mcid}` : null,
                 tag: args[0] instanceof Name ? args[0].name : null
               });
             }
@@ -40030,66 +40038,68 @@ class StructTreeRoot {
     pageDict,
     numberTree
   }) {
-    const idToElements = new Map();
+    const parentArrays = new Map();
     for (const element of elements) {
-      if (element.structTreeParentId) {
-        const id = parseInt(element.structTreeParentId.split("_mc")[1], 10);
-        idToElements.getOrInsertComputed(id, makeArr).push(element);
+      const parentId = element.structTreeParentId;
+      if (!parentId) {
+        continue;
       }
-    }
-    const id = pageDict.get("StructParents");
-    if (!Number.isInteger(id)) {
-      return;
-    }
-    const parentArray = numberTree.get(id);
-    const updateElement = (kid, pageKid, kidRef) => {
-      const elems = idToElements.get(kid);
-      if (elems) {
-        const parentRef = pageKid.getRaw("P");
-        const parentDict = xref.fetchIfRef(parentRef);
-        if (parentRef instanceof Ref && parentDict instanceof Dict) {
-          const params = {
-            ref: kidRef,
-            dict: pageKid
-          };
-          for (const element of elems) {
-            element.structTreeParent = params;
+      const [contentId, mcidStr] = parentId.split("_mc", 2);
+      const mcid = parseInt(mcidStr, 10);
+      if (!Number.isInteger(mcid)) {
+        continue;
+      }
+      const streamId = contentId.split("_x", 2)[1] || "";
+      if (!parentArrays.has(streamId)) {
+        let dict = pageDict;
+        if (streamId) {
+          const ref = Ref.fromString(streamId);
+          const stream = ref ? xref.fetch(ref) : null;
+          if (!(stream instanceof BaseStream) || !isName(stream.dict.get("Subtype"), "Form")) {
+            parentArrays.set(streamId, null);
+            continue;
           }
+          dict = stream.dict;
         }
-        return true;
+        const id = dict.get("StructParents");
+        parentArrays.set(streamId, Number.isInteger(id) ? numberTree.get(id) : null);
       }
-      return false;
-    };
-    for (const kidRef of parentArray) {
-      if (!(kidRef instanceof Ref)) {
+      const parentArray = parentArrays.get(streamId);
+      if (!Array.isArray(parentArray)) {
         continue;
       }
-      const pageKid = xref.fetch(kidRef);
-      const k = pageKid.get("K");
-      if (Number.isInteger(k)) {
-        updateElement(k, pageKid, kidRef);
-        continue;
-      }
-      if (!Array.isArray(k)) {
-        continue;
-      }
-      for (let kid of k) {
-        kid = xref.fetchIfRef(kid);
-        if (Number.isInteger(kid) && updateElement(kid, pageKid, kidRef)) {
-          break;
-        }
-        if (!(kid instanceof Dict)) {
+      const refs = [parentArray[mcid], ...parentArray];
+      for (const ref of refs) {
+        if (!(ref instanceof Ref)) {
           continue;
         }
-        if (!isName(kid.get("Type"), "MCR")) {
-          break;
+        const dict = xref.fetch(ref);
+        if (!(dict instanceof Dict) || !StructTreeRoot.#hasMcid(dict, mcid, streamId, xref)) {
+          continue;
         }
-        const mcid = kid.get("MCID");
-        if (Number.isInteger(mcid) && updateElement(mcid, pageKid, kidRef)) {
-          break;
+        const parentRef = dict.getRaw("P");
+        if (parentRef instanceof Ref && xref.fetch(parentRef) instanceof Dict) {
+          element.structTreeParent = {
+            ref,
+            dict
+          };
         }
+        break;
       }
     }
+  }
+  static #hasMcid(dict, mcid, streamId, xref) {
+    const k = dict.get("K");
+    for (let kid of Array.isArray(k) ? k : [k]) {
+      kid = xref.fetchIfRef(kid);
+      if (kid === mcid && !streamId) {
+        return true;
+      }
+      if (kid instanceof Dict && isName(kid.get("Type"), "MCR") && kid.get("MCID") === mcid && (!streamId || kid.getRaw("Stm")?.toString() === streamId)) {
+        return true;
+      }
+    }
+    return false;
   }
   static async #updateParentTag({
     structTreeParent,
@@ -40362,6 +40372,7 @@ class StructElement {
   }
 }
 class StructTreePage {
+  #formStructParents = new Map();
   constructor(structTreeRoot, pageDict) {
     this.root = structTreeRoot;
     this.xref = structTreeRoot?.xref ?? null;
@@ -40391,10 +40402,46 @@ class StructTreePage {
     }
     return map;
   }
-  parse(pageRef) {
+  #collectFormStructParents(resources, visited = new RefSet(), level = 0) {
+    if (!(resources instanceof Dict)) {
+      return;
+    }
+    if (level > MAX_DEPTH) {
+      warn("StructTree MAX_DEPTH reached.");
+      return;
+    }
+    const xobjs = resources.get("XObject");
+    if (!(xobjs instanceof Dict)) {
+      return;
+    }
+    for (const ref of xobjs.getRawValues()) {
+      if (!(ref instanceof Ref) || visited.has(ref)) {
+        continue;
+      }
+      visited.put(ref);
+      try {
+        const stream = this.xref.fetch(ref);
+        if (!(stream instanceof BaseStream) || !isName(stream.dict.get("Subtype"), "Form")) {
+          continue;
+        }
+        const id = stream.dict.get("StructParents");
+        if (Number.isInteger(id)) {
+          this.#formStructParents.set(ref.toString(), id);
+        }
+        this.#collectFormStructParents(stream.dict.get("Resources"), visited, level + 1);
+      } catch (ex) {
+        if (ex instanceof MissingDataException) {
+          throw ex;
+        }
+        warn(`StructTree: ignoring XObject ${ref}: "${ex}".`);
+      }
+    }
+  }
+  parse(pageRef, resources = null) {
     if (!this.root || !this.rootDict || !(pageRef instanceof Ref)) {
       return;
     }
+    this.#collectFormStructParents(resources);
     const {
       parentTree
     } = this.root;
@@ -40403,21 +40450,22 @@ class StructTreePage {
       return;
     }
     const id = this.pageDict.get("StructParents");
-    const ids = this.root.structParentIds?.get(pageRef);
-    if (!Number.isInteger(id) && !ids) {
-      return;
+    const contentIds = new Set(this.#formStructParents.values());
+    if (Number.isInteger(id)) {
+      contentIds.add(id);
     }
     const map = new Map();
-    if (Number.isInteger(id)) {
-      const parentArray = parentTree.get(id);
+    for (const contentId of contentIds) {
+      const parentArray = parentTree.get(contentId);
       if (Array.isArray(parentArray)) {
         for (const ref of parentArray) {
           if (ref instanceof Ref) {
-            this.addNode(this.xref.fetch(ref), map);
+            this.addNode(this.xref.fetch(ref), map, 0, contentId !== id);
           }
         }
       }
     }
+    const ids = this.root.structParentIds?.get(pageRef);
     if (!ids) {
       return;
     }
@@ -40437,7 +40485,7 @@ class StructTreePage {
       }
     }
   }
-  addNode(dict, map, level = 0) {
+  addNode(dict, map, level = 0, mustHavePageContent = false) {
     if (level > MAX_DEPTH) {
       warn("StructTree MAX_DEPTH reached.");
       return null;
@@ -40449,6 +40497,9 @@ class StructTreePage {
       return map.get(dict);
     }
     const element = new StructElementNode(this, dict);
+    if (mustHavePageContent && !element.kids.some(kid => kid.type === StructElementType.PAGE_CONTENT || kid.type === StructElementType.STREAM_CONTENT)) {
+      return null;
+    }
     map.set(dict, element);
     switch (element.role) {
       case "L":
@@ -40528,6 +40579,7 @@ class StructTreePage {
     }
   }
   get serializable() {
+    const formStructParents = this.#formStructParents;
     function nodeToSerializable(node, parent, level = 0) {
       if (level > MAX_DEPTH) {
         warn("StructTree too deep to be fully serialized.");
@@ -40589,9 +40641,10 @@ class StructTreePage {
           nodeToSerializable(kidElement, obj, level + 1);
           continue;
         } else if (kid.type === StructElementType.PAGE_CONTENT || kid.type === StructElementType.STREAM_CONTENT) {
+          const scope = formStructParents.has(kid.refObjId) ? `_x${kid.refObjId}` : "";
           obj.children.push({
             type: "content",
-            id: `p${kid.pageObjId}_mc${kid.mcid}`
+            id: `p${kid.pageObjId}${scope}_mc${kid.mcid}`
           });
         } else if (kid.type === StructElementType.OBJECT) {
           obj.children.push({
@@ -59754,7 +59807,7 @@ class Page {
   }
   _parseStructTree(structTreeRoot) {
     const tree = new StructTreePage(structTreeRoot, this.pageDict);
-    tree.parse(this.ref);
+    tree.parse(this.ref, this.resources);
     return tree;
   }
   async getAnnotationsData(handler, task, intent) {

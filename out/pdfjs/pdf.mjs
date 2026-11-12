@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = 2b5c986
+ * pdfjsBuild = bf3e12f
  */
 
 ;// ./src/shared/util.js
@@ -2086,7 +2086,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "0a71146d-6c4b-4a6c-9df7-29c6e3f233ea";
+const INTERNAL_EVT = "9412422e-0a57-4b9e-9358-0298ff38a6c8";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -5597,6 +5597,8 @@ class AnnotationEditor {
       this.#resizersDiv.append(div);
       div.classList.add("resizer", name);
       div.setAttribute("data-resizer-name", name);
+      div.setAttribute("role", "spinbutton");
+      div.setAttribute("data-l10n-id", AnnotationEditor._l10nResizer[name]);
       div.addEventListener("pointerdown", this.#resizerPointerdown.bind(this, name), {
         signal
       });
@@ -6498,7 +6500,6 @@ class AnnotationEditor {
       const signal = this._uiManager._signal;
       for (const div of this.#allResizerDivs) {
         const name = div.getAttribute("data-resizer-name");
-        div.setAttribute("role", "spinbutton");
         div.addEventListener("keydown", boundResizerKeydown, {
           signal
         });
@@ -6508,7 +6509,6 @@ class AnnotationEditor {
         div.addEventListener("focus", this.#resizerFocus.bind(this, name), {
           signal
         });
-        div.setAttribute("data-l10n-id", AnnotationEditor._l10nResizer[name]);
       }
     }
     const first = this.#allResizerDivs[0];
@@ -7937,7 +7937,7 @@ class BaseBinaryDataFactory {
 }
 class DOMBinaryDataFactory extends BaseBinaryDataFactory {
   async _fetch(url, kind) {
-    const type = kind === "cMapUrl" && !url.endsWith(".bcmap") ? "text" : "bytes";
+    const type = kind === "cMapUrl" && !url.endsWith(".bcmap.br") ? "text" : "bytes";
     const data = await fetchData(url, type);
     return data instanceof Uint8Array ? data : stringToBytes(data);
   }
@@ -18077,7 +18077,7 @@ class InternalRenderTask {
   }
 }
 const version = "7.0.0";
-const build = "2b5c986";
+const build = "bf3e12f";
 
 ;// ./src/display/editor/color_picker.js
 
