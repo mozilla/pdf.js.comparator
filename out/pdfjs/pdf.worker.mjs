@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = cf5e897
+ * pdfjsBuild = 2b5c986
  */
 
 ;// ./src/shared/util.js
@@ -787,9 +787,10 @@ function _isValidExplicitDest(validRef, validName, dest) {
   }
   return true;
 }
+function noopFn() {}
 function createPromiseCapability() {
   const pc = Promise.withResolvers();
-  pc.promise.catch(() => {});
+  pc.promise.catch(noopFn);
   return pc;
 }
 const makeArr = () => [];
@@ -3851,8 +3852,8 @@ class DecodeStream extends BaseStream {
         writable
       } = new DecompressionStream(name);
       const writer = writable.getWriter();
-      writer.write(bytes).catch(() => {});
-      writer.close().catch(() => {});
+      writer.write(bytes).catch(noopFn);
+      writer.close().catch(noopFn);
       const chunks = [];
       let totalLength = 0;
       const reader = readable.getReader();
@@ -10234,7 +10235,7 @@ class Parser {
             continue;
           }
           const tmpLexer = new Lexer(new Stream(stream.peekBytes(5 * n)), knownCommands);
-          tmpLexer._hexStringWarn = () => {};
+          tmpLexer._hexStringWarn = noopFn;
           let numArgs = 0;
           while (true) {
             const nextObj = tmpLexer.getObj();
@@ -42251,7 +42252,7 @@ async function deflate(bytes) {
       await writer.ready;
       await writer.close();
     } catch (reason) {
-      await writer.abort(reason).catch(() => {});
+      await writer.abort(reason).catch(noopFn);
       throw reason;
     }
   })();
@@ -60317,7 +60318,7 @@ class PDFDocument {
     this.xfaFactory.appendFonts(pdfFonts, reallyMissingFonts);
   }
   loadXfaResources(handler, task) {
-    return Promise.all([this.#loadXfaFonts(handler, task).catch(() => {}), this.#loadXfaImages()]);
+    return Promise.all([this.#loadXfaFonts(handler, task).catch(noopFn), this.#loadXfaImages()]);
   }
   serializeXfaData(annotationStorage) {
     return this.xfaFactory ? this.xfaFactory.serializeData(annotationStorage) : null;
@@ -61043,7 +61044,6 @@ const StreamKind = {
   PULL_COMPLETE: 7,
   START_COMPLETE: 8
 };
-function onFn() {}
 function wrapReason(ex) {
   if (ex instanceof AbortException || ex instanceof InvalidPDFException || ex instanceof PasswordException || ex instanceof ResponseException || ex instanceof UnknownErrorException) {
     return ex;
@@ -61348,7 +61348,7 @@ class MessageHandler {
           streamSink.sinkCapability.resolve();
         }
         streamSink.desiredSize = data.desiredSize;
-        Promise.try(streamSink.onPull || onFn).then(() => {
+        Promise.try(streamSink.onPull || noopFn).then(() => {
           comObj.postMessage({
             sourceName,
             targetName,
@@ -61400,7 +61400,7 @@ class MessageHandler {
           break;
         }
         const dataReason = wrapReason(data.reason);
-        Promise.try(streamSink.onCancel || onFn, dataReason).then(() => {
+        Promise.try(streamSink.onCancel || noopFn, dataReason).then(() => {
           comObj.postMessage({
             sourceName,
             targetName,
@@ -61691,7 +61691,7 @@ async function writeStream(stream, buffer, transform) {
       writer.write(bytes).then(async () => {
         await writer.ready;
         await writer.close();
-      }).catch(() => {});
+      }).catch(noopFn);
       bytes = await new Response(cs.readable).bytes();
       let newFilter, newParams;
       if (!filter) {
@@ -64654,6 +64654,7 @@ class BasePDFStreamRangeReader {
 
 ;// ./src/core/worker_stream.js
 
+
 class PDFWorkerStream extends BasePDFStream {
   constructor(source) {
     super(source, PDFWorkerStreamReader, PDFWorkerStreamRangeReader);
@@ -64692,7 +64693,7 @@ class PDFWorkerStreamReader extends BasePDFStreamReader {
     };
   }
   cancel(reason) {
-    this._reader.cancel(reason).catch(() => {});
+    this._reader.cancel(reason).catch(noopFn);
   }
 }
 class PDFWorkerStreamRangeReader extends BasePDFStreamRangeReader {
@@ -64722,7 +64723,7 @@ class PDFWorkerStreamRangeReader extends BasePDFStreamRangeReader {
     };
   }
   cancel(reason) {
-    this._reader.cancel(reason).catch(() => {});
+    this._reader.cancel(reason).catch(noopFn);
   }
 }
 
@@ -64986,7 +64987,7 @@ class WorkerMessageHandler {
           handler.send("DataLoaded", {
             length: stream.bytes.byteLength
           });
-        }, () => {});
+        }, noopFn);
       }).then(pdfManagerReady, onFailure);
     }
     handler.on("GetPage", async function ({

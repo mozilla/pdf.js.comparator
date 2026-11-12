@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = cf5e897
+ * pdfjsBuild = 2b5c986
  */
 
 ;// ./src/shared/util.js
@@ -796,9 +796,10 @@ function _isValidExplicitDest(validRef, validName, dest) {
   }
   return true;
 }
+function noopFn() {}
 function createPromiseCapability() {
   const pc = Promise.withResolvers();
-  pc.promise.catch(() => {});
+  pc.promise.catch(noopFn);
   return pc;
 }
 const makeArr = () => [];
@@ -2085,7 +2086,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "c4dcee1d-27a3-4a49-8c6d-3d3cec2c60a8";
+const INTERNAL_EVT = "0a71146d-6c4b-4a6c-9df7-29c6e3f233ea";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -7497,7 +7498,6 @@ const StreamKind = {
   PULL_COMPLETE: 7,
   START_COMPLETE: 8
 };
-function onFn() {}
 function wrapReason(ex) {
   if (ex instanceof AbortException || ex instanceof InvalidPDFException || ex instanceof PasswordException || ex instanceof ResponseException || ex instanceof UnknownErrorException) {
     return ex;
@@ -7802,7 +7802,7 @@ class MessageHandler {
           streamSink.sinkCapability.resolve();
         }
         streamSink.desiredSize = data.desiredSize;
-        Promise.try(streamSink.onPull || onFn).then(() => {
+        Promise.try(streamSink.onPull || noopFn).then(() => {
           comObj.postMessage({
             sourceName,
             targetName,
@@ -7854,7 +7854,7 @@ class MessageHandler {
           break;
         }
         const dataReason = wrapReason(data.reason);
-        Promise.try(streamSink.onCancel || onFn, dataReason).then(() => {
+        Promise.try(streamSink.onCancel || noopFn, dataReason).then(() => {
           comObj.postMessage({
             sourceName,
             targetName,
@@ -13560,7 +13560,7 @@ class PDFFetchStreamReader extends BasePDFStreamReader {
     };
   }
   cancel(reason) {
-    this._reader?.cancel(reason).catch(() => {});
+    this._reader?.cancel(reason).catch(noopFn);
     this._abortController.abort();
   }
 }
@@ -13599,7 +13599,7 @@ class PDFFetchStreamRangeReader extends BasePDFStreamRangeReader {
     };
   }
   cancel(reason) {
-    this._reader?.cancel(reason).catch(() => {});
+    this._reader?.cancel(reason).catch(noopFn);
     this._abortController.abort();
   }
 }
@@ -14184,7 +14184,7 @@ class PDFNodeStreamReader extends BasePDFStreamReader {
     };
   }
   cancel(reason) {
-    this._reader?.cancel(reason).catch(() => {});
+    this._reader?.cancel(reason).catch(noopFn);
   }
 }
 class PDFNodeStreamRangeReader extends BasePDFStreamRangeReader {
@@ -14221,7 +14221,7 @@ class PDFNodeStreamRangeReader extends BasePDFStreamRangeReader {
     };
   }
   cancel(reason) {
-    this._reader?.cancel(reason).catch(() => {});
+    this._reader?.cancel(reason).catch(noopFn);
   }
 }
 
@@ -15924,7 +15924,7 @@ class TextLayer {
       TextLayer.#pendingTextLayers.delete(this);
       this.#layoutTextParams = null;
       this.#styleCache = null;
-    }).catch(() => {});
+    }).catch(noopFn);
   }
   static get fontFamilyMap() {
     const {
@@ -15975,7 +15975,7 @@ class TextLayer {
   }
   cancel() {
     const abortEx = new AbortException("TextLayer task cancelled.");
-    this.#reader?.cancel(abortEx).catch(() => {});
+    this.#reader?.cancel(abortEx).catch(noopFn);
     this.#reader = null;
     this.#capability.reject(abortEx);
   }
@@ -17049,7 +17049,7 @@ class PDFPageProxy {
         return;
       }
     }
-    intentState.streamReader.cancel(new AbortException(reason.message)).catch(() => {});
+    intentState.streamReader.cancel(new AbortException(reason.message)).catch(noopFn);
     intentState.streamReader = null;
     if (this._transport.destroyed) {
       return;
@@ -17116,7 +17116,7 @@ class PDFWorker {
   #initializeFromPort(port) {
     this.#port = port;
     this.#messageHandler = new MessageHandler("main", "worker", port);
-    this.#messageHandler.on("ready", () => {});
+    this.#messageHandler.on("ready", noopFn);
     this.#resolve();
   }
   #initialize() {
@@ -17505,7 +17505,7 @@ class WorkerTransport {
     });
     this.rendererWorker?.promise.then(() => {
       this.rendererWorker?.messageHandler?.on("FontFallback", data => this.destroyed ? null : messageHandler.sendWithPromise("FontFallback", data));
-    }, () => {});
+    }, noopFn);
     messageHandler.on("commonobj", ([id, type, exportedData]) => {
       if (this.destroyed) {
         return null;
@@ -17913,7 +17913,7 @@ class InternalRenderTask {
     }) ?? null;
   }
   get completed() {
-    return this.capability.promise.catch(() => {});
+    return this.capability.promise.catch(noopFn);
   }
   get isWorkerRendering() {
     return !!this.#rendererTask;
@@ -18077,7 +18077,7 @@ class InternalRenderTask {
   }
 }
 const version = "7.0.0";
-const build = "cf5e897";
+const build = "2b5c986";
 
 ;// ./src/display/editor/color_picker.js
 
@@ -21715,7 +21715,7 @@ class MediaAnnotationElement extends AnnotationElement {
       signal
     });
     button.replaceWith(media);
-    media.play().catch(() => {});
+    media.play().catch(noopFn);
   }
   #revokeContentUrl(url = this.#contentUrl) {
     if (url && url === this.#contentUrl) {
@@ -26621,7 +26621,7 @@ class SignatureExtractor {
       writer.write(bytes).then(async () => {
         await writer.ready;
         await writer.close();
-      }).catch(() => {});
+      }).catch(noopFn);
       let data = null;
       let offset = 0;
       for await (const chunk of readable) {
@@ -29231,6 +29231,7 @@ globalThis.pdfjsLib = {
   makeSet: makeSet,
   MathClamp: MathClamp,
   noContextMenu: noContextMenu,
+  noopFn: noopFn,
   normalizeUnicode: normalizeUnicode,
   OPS: OPS,
   OutputScale: OutputScale,
@@ -29260,6 +29261,6 @@ globalThis.pdfjsLib = {
 };
 
 const __webpack_exports__version = (/* inlined export .version */"7.0.0");
-export { AbortException, AnnotationEditorLayer, AnnotationEditorParamsType, AnnotationEditorType, AnnotationEditorUIManager, AnnotationLayer, AnnotationMode, AnnotationType, CSSConstants, ColorPicker, DOMSVGFactory, DrawLayer, FeatureTest, GlobalWorkerOptions, ImageKind, InvalidPDFException, MathClamp, OPS, OutputScale, PDFDataRangeTransport, PDFDateString, PDFWorker, PasswordException, PasswordResponses, PermissionFlag, PixelsPerInch, RenderingCancelledException, ResponseException, SignatureExtractor, SupportedImageMimeTypes, TextLayer, TextLayerImages, TouchManager, Util, VerbosityLevel, XfaLayer, applyOpacity, build, createPromiseCapability, createValidAbsoluteUrl, fetchData, findContrastColor, getDocument, getFilenameFromUrl, getPdfFilenameFromUrl, getRGB, getRGBA, getUuid, isDataScheme, isPdfFile, isValidExplicitDest, makeArr, makeMap, makeObj, makeSet, noContextMenu, normalizeUnicode, renderRichText, setLayerDimensions, shadow, stopEvent, updateUrlHash, __webpack_exports__version as version };
+export { AbortException, AnnotationEditorLayer, AnnotationEditorParamsType, AnnotationEditorType, AnnotationEditorUIManager, AnnotationLayer, AnnotationMode, AnnotationType, CSSConstants, ColorPicker, DOMSVGFactory, DrawLayer, FeatureTest, GlobalWorkerOptions, ImageKind, InvalidPDFException, MathClamp, OPS, OutputScale, PDFDataRangeTransport, PDFDateString, PDFWorker, PasswordException, PasswordResponses, PermissionFlag, PixelsPerInch, RenderingCancelledException, ResponseException, SignatureExtractor, SupportedImageMimeTypes, TextLayer, TextLayerImages, TouchManager, Util, VerbosityLevel, XfaLayer, applyOpacity, build, createPromiseCapability, createValidAbsoluteUrl, fetchData, findContrastColor, getDocument, getFilenameFromUrl, getPdfFilenameFromUrl, getRGB, getRGBA, getUuid, isDataScheme, isPdfFile, isValidExplicitDest, makeArr, makeMap, makeObj, makeSet, noContextMenu, noopFn, normalizeUnicode, renderRichText, setLayerDimensions, shadow, stopEvent, updateUrlHash, __webpack_exports__version as version };
 
 //# sourceMappingURL=pdf.mjs.map
