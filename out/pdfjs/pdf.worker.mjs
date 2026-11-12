@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = 421ff37
+ * pdfjsBuild = cf5e897
  */
 
 ;// ./src/shared/util.js
@@ -786,6 +786,11 @@ function _isValidExplicitDest(validRef, validName, dest) {
     return false;
   }
   return true;
+}
+function createPromiseCapability() {
+  const pc = Promise.withResolvers();
+  pc.promise.catch(() => {});
+  return pc;
 }
 const makeArr = () => [];
 const makeMap = () => new Map();
@@ -3053,7 +3058,7 @@ class ChunkedStreamManager {
   #abortReason = null;
   #requestId = 0;
   #chunksNeededByRequest = new Map();
-  #loadedStreamCapability = Promise.withResolvers();
+  #loadedStreamCapability = createPromiseCapability();
   _promisesByRequest = new Map();
   _requestsByChunk = new Map();
   constructor(pdfStream, args) {
@@ -3113,7 +3118,7 @@ class ChunkedStreamManager {
     }
     const requestId = this.#requestId++;
     this.#chunksNeededByRequest.set(requestId, chunksNeeded);
-    const capability = Promise.withResolvers();
+    const capability = createPromiseCapability();
     this._promisesByRequest.set(requestId, capability);
     const chunksToRequest = [];
     for (const chunk of chunksNeeded) {
@@ -3131,7 +3136,6 @@ class ChunkedStreamManager {
         this.sendRequest(begin, end).catch(capability.reject);
       }
     }
-    capability.promise.catch(() => {});
     return capability.promise;
   }
   getStream() {
@@ -8865,7 +8869,7 @@ class WasmImage {
       const {
         promise,
         resolve
-      } = Promise.withResolvers();
+      } = createPromiseCapability();
       this.#modulePromise = Promise.race([promise, ImageDecoder({
         warn: warn,
         instantiateWasm: this.#instantiateWasm.bind(this, resolve)
@@ -34942,7 +34946,7 @@ class PartialEvaluator {
     const {
       promise,
       resolve
-    } = Promise.withResolvers();
+    } = createPromiseCapability();
     let preEvaluatedFont;
     try {
       preEvaluatedFont = this.preEvaluateFont(font);
@@ -37636,7 +37640,7 @@ class TranslatedFont {
     const {
       promise,
       resolve
-    } = Promise.withResolvers();
+    } = createPromiseCapability();
     this.#type3Loaded = promise;
     const type3Evaluator = evaluator.clone({
       ignoreErrors: false
@@ -60551,14 +60555,13 @@ class PDFDocument {
         return;
       }
       for (const [pageIndex, [pageDict, ref]] of pagesTree) {
-        let promise;
+        const capability = createPromiseCapability();
+        this.#pagePromises.set(pageIndex, capability.promise);
         if (pageDict instanceof Error) {
-          promise = Promise.reject(pageDict);
-          promise.catch(() => {});
+          capability.reject(pageDict);
         } else {
-          promise = Promise.resolve(this.#createPage(pageIndex, pageDict, ref));
+          capability.resolve(this.#createPage(pageIndex, pageDict, ref));
         }
-        this.#pagePromises.set(pageIndex, promise);
       }
       catalog.setActualNumPages(pagesTree.size);
     }
@@ -61160,7 +61163,7 @@ class MessageHandler {
   }
   sendWithPromise(actionName, data, transfers) {
     const callbackId = this.#callbackId++,
-      capability = Promise.withResolvers();
+      capability = createPromiseCapability();
     this.#callbackCapabilities.set(callbackId, capability);
     try {
       this.#comObj.postMessage({
@@ -61182,7 +61185,7 @@ class MessageHandler {
       comObj = this.#comObj;
     return new ReadableStream({
       start: controller => {
-        const startCapability = Promise.withResolvers();
+        const startCapability = createPromiseCapability();
         this.#streamControllers.set(streamId, {
           controller,
           startCall: startCapability,
@@ -61201,7 +61204,7 @@ class MessageHandler {
         return startCapability.promise;
       },
       pull: controller => {
-        const pullCapability = Promise.withResolvers();
+        const pullCapability = createPromiseCapability();
         this.#streamControllers.get(streamId).pullCall = pullCapability;
         comObj.postMessage({
           sourceName,
@@ -61214,7 +61217,7 @@ class MessageHandler {
       },
       cancel: reason => {
         assert(reason instanceof Error, "cancel must have a valid reason");
-        const cancelCapability = Promise.withResolvers();
+        const cancelCapability = createPromiseCapability();
         this.#streamControllers.get(streamId).cancelCall = cancelCapability;
         this.#streamControllers.get(streamId).isClosed = true;
         comObj.postMessage({
@@ -61243,7 +61246,7 @@ class MessageHandler {
         const lastDesiredSize = this.desiredSize;
         this.desiredSize -= size;
         if (lastDesiredSize > 0 && this.desiredSize <= 0) {
-          this.sinkCapability = Promise.withResolvers();
+          this.sinkCapability = createPromiseCapability();
           this.ready = this.sinkCapability.promise;
         }
         comObj.postMessage({
@@ -61280,7 +61283,7 @@ class MessageHandler {
           reason: wrapReason(reason)
         });
       },
-      sinkCapability: Promise.withResolvers(),
+      sinkCapability: createPromiseCapability(),
       onPull: null,
       onCancel: null,
       isCancelled: false,
@@ -64600,14 +64603,13 @@ class BasePDFStreamReader {
   onProgress = null;
   _contentLength = 0;
   _filename = null;
-  _headersCapability = Promise.withResolvers();
+  _headersCapability = createPromiseCapability();
   _isRangeSupported = false;
   _isStreamingSupported = false;
   _loaded = 0;
   _stream = null;
   constructor(stream) {
     this._stream = stream;
-    this._headersCapability.promise.catch(() => {});
   }
   _callOnProgress() {
     this.onProgress?.({
@@ -64739,7 +64741,7 @@ class PDFWorkerStreamRangeReader extends BasePDFStreamRangeReader {
 
 
 class WorkerTask {
-  #capability = Promise.withResolvers();
+  #capability = createPromiseCapability();
   terminated = false;
   constructor(name) {
     this.name = name;
@@ -64865,7 +64867,7 @@ class WorkerMessageHandler {
         promise,
         resolve,
         reject
-      } = Promise.withResolvers();
+      } = createPromiseCapability();
       let newPdfManager,
         cachedChunks = [];
       cancelXHRs = reason => pdfStream.cancelAllRequests(reason);
