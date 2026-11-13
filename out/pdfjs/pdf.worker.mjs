@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = bf3e12f
+ * pdfjsBuild = 7a4022e
  */
 
 ;// ./src/shared/util.js
@@ -19257,8 +19257,16 @@ class CFFFont {
       }
       return charCodeToGlyphId;
     }
-    const encoding = cff.encoding ? cff.encoding.encoding : null;
-    return type1FontGlyphMapping(properties, encoding, charsets);
+    const mapping = type1FontGlyphMapping(properties, cff.encoding?.encoding, charsets);
+    const notdefId = charsets.lastIndexOf(".notdef");
+    if (notdefId > 0) {
+      for (const [charCode, glyphId] of mapping) {
+        if (glyphId === 0) {
+          mapping.set(charCode, notdefId);
+        }
+      }
+    }
+    return mapping;
   }
   hasGlyphId(id) {
     return id !== this.#replacedGlyphId && this.cff.hasGlyphId(id);
