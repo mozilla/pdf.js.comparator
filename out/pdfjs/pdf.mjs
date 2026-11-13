@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = 0471653
+ * pdfjsBuild = 5430213
  */
 
 ;// ./src/shared/util.js
@@ -2086,7 +2086,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "a7efc805-ee10-4b47-aa9b-3788a68c68cc";
+const INTERNAL_EVT = "80376ec8-7519-4f88-ba1b-3478c76ab006";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -16270,8 +16270,8 @@ function getDocument(src = {}) {
   const CanvasFactory = src.CanvasFactory || (isNodeJS ? NodeCanvasFactory : DOMCanvasFactory);
   const FilterFactory = src.FilterFactory || (isNodeJS ? NodeFilterFactory : DOMFilterFactory);
   const BinaryDataFactory = src.BinaryDataFactory || (isNodeJS ? NodeBinaryDataFactory : DOMBinaryDataFactory);
-  const enableHWA = src.enableHWA === true;
-  const enableWebGPU = src.enableWebGPU === true;
+  const enableHWA = src.enableHWA !== false;
+  const enableWebGPU = src.enableWebGPU !== false;
   if (enableWebGPU) {
     initGPU();
   }
@@ -18077,7 +18077,7 @@ class InternalRenderTask {
   }
 }
 const version = "7.0.0";
-const build = "0471653";
+const build = "5430213";
 
 ;// ./src/display/editor/color_picker.js
 
