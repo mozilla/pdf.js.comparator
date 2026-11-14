@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = 1e611f1
+ * pdfjsBuild = 34d902e
  */
 
 ;// ./src/shared/util.js
@@ -2086,7 +2086,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "cf7e3cb4-736c-4c91-bc0e-c940b6c762cb";
+const INTERNAL_EVT = "ab019ac8-5d5f-4c9d-b1bd-ad4160388a31";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -17290,6 +17290,12 @@ class WorkerTransport {
   get annotationStorage() {
     return shadow(this, "annotationStorage", new AnnotationStorage());
   }
+  #getFlattenIntent(intent) {
+    if (intent !== "display" && intent !== "print") {
+      warn(`Invalid flattening intent: ${intent}, using "print".`);
+    }
+    return intent === "display" ? RenderingIntentFlag.DISPLAY : RenderingIntentFlag.PRINT;
+  }
   getRenderingIntent(intent, annotationMode = AnnotationMode.ENABLE, printAnnotationStorage = null, isEditing = false, isOpList = false) {
     let renderingIntent = RenderingIntentFlag.DISPLAY;
     let annotationStorageSerializable = SerializableEmpty;
@@ -17569,9 +17575,11 @@ class WorkerTransport {
     return this.messageHandler.sendWithPromise("GetData", null);
   }
   saveDocument({
-    printToPDF = null
+    printToPDF = null,
+    flatten = false,
+    intent = "print"
   } = {}) {
-    if (this.annotationStorage.size <= 0) {
+    if (this.annotationStorage.size <= 0 && !flatten) {
       warn("saveDocument called while `annotationStorage` is empty, " + "please use the getData-method instead.");
     }
     const {
@@ -17583,7 +17591,9 @@ class WorkerTransport {
       numPages: this._numPages,
       annotationStorage: map,
       supportsPrintToPDF: this.#printToPDF !== null,
-      filename: this.#fullReader?.filename ?? null
+      filename: this.#fullReader?.filename ?? null,
+      flatten,
+      intent: this.#getFlattenIntent(intent)
     }, transfer).finally(() => {
       this.#printToPDF = null;
       this.annotationStorage.resetModified();
@@ -18083,7 +18093,7 @@ class InternalRenderTask {
   }
 }
 const version = "7.0.0";
-const build = "1e611f1";
+const build = "34d902e";
 
 ;// ./src/display/editor/color_picker.js
 

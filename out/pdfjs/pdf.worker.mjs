@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = 1e611f1
+ * pdfjsBuild = 34d902e
  */
 
 ;// ./src/shared/util.js
@@ -1748,6 +1748,29 @@ function getRotationMatrix(rotation, width, height) {
 }
 function getSizeInBytes(x) {
   return Math.ceil(Math.ceil(Math.log2(1 + x)) / 8);
+}
+class ChangesXRefWrapper {
+  #changes;
+  #xref;
+  constructor(changes, xref) {
+    this.#changes = changes;
+    this.#xref = xref;
+  }
+  getNewTemporaryRef() {
+    return this.#xref.getNewTemporaryRef();
+  }
+  fetch(ref) {
+    return this.#changes.has(ref) ? this.#changes.get(ref).data : this.#xref.fetch(ref);
+  }
+  fetchIfRef(obj) {
+    return obj instanceof Ref ? this.fetch(obj) : obj;
+  }
+  async fetchAsync(ref) {
+    return this.#changes.has(ref) ? this.#changes.get(ref).data : this.#xref.fetchAsync(ref);
+  }
+  async fetchIfRefAsync(obj) {
+    return obj instanceof Ref ? this.fetchAsync(obj) : obj;
+  }
 }
 
 ;// ./external/qcms/qcms_utils.js
@@ -31823,6 +31846,7 @@ function parseMarkedContentProps(xref, contentProperties, resources) {
 
 const baseTypes = ["BN", "BN", "BN", "BN", "BN", "BN", "BN", "BN", "BN", "S", "B", "S", "WS", "B", "BN", "BN", "BN", "BN", "BN", "BN", "BN", "BN", "BN", "BN", "BN", "BN", "BN", "BN", "B", "B", "B", "S", "WS", "ON", "ON", "ET", "ET", "ET", "ON", "ON", "ON", "ON", "ON", "ES", "CS", "ES", "CS", "CS", "EN", "EN", "EN", "EN", "EN", "EN", "EN", "EN", "EN", "EN", "CS", "ON", "ON", "ON", "ON", "ON", "ON", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "ON", "ON", "ON", "ON", "ON", "ON", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "ON", "ON", "ON", "ON", "BN", "BN", "BN", "BN", "BN", "BN", "B", "BN", "BN", "BN", "BN", "BN", "BN", "BN", "BN", "BN", "BN", "BN", "BN", "BN", "BN", "BN", "BN", "BN", "BN", "BN", "BN", "BN", "BN", "BN", "BN", "BN", "BN", "CS", "ON", "ET", "ET", "ET", "ET", "ON", "ON", "ON", "ON", "L", "ON", "ON", "BN", "ON", "ON", "ET", "ET", "EN", "EN", "ON", "L", "ON", "ON", "ON", "EN", "L", "ON", "ON", "ON", "ON", "ON", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "ON", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "L", "ON", "L", "L", "L", "L", "L", "L", "L", "L"];
 const arabicTypes = ["AN", "AN", "AN", "AN", "AN", "AN", "ON", "ON", "AL", "ET", "ET", "AL", "CS", "AL", "ON", "ON", "NSM", "NSM", "NSM", "NSM", "NSM", "NSM", "NSM", "NSM", "NSM", "NSM", "NSM", "AL", "AL", "", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "NSM", "NSM", "NSM", "NSM", "NSM", "NSM", "NSM", "NSM", "NSM", "NSM", "NSM", "NSM", "NSM", "NSM", "NSM", "NSM", "NSM", "NSM", "NSM", "NSM", "NSM", "AN", "AN", "AN", "AN", "AN", "AN", "AN", "AN", "AN", "AN", "ET", "AN", "AN", "AL", "AL", "AL", "NSM", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "AL", "NSM", "NSM", "NSM", "NSM", "NSM", "NSM", "NSM", "AN", "ON", "NSM", "NSM", "NSM", "NSM", "NSM", "NSM", "AL", "AL", "NSM", "NSM", "ON", "NSM", "NSM", "NSM", "NSM", "AL", "AL", "EN", "EN", "EN", "EN", "EN", "EN", "EN", "EN", "EN", "EN", "AL", "AL", "AL", "AL", "AL", "AL"];
+const NonSpacingMarkRegExp = /[\p{Mn}\p{Me}]/u;
 function isOdd(i) {
   return (i & 1) !== 0;
 }
@@ -31910,7 +31934,7 @@ function bidi(text, startLevel = -1, vertical = false) {
   const eor = sor;
   let lastType = sor;
   for (i = 0; i < strLength; ++i) {
-    if (types[i] === "NSM") {
+    if (types[i] === "NSM" || types[i] === "L" && str.charCodeAt(i) >= 0x0300 && NonSpacingMarkRegExp.test(chars[i])) {
       types[i] = lastType;
     } else {
       lastType = types[i];
@@ -35891,6 +35915,13 @@ class PartialEvaluator {
     const preprocessor = new EvaluatorPreprocessor(stream, xref, stateManager);
     let textState, currentTextState;
     let lastFakeSpaceExtraCharId = -1;
+    function getUnmirroredTransform([a, b, c, d, e, f], width) {
+      if (a * d - b * c >= 0 || d <= 0) {
+        return null;
+      }
+      const scale = width / Math.hypot(a, b);
+      return [-a, -b, c, d, e + a * scale, f + b * scale];
+    }
     function pushWhitespace({
       width = 0,
       height = 0,
@@ -35898,6 +35929,9 @@ class PartialEvaluator {
       fontName = textContentItem.fontName
     }) {
       intersector?.addExtraChar(" ");
+      if (width) {
+        transform = getUnmirroredTransform(transform, width) || transform;
+      }
       textContent.items.push({
         str: " ",
         dir: "ltr",
@@ -35997,13 +36031,23 @@ class PartialEvaluator {
       textContentItem.textAdvanceScale = scaleFactor;
     }
     function runBidiTransform(textChunk) {
-      const bidiResult = bidi(textChunk.str, -1, textChunk.vertical);
+      let {
+        str,
+        transform
+      } = textChunk;
+      const width = Math.abs(textChunk.totalWidth);
+      const unmirrored = !textChunk.vertical && getUnmirroredTransform(transform, width);
+      if (unmirrored) {
+        str = str.toReversed();
+        transform = unmirrored;
+      }
+      const bidiResult = bidi(str, -1, textChunk.vertical);
       return {
         str: bidiResult.str,
         dir: bidiResult.dir,
-        width: Math.abs(textChunk.totalWidth),
+        width,
         height: Math.abs(textChunk.totalHeight),
-        transform: textChunk.transform,
+        transform,
         fontName: textChunk.fontName,
         hasEOL: textChunk.hasEOL
       };
@@ -36264,11 +36308,14 @@ class PartialEvaluator {
         const {
           category
         } = glyph;
-        if (category.isInvisibleFormatMark) {
+        const glyphWidth = font.vertical ? glyph.vmetric[0] : glyph.width;
+        const {
+          isInvisibleFormatMark
+        } = category;
+        if (isInvisibleFormatMark && !glyphWidth) {
           continue;
         }
         let charSpacing = baseCharSpacing + (i + 1 === ii ? extraSpacing : 0);
-        const glyphWidth = font.vertical ? glyph.vmetric[0] : glyph.width;
         let scaledDim = glyphWidth * scale;
         if (glyph.isSpace) {
           charSpacing += textState.wordSpacing;
@@ -36296,13 +36343,14 @@ class PartialEvaluator {
         if (category.isZeroWidthDiacritic) {
           scaledDim = 0;
         }
+        const glyphUnicode = isInvisibleFormatMark ? "" : glyph.unicode;
         if (!font.vertical) {
           scaledDim *= textState.textHScale;
-          intersector?.addGlyph(getCurrentTextTransform(), scaledDim, 0, glyph.unicode);
+          intersector?.addGlyph(getCurrentTextTransform(), scaledDim, 0, glyphUnicode);
           textState.translateTextMatrix(scaledDim, 0);
           textChunk.width += scaledDim;
         } else {
-          intersector?.addGlyph(getCurrentTextTransform(), 0, scaledDim, glyph.unicode);
+          intersector?.addGlyph(getCurrentTextTransform(), 0, scaledDim, glyphUnicode);
           textState.translateTextMatrix(0, scaledDim);
           scaledDim = Math.abs(scaledDim);
           textChunk.height += scaledDim;
@@ -36312,13 +36360,14 @@ class PartialEvaluator {
           textChunk.prevGlyphWidth = scaledDim;
           textChunk.prevTextRise = textState.textRise;
         }
-        const glyphUnicode = glyph.unicode;
-        if (saveLastChar(glyphUnicode)) {
-          textChunk.str.push(" ");
-          intersector?.addExtraChar(" ");
-        }
-        if (!intersector) {
-          textChunk.str.push(disableNormalization ? glyphUnicode : glyph.normalizedUnicode);
+        if (!isInvisibleFormatMark) {
+          if (saveLastChar(glyphUnicode)) {
+            textChunk.str.push(" ");
+            intersector?.addExtraChar(" ");
+          }
+          if (!intersector) {
+            textChunk.str.push(disableNormalization ? glyphUnicode : glyph.normalizedUnicode);
+          }
         }
         if (charSpacing) {
           if (!font.vertical) {
@@ -54520,24 +54569,41 @@ class WidgetAnnotation extends Annotation {
       const AP = new Dict(xref);
       dict.set("AP", AP);
       AP.set("N", newRef);
-      const resources = this._getSaveFieldResources(xref),
-        appearanceDict = new Dict(xref);
-      appearanceDict.setIfName("Subtype", "Form");
-      appearanceDict.set("Resources", resources);
-      const bbox = rotation % 180 === 0 ? [0, 0, this.width, this.height] : [0, 0, this.height, this.width];
-      appearanceDict.set("BBox", bbox);
-      const appearanceStream = new StringStream(appearance, appearanceDict);
-      const rotationMatrix = this.getRotationMatrix(annotationStorage);
-      if (rotationMatrix !== IDENTITY_MATRIX) {
-        appearanceDict.set("Matrix", rotationMatrix);
-      }
       changes.put(newRef, {
-        data: appearanceStream,
+        data: this.#createAppearanceStream(appearance, xref, annotationStorage, rotation),
         xfa: null,
         needAppearances: false
       });
     }
     dict.set("M", `D:${getModificationDate()}`);
+  }
+  #createAppearanceStream(appearance, xref, annotationStorage, rotation) {
+    const resources = this._getSaveFieldResources(xref),
+      appearanceDict = new Dict(xref);
+    appearanceDict.setIfName("Subtype", "Form");
+    appearanceDict.set("Resources", resources);
+    const bbox = rotation % 180 === 0 ? [0, 0, this.width, this.height] : [0, 0, this.height, this.width];
+    appearanceDict.set("BBox", bbox);
+    const appearanceStream = new StringStream(appearance, appearanceDict);
+    const rotationMatrix = this.getRotationMatrix(annotationStorage);
+    if (rotationMatrix !== IDENTITY_MATRIX) {
+      appearanceDict.set("Matrix", rotationMatrix);
+    }
+    return appearanceStream;
+  }
+  async getFlattenedAppearance(evaluator, task, annotationStorage, intent) {
+    if (!this._hasText) {
+      return null;
+    }
+    const appearance = await this._getAppearance(evaluator, task, intent | RenderingIntentFlag.SAVE, annotationStorage);
+    if (appearance === null) {
+      return null;
+    }
+    if (typeof appearance !== "string") {
+      return false;
+    }
+    const rotation = annotationStorage?.get(this.data.id)?.rotation ?? this.rotation;
+    return this.#createAppearanceStream(appearance, evaluator.xref, annotationStorage, rotation);
   }
   async _getAppearance(evaluator, task, intent, annotationStorage) {
     if (this.data.password) {
@@ -55054,6 +55120,7 @@ class TextWidgetAnnotation extends WidgetAnnotation {
   }
 }
 class ButtonWidgetAnnotation extends WidgetAnnotation {
+  #generatedAppearances = new Set();
   constructor(params) {
     super(params);
     this.checkedAppearance = null;
@@ -55078,6 +55145,14 @@ class ButtonWidgetAnnotation extends WidgetAnnotation {
   }
   get _ownCanvasRequiresForms() {
     return this.data.checkBox || this.data.radioButton;
+  }
+  #getAppearanceValue(annotationStorage) {
+    const storageEntry = annotationStorage?.get(this.data.id);
+    const value = storageEntry ? storageEntry.value : null;
+    if (value === null && this.appearance) {
+      return null;
+    }
+    return value ?? (this.data.checkBox ? this.data.fieldValue === this.data.exportValue : this.data.fieldValue === this.data.buttonValue);
   }
   #getOperatorListForAppearance(evaluator, task, intent, annotationStorage, rotation, appearance) {
     if (!appearance) {
@@ -55114,18 +55189,47 @@ class ButtonWidgetAnnotation extends WidgetAnnotation {
       checked.separateCanvas ||= unchecked.separateCanvas;
       return checked;
     }
-    let value = null;
-    let rotation = null;
-    if (annotationStorage) {
-      const storageEntry = annotationStorage.get(this.data.id);
-      value = storageEntry ? storageEntry.value : null;
-      rotation = storageEntry ? storageEntry.rotation : null;
-    }
-    if (value === null && this.appearance) {
+    const value = this.#getAppearanceValue(annotationStorage);
+    if (value === null) {
       return super.getOperatorList(evaluator, task, intent, annotationStorage);
     }
-    value ??= this.data.checkBox ? this.data.fieldValue === this.data.exportValue : this.data.fieldValue === this.data.buttonValue;
-    return this.#getOperatorListForAppearance(evaluator, task, intent, annotationStorage, rotation, value ? this.checkedAppearance : this.uncheckedAppearance);
+    return this.#getOperatorListForAppearance(evaluator, task, intent, annotationStorage, annotationStorage?.get(this.data.id)?.rotation, value ? this.checkedAppearance : this.uncheckedAppearance);
+  }
+  async getFlattenedAppearance(evaluator, task, annotationStorage) {
+    if (this.data.pushButton) {
+      return null;
+    }
+    const value = this.#getAppearanceValue(annotationStorage);
+    if (value === null) {
+      return null;
+    }
+    const appearance = value ? this.checkedAppearance : this.uncheckedAppearance;
+    const {
+      xref
+    } = evaluator;
+    if (!appearance) {
+      const dict = new Dict(xref);
+      dict.setIfName("Subtype", "Form");
+      dict.set("BBox", [0, 0, this.width, this.height]);
+      return new StringStream("", dict);
+    }
+    if (!this.#generatedAppearances.has(appearance)) {
+      return appearance;
+    }
+    const dict = appearance.dict.clone();
+    const font = new Dict(xref);
+    font.setIfName("Type", "Font");
+    font.setIfName("Subtype", "Type1");
+    font.setIfName("BaseFont", "ZapfDingbats");
+    const fonts = new Dict(xref);
+    fonts.set("PdfJsZaDb", font);
+    const resources = new Dict(xref);
+    resources.set("Font", fonts);
+    dict.set("Resources", resources);
+    appearance.reset();
+    const content = appearance.getString();
+    appearance.reset();
+    return new StringStream(content, dict);
   }
   async save(evaluator, task, annotationStorage, changes) {
     if (this.data.checkBox) {
@@ -55296,7 +55400,9 @@ class ButtonWidgetAnnotation extends WidgetAnnotation {
     font.set("PdfJsZaDb", this.fallbackFontDict);
     resources.set("Font", font);
     appearanceStreamDict.set("Resources", resources);
-    return new StringStream(appearance, appearanceStreamDict);
+    const stream = new StringStream(appearance, appearanceStreamDict);
+    this.#generatedAppearances.add(stream);
+    return stream;
   }
   _getOnStateName(dict) {
     const appearanceStates = dict.get("AP");
@@ -57353,6 +57459,1196 @@ class Intersector {
   }
 }
 
+;// ./src/core/writer.js
+
+
+
+
+
+
+
+async function writeObject(ref, obj, buffer, {
+  encrypt = null,
+  encryptRef = null
+}) {
+  const transform = encrypt && encryptRef !== ref ? encrypt.createCipherTransform(ref.num, ref.gen) : null;
+  buffer.push(`${ref.num} ${ref.gen} obj\n`);
+  await writeValue(obj, buffer, transform);
+  buffer.push("\nendobj\n");
+}
+async function writeDict(dict, buffer, transform) {
+  buffer.push("<<");
+  for (const [key, rawObj] of dict.getRawEntries()) {
+    buffer.push(` /${escapePDFName(key)} `);
+    await writeValue(rawObj, buffer, transform);
+  }
+  buffer.push(">>");
+}
+async function writeStream(stream, buffer, transform) {
+  stream = stream.getOriginalStream();
+  stream.reset();
+  let bytes = stream.getBytes();
+  const {
+    dict
+  } = stream;
+  let [filter, params] = await Promise.all([dict.getAsync("Filter"), dict.getAsync("DecodeParms")]);
+  const filters = Array.isArray(filter) ? await Promise.all(filter.map(f => dict.xref.fetchIfRefAsync(f))) : [filter];
+  let cryptFilterName = null;
+  const cryptFilterIndex = filters.findIndex(f => isName(f, "Crypt"));
+  if (cryptFilterIndex !== -1) {
+    if (transform) {
+      const cryptParams = Array.isArray(params) ? await dict.xref.fetchIfRefAsync(params[cryptFilterIndex]) : params;
+      const name = cryptParams instanceof Dict ? cryptParams.get("Name") : null;
+      cryptFilterName = name instanceof Name ? name : Name.get("Identity");
+    } else {
+      filters.splice(cryptFilterIndex, 1);
+      if (filters.length === 0) {
+        filter = params = undefined;
+        dict.delete("Filter");
+        dict.delete("DecodeParms");
+      } else {
+        filter = filter.toSpliced(cryptFilterIndex, 1);
+        dict.set("Filter", filter);
+        if (Array.isArray(params)) {
+          params = params.toSpliced(cryptFilterIndex, 1);
+          dict.set("DecodeParms", params);
+        }
+      }
+    }
+  }
+  const filterZero = filters[0];
+  const isFilterZeroFlateDecode = isName(filterZero, "FlateDecode");
+  const isFilterZeroImageDecode = isName(filterZero, "DCTDecode") || isName(filterZero, "JPXDecode") || isName(filterZero, "JBIG2Decode") || isName(filterZero, "CCITTFaxDecode") || isName(filterZero, "LZWDecode");
+  const isFilterZeroCompressedObject = isFilterZeroFlateDecode || isFilterZeroImageDecode || isName(filterZero, "BrotliDecode");
+  const MIN_LENGTH_FOR_COMPRESSING = 256;
+  if (!isFilterZeroCompressedObject && !cryptFilterName && !isDict(dict, "Metadata") && bytes.length >= MIN_LENGTH_FOR_COMPRESSING) {
+    try {
+      const cs = new CompressionStream("deflate");
+      const writer = cs.writable.getWriter();
+      await writer.ready;
+      writer.write(bytes).then(async () => {
+        await writer.ready;
+        await writer.close();
+      }).catch(noopFn);
+      bytes = await new Response(cs.readable).bytes();
+      let newFilter, newParams;
+      if (!filter) {
+        newFilter = Name.get("FlateDecode");
+      } else if (!isFilterZeroFlateDecode) {
+        newFilter = Array.isArray(filter) ? [Name.get("FlateDecode"), ...filter] : [Name.get("FlateDecode"), filter];
+        if (params) {
+          newParams = Array.isArray(params) ? [null, ...params] : [null, params];
+        }
+      }
+      if (newFilter) {
+        dict.set("Filter", newFilter);
+      }
+      if (newParams) {
+        dict.set("DecodeParms", newParams);
+      }
+    } catch (ex) {
+      info(`writeStream - cannot compress data: "${ex}".`);
+    }
+  }
+  let string = bytesToString(bytes);
+  if (transform) {
+    string = transform.encryptStream(string, dict, cryptFilterName);
+  }
+  dict.set("Length", string.length);
+  await writeDict(dict, buffer, transform);
+  buffer.push(" stream\n", string, "\nendstream");
+}
+async function writeArray(array, buffer, transform) {
+  buffer.push("[");
+  for (let i = 0, ii = array.length; i < ii; i++) {
+    await writeValue(array[i], buffer, transform);
+    if (i < ii - 1) {
+      buffer.push(" ");
+    }
+  }
+  buffer.push("]");
+}
+function numberToPDFString(value) {
+  if (Number.isInteger(value) && Math.abs(value) >= 1e21) {
+    return BigInt(value).toString();
+  }
+  const str = value.toFixed(10);
+  let end = str.length;
+  while (str[end - 1] === "0") {
+    end--;
+  }
+  if (str[end - 1] === ".") {
+    end--;
+  }
+  return str.slice(0, end);
+}
+async function writeValue(value, buffer, transform) {
+  if (value instanceof Name) {
+    buffer.push(`/${escapePDFName(value.name)}`);
+  } else if (value instanceof Ref) {
+    buffer.push(`${value.num} ${value.gen} R`);
+  } else if (Array.isArray(value) || ArrayBuffer.isView(value)) {
+    await writeArray(value, buffer, transform);
+  } else if (typeof value === "string") {
+    if (transform) {
+      value = transform.encryptString(value);
+    }
+    buffer.push(`(${escapeString(value)})`);
+  } else if (typeof value === "number") {
+    buffer.push(numberToPDFString(value));
+  } else if (typeof value === "boolean") {
+    buffer.push(value.toString());
+  } else if (value instanceof Dict) {
+    await writeDict(value, buffer, transform);
+  } else if (value instanceof BaseStream) {
+    await writeStream(value, buffer, transform);
+  } else if (value === null) {
+    buffer.push("null");
+  } else {
+    warn(`Unhandled value in writer: ${typeof value}, please file a bug.`);
+  }
+}
+function writeInt(number, size, offset, buffer) {
+  for (let i = size + offset - 1; i > offset - 1; i--) {
+    buffer[i] = number & 0xff;
+    number >>= 8;
+  }
+  return offset + size;
+}
+function writeString(string, offset, buffer) {
+  const ii = string.length;
+  for (let i = 0; i < ii; i++) {
+    buffer[offset + i] = string.charCodeAt(i) & 0xff;
+  }
+  return offset + ii;
+}
+function computeMD5(filesize, xrefInfo) {
+  const time = Math.floor(Date.now() / 1000);
+  const filename = xrefInfo.filename || "";
+  const md5Buffer = [time.toString(), filename, filesize.toString(), ...xrefInfo.infoMap.values()];
+  const md5BufferLen = Math.sumPrecise(md5Buffer.map(str => str.length));
+  const array = new Uint8Array(md5BufferLen);
+  let offset = 0;
+  for (const str of md5Buffer) {
+    offset = writeString(str, offset, array);
+  }
+  return bytesToString(calculateMD5(array, 0, array.length));
+}
+function writeXFADataForAcroform(str, changes) {
+  const xml = new SimpleXMLParser({
+    hasAttributes: true
+  }).parseFromString(str);
+  for (const {
+    xfa
+  } of changes) {
+    if (!xfa) {
+      continue;
+    }
+    const {
+      path,
+      value
+    } = xfa;
+    if (!path || value === null) {
+      continue;
+    }
+    const nodePath = parseXFAPath(path);
+    let node = xml.documentElement.searchNode(nodePath, 0);
+    if (!node && nodePath.length > 1) {
+      node = xml.documentElement.searchNode([nodePath.at(-1)], 0);
+    }
+    if (node) {
+      node.childNodes = Array.isArray(value) ? value.map(val => new SimpleDOMNode("value", val)) : [new SimpleDOMNode("#text", value)];
+    } else {
+      warn(`Node not found for path: ${path}`);
+    }
+  }
+  const buffer = [];
+  xml.documentElement.dump(buffer);
+  return buffer.join("");
+}
+async function updateAcroform({
+  xref,
+  acroForm,
+  acroFormRef,
+  hasXfa,
+  hasXfaDatasetsEntry,
+  xfaDatasetsRef,
+  needAppearances,
+  changes
+}) {
+  if (hasXfa && !hasXfaDatasetsEntry && !xfaDatasetsRef) {
+    warn("XFA - Cannot save it");
+  }
+  if (!needAppearances && (!hasXfa || !xfaDatasetsRef || hasXfaDatasetsEntry)) {
+    return;
+  }
+  const dict = acroForm.clone();
+  if (hasXfa && !hasXfaDatasetsEntry) {
+    const newXfa = acroForm.get("XFA").slice();
+    newXfa.splice(2, 0, "datasets");
+    newXfa.splice(3, 0, xfaDatasetsRef);
+    dict.set("XFA", newXfa);
+  }
+  if (needAppearances) {
+    dict.set("NeedAppearances", true);
+  }
+  changes.put(acroFormRef, {
+    data: dict
+  });
+}
+function updateXFA({
+  xfaData,
+  xfaDatasetsRef,
+  changes,
+  xref
+}) {
+  if (xfaData === null) {
+    const datasets = xref.fetchIfRef(xfaDatasetsRef);
+    xfaData = writeXFADataForAcroform(datasets.getString(), changes);
+  }
+  const xfaDataStream = new StringStream(xfaData, new Dict(xref));
+  xfaDataStream.dict.setIfName("Type", "EmbeddedFile");
+  changes.put(xfaDatasetsRef, {
+    data: xfaDataStream
+  });
+}
+async function getXRefTable(xrefInfo, baseOffset, newRefs, newXref, buffer) {
+  buffer.push("xref\n");
+  const indexes = getIndexes(newRefs);
+  let indexesPosition = 0;
+  for (const {
+    ref,
+    data
+  } of newRefs) {
+    if (ref.num === indexes[indexesPosition]) {
+      buffer.push(`${indexes[indexesPosition]} ${indexes[indexesPosition + 1]}\n`);
+      indexesPosition += 2;
+    }
+    if (data !== null) {
+      buffer.push(`${baseOffset.toString().padStart(10, "0")} ${Math.min(ref.gen, 0xffff).toString().padStart(5, "0")} n\r\n`);
+      baseOffset += data.length;
+    } else {
+      buffer.push(`0000000000 ${Math.min(ref.gen + 1, 0xffff).toString().padStart(5, "0")} f\r\n`);
+    }
+  }
+  computeIDs(baseOffset, xrefInfo, newXref);
+  buffer.push("trailer\n");
+  await writeDict(newXref, buffer, null);
+  buffer.push("\nstartxref\n", baseOffset.toString(), "\n%%EOF\n");
+}
+function getIndexes(newRefs) {
+  const indexes = [];
+  for (const {
+    ref
+  } of newRefs) {
+    if (ref.num === indexes.at(-2) + indexes.at(-1)) {
+      indexes[indexes.length - 1] += 1;
+    } else {
+      indexes.push(ref.num, 1);
+    }
+  }
+  return indexes;
+}
+async function getXRefStreamTable(xrefInfo, baseOffset, newRefs, newXref, buffer) {
+  const xrefTableData = [];
+  let maxOffset = 0;
+  let maxGen = 0;
+  for (const {
+    ref,
+    data,
+    objStreamRef,
+    index
+  } of newRefs) {
+    let gen;
+    maxOffset = Math.max(maxOffset, baseOffset);
+    if (objStreamRef) {
+      gen = index;
+      xrefTableData.push([2, objStreamRef.num, gen]);
+    } else if (data !== null) {
+      gen = Math.min(ref.gen, 0xffff);
+      xrefTableData.push([1, baseOffset, gen]);
+      baseOffset += data.length;
+    } else {
+      gen = Math.min(ref.gen + 1, 0xffff);
+      xrefTableData.push([0, 0, gen]);
+    }
+    maxGen = Math.max(maxGen, gen);
+  }
+  newXref.set("Index", getIndexes(newRefs));
+  const offsetSize = getSizeInBytes(maxOffset);
+  const maxGenSize = getSizeInBytes(maxGen);
+  const sizes = [1, offsetSize, maxGenSize];
+  newXref.set("W", sizes);
+  computeIDs(baseOffset, xrefInfo, newXref);
+  const structSize = Math.sumPrecise(sizes);
+  const data = new Uint8Array(structSize * xrefTableData.length);
+  const stream = new Stream(data);
+  stream.dict = newXref;
+  let offset = 0;
+  for (const [type, objOffset, gen] of xrefTableData) {
+    offset = writeInt(type, sizes[0], offset, data);
+    offset = writeInt(objOffset, sizes[1], offset, data);
+    offset = writeInt(gen, sizes[2], offset, data);
+  }
+  await writeObject(xrefInfo.newRef, stream, buffer, {});
+  buffer.push("startxref\n", baseOffset.toString(), "\n%%EOF\n");
+}
+function computeIDs(baseOffset, xrefInfo, newXref) {
+  if (Array.isArray(xrefInfo.fileIds) && xrefInfo.fileIds.length > 0) {
+    const md5 = computeMD5(baseOffset, xrefInfo);
+    newXref.set("ID", [xrefInfo.fileIds[0] || md5, md5]);
+  }
+}
+function getTrailerDict(xrefInfo, changes, useXrefStream) {
+  const newXref = new Dict(null);
+  newXref.setIfDefined("Prev", xrefInfo?.startXRef);
+  const refForXrefTable = xrefInfo.newRef;
+  if (useXrefStream) {
+    changes.put(refForXrefTable, {
+      data: ""
+    });
+    newXref.set("Size", refForXrefTable.num + 1);
+    newXref.setIfName("Type", "XRef");
+  } else {
+    newXref.set("Size", refForXrefTable.num);
+  }
+  newXref.setIfDefined("Root", xrefInfo?.rootRef);
+  newXref.setIfDefined("Info", xrefInfo?.infoRef);
+  newXref.setIfDefined("Encrypt", xrefInfo?.encryptRef);
+  return newXref;
+}
+async function writeChanges(changes, xref, buffer = []) {
+  const newRefs = [];
+  for (const [ref, {
+    data,
+    objStreamRef,
+    index
+  }] of changes.items()) {
+    if (objStreamRef) {
+      newRefs.push({
+        ref,
+        data,
+        objStreamRef,
+        index
+      });
+      continue;
+    }
+    if (data === null || typeof data === "string") {
+      newRefs.push({
+        ref,
+        data
+      });
+      continue;
+    }
+    await writeObject(ref, data, buffer, xref);
+    newRefs.push({
+      ref,
+      data: buffer.join("")
+    });
+    buffer.length = 0;
+  }
+  return newRefs.sort((a, b) => a.ref.num - b.ref.num);
+}
+async function incrementalUpdate({
+  originalData,
+  xrefInfo,
+  changes,
+  xref = null,
+  hasXfa = false,
+  xfaDatasetsRef = null,
+  hasXfaDatasetsEntry = false,
+  needAppearances,
+  acroFormRef = null,
+  acroForm = null,
+  xfaData = null,
+  useXrefStream = false
+}) {
+  await updateAcroform({
+    xref,
+    acroForm,
+    acroFormRef,
+    hasXfa,
+    hasXfaDatasetsEntry,
+    xfaDatasetsRef,
+    needAppearances,
+    changes
+  });
+  if (hasXfa) {
+    updateXFA({
+      xfaData,
+      xfaDatasetsRef,
+      changes,
+      xref
+    });
+  }
+  const newXref = getTrailerDict(xrefInfo, changes, useXrefStream);
+  const buffer = [];
+  const newRefs = await writeChanges(changes, xref, buffer);
+  let baseOffset = originalData.length;
+  const lastByte = originalData.at(-1);
+  if (lastByte !== 0x0a && lastByte !== 0x0d) {
+    buffer.push("\n");
+    baseOffset += 1;
+  }
+  for (const {
+    data
+  } of newRefs) {
+    if (data !== null) {
+      buffer.push(data);
+    }
+  }
+  await (useXrefStream ? getXRefStreamTable(xrefInfo, baseOffset, newRefs, newXref, buffer) : getXRefTable(xrefInfo, baseOffset, newRefs, newXref, buffer));
+  const totalLength = originalData.length + Math.sumPrecise(buffer.map(str => str.length));
+  const array = new Uint8Array(totalLength);
+  array.set(originalData);
+  let offset = originalData.length;
+  for (const str of buffer) {
+    offset = writeString(str, offset, array);
+  }
+  return array;
+}
+
+;// ./src/core/flattener.js
+
+
+
+
+
+
+
+
+
+const INTERACTIVE_ANNOTATION_TYPES = new Set(["3D", "FileAttachment", "Link", "Movie", "RichMedia", "Screen", "Sound"]);
+class PageAnnotationFlattener {
+  #annotationStorage;
+  #changes;
+  #changesXref;
+  #evaluator;
+  #flattenForms;
+  #getResources;
+  #intent;
+  #page;
+  #task;
+  constructor({
+    page,
+    annotationStorage,
+    changes,
+    flattenForms,
+    intent,
+    getResources
+  }) {
+    this.#page = page;
+    this.#annotationStorage = annotationStorage;
+    this.#changes = changes;
+    this.#changesXref = new ChangesXRefWrapper(changes, page.xref);
+    this.#flattenForms = flattenForms;
+    this.#intent = intent;
+    this.#getResources = getResources;
+  }
+  async #fetch(obj) {
+    try {
+      return await this.#changesXref.fetchIfRefAsync(obj);
+    } catch (ex) {
+      warn(`flattenAnnotations - cannot fetch "${obj}": "${ex}".`);
+      return null;
+    }
+  }
+  async flatten(handler, task) {
+    const page = this.#page;
+    const changes = this.#changes;
+    const annotationStorage = this.#annotationStorage;
+    const flattenForms = this.#flattenForms;
+    const intent = this.#intent;
+    const {
+      xref
+    } = page;
+    if (!(page.ref instanceof Ref)) {
+      const hasWidgets = (await page._parsedAnnotations).some(annotation => annotation instanceof WidgetAnnotation);
+      return {
+        hadWidgets: hasWidgets,
+        hasWidgets,
+        removed: null
+      };
+    }
+    const pageDict = changes.get(page.ref)?.data || page.pageDict.clone();
+    const annotations = changes.has(page.ref) ? pageDict.get("Annots") : page.annotations;
+    if (!Array.isArray(annotations) || annotations.length === 0) {
+      return {
+        hadWidgets: false,
+        hasWidgets: false,
+        removed: null
+      };
+    }
+    const parsedAnnotations = new RefMap();
+    for (const parsedAnnotation of await page._parsedAnnotations) {
+      if (parsedAnnotation.ref) {
+        parsedAnnotations.put(parsedAnnotation.ref, parsedAnnotation);
+      }
+    }
+    this.#evaluator = page._createPartialEvaluator(handler);
+    this.#task = task;
+    const flattened = [];
+    const kept = [];
+    const removed = new RefSet();
+    const removedPopups = new RefSet();
+    const interactive = [];
+    let hasWidgets = false,
+      hadWidgets = false;
+    for (const annotation of annotations) {
+      const dict = await this.#fetch(annotation);
+      if (!(dict instanceof Dict)) {
+        continue;
+      }
+      let subtype, flags;
+      try {
+        subtype = dict.get("Subtype");
+        flags = dict.get("F");
+      } catch (ex) {
+        warn(`flattenAnnotations - ignoring annotation: "${ex}".`);
+        kept.push({
+          annotation
+        });
+        continue;
+      }
+      const isWidget = isName(subtype, "Widget");
+      hadWidgets ||= isWidget;
+      if (isWidget && (!flattenForms || dict.has("PMD"))) {
+        hasWidgets = true;
+        kept.push({
+          annotation
+        });
+        continue;
+      }
+      const parsedAnnotation = annotation instanceof Ref ? parsedAnnotations.get(annotation) : null;
+      const isModified = annotation instanceof Ref && changes.has(annotation);
+      let isVisible;
+      if (parsedAnnotation && (!isModified || isWidget)) {
+        isVisible = intent & RenderingIntentFlag.PRINT ? parsedAnnotation.mustBePrinted(annotationStorage) : parsedAnnotation.mustBeViewed(annotationStorage, false);
+      } else {
+        isVisible = (intent & RenderingIntentFlag.PRINT ? !!(flags & AnnotationFlag.PRINT) : !(flags & AnnotationFlag.NOVIEW)) && !(flags & AnnotationFlag.HIDDEN);
+      }
+      let appearance = null;
+      if (isVisible) {
+        try {
+          appearance = await this.#getAppearanceToFlatten({
+            dict,
+            parsedAnnotation,
+            isModified
+          });
+        } catch (ex) {
+          warn(`flattenAnnotations - cannot get the appearance: "${ex}".`);
+        }
+      }
+      if (subtype instanceof Name && INTERACTIVE_ANNOTATION_TYPES.has(subtype.name)) {
+        if (appearance && annotation instanceof Ref) {
+          flattened.push({
+            appearance,
+            oc: dict.getRaw("OC")
+          });
+          interactive.push({
+            annotation,
+            dict
+          });
+        }
+        kept.push({
+          annotation
+        });
+        continue;
+      }
+      if (!appearance && (!isWidget || isVisible)) {
+        hasWidgets ||= isWidget;
+        const isPopup = isName(subtype, "Popup");
+        kept.push({
+          annotation,
+          isPopup,
+          parent: isPopup ? dict.getRaw("Parent") : null
+        });
+        continue;
+      }
+      if (annotation instanceof Ref) {
+        removed.put(annotation);
+        const popup = dict.getRaw("Popup");
+        if (popup instanceof Ref) {
+          removedPopups.put(popup);
+        }
+      }
+      if (appearance) {
+        flattened.push({
+          appearance,
+          oc: dict.getRaw("OC")
+        });
+      }
+    }
+    const newAnnotations = [];
+    for (const {
+      annotation,
+      isPopup,
+      parent
+    } of kept) {
+      if (!isPopup || !(parent instanceof Ref && removed.has(parent) || annotation instanceof Ref && removedPopups.has(annotation))) {
+        newAnnotations.push(annotation);
+      } else if (annotation instanceof Ref) {
+        removed.put(annotation);
+      }
+    }
+    if (newAnnotations.length === annotations.length && flattened.length === 0) {
+      return {
+        hadWidgets,
+        hasWidgets,
+        removed: null
+      };
+    }
+    if (flattened.length > 0 && !(await this.#drawFlattenedAppearances(pageDict, flattened))) {
+      return {
+        hadWidgets,
+        hasWidgets: hadWidgets,
+        removed: null
+      };
+    }
+    pageDict.set("Annots", newAnnotations);
+    if (interactive.length > 0) {
+      const emptyAppearanceDict = new Dict(xref);
+      emptyAppearanceDict.setIfName("Subtype", "Form");
+      emptyAppearanceDict.set("BBox", [0, 0, 1, 1]);
+      const emptyAppearanceRef = xref.getNewTemporaryRef();
+      changes.put(emptyAppearanceRef, {
+        data: new StringStream("", emptyAppearanceDict)
+      });
+      for (const {
+        annotation,
+        dict
+      } of interactive) {
+        const ap = new Dict(xref);
+        ap.set("N", emptyAppearanceRef);
+        const newDict = dict.clone();
+        newDict.set("AP", ap);
+        newDict.delete("AS");
+        changes.put(annotation, {
+          data: newDict
+        });
+      }
+    }
+    changes.put(page.ref, {
+      data: pageDict
+    });
+    return {
+      hadWidgets,
+      hasWidgets,
+      removed
+    };
+  }
+  async #drawFlattenedAppearances(pageDict, flattened) {
+    const {
+      xref
+    } = this.#page;
+    const changes = this.#changes;
+    let contentStream, unbalanced, resources;
+    try {
+      contentStream = await this.#page.getContentStream();
+      unbalanced = getUnbalancedOperators(contentStream, xref);
+      resources = await this.#getResources(contentStream.dict);
+    } catch (ex) {
+      warn(`flattenAnnotations - cannot parse the page content: "${ex}".`);
+      return false;
+    }
+    const {
+      saves,
+      unmatchedRestores,
+      markedContent,
+      inText
+    } = unbalanced;
+    let contents;
+    if (unmatchedRestores > 0) {
+      const data = removeUnmatchedRestores(contentStream, unmatchedRestores, xref);
+      if (!data) {
+        return false;
+      }
+      const contentRef = xref.getNewTemporaryRef();
+      changes.put(contentRef, {
+        data: new Stream(data, 0, data.length, new Dict(xref))
+      });
+      contents = [contentRef];
+    } else {
+      contents = pageDict.getRaw("Contents");
+      if (contents instanceof Ref) {
+        const obj = await this.#fetch(contents);
+        if (Array.isArray(obj)) {
+          contents = obj;
+        }
+      }
+      if (!Array.isArray(contents)) {
+        contents = contents ? [contents] : [];
+      }
+    }
+    resources = resources.clone();
+    const newResources = new Map();
+    const resourceNames = new Map();
+    const addResource = (key, prefix, value) => {
+      const id = value instanceof Ref ? `${key}_${value}` : null;
+      if (id && resourceNames.has(id)) {
+        return resourceNames.get(id);
+      }
+      let dict = newResources.get(key);
+      if (!dict) {
+        let oldDict = null;
+        try {
+          oldDict = resources.get(key);
+        } catch (ex) {
+          warn(`flattenAnnotations - cannot get the resources: "${ex}".`);
+        }
+        dict = oldDict instanceof Dict ? oldDict.clone() : new Dict(xref);
+        newResources.set(key, dict);
+      }
+      let i = dict.size;
+      while (dict.has(`${prefix}${i}`)) {
+        i++;
+      }
+      const name = `${prefix}${i}`;
+      dict.set(name, value);
+      if (id) {
+        resourceNames.set(id, name);
+      }
+      return name;
+    };
+    const buffer = [];
+    for (const {
+      appearance,
+      oc
+    } of flattened) {
+      const transform = appearance.transform.map(numberToPDFString).join(" ");
+      const name = addResource("XObject", "FlatAnnot", appearance.ref);
+      const ocName = oc ? addResource("Properties", "FlatOC", oc) : null;
+      if (ocName) {
+        buffer.push(`/OC /${ocName} BDC`);
+      }
+      buffer.push(`q ${transform} cm /${name} Do Q`);
+      if (ocName) {
+        buffer.push("EMC");
+      }
+    }
+    for (const [key, dict] of newResources) {
+      resources.set(key, dict);
+    }
+    pageDict.set("Resources", resources);
+    const close = (inText ? "ET\n" : "") + "EMC\n".repeat(markedContent) + "Q\n".repeat(saves + 1);
+    const saveRef = xref.getNewTemporaryRef();
+    const restoreRef = xref.getNewTemporaryRef();
+    changes.put(saveRef, {
+      data: new StringStream("q\n", new Dict(xref))
+    });
+    changes.put(restoreRef, {
+      data: new StringStream(`\n${close}${buffer.join("\n")}\n`, new Dict(xref))
+    });
+    pageDict.set("Contents", [saveRef, ...contents, restoreRef]);
+    return true;
+  }
+  async #getAppearanceToFlatten({
+    dict,
+    parsedAnnotation,
+    isModified
+  }) {
+    let rect = lookupNormalRect(dict.getArray("Rect"), null);
+    let ref = null,
+      appearance = null;
+    if (parsedAnnotation instanceof WidgetAnnotation) {
+      appearance = await parsedAnnotation.getFlattenedAppearance(this.#evaluator, this.#task, this.#annotationStorage, this.#intent);
+      if (appearance === false) {
+        return null;
+      }
+    }
+    if (!appearance) {
+      const ap = await this.#fetch(dict.getRaw("AP"));
+      if (ap instanceof Dict) {
+        ref = ap.getRaw("N");
+        appearance = await this.#fetch(ref);
+        if (appearance instanceof Dict) {
+          const state = dict.get("AS");
+          ref = state instanceof Name ? appearance.getRaw(state.name) : null;
+          appearance = await this.#fetch(ref);
+        }
+      } else if (!isModified && parsedAnnotation?.appearance && isSelfContained(parsedAnnotation.appearance)) {
+        ({
+          appearance
+        } = parsedAnnotation);
+        rect = parsedAnnotation.data.rect;
+      }
+    }
+    if (!(appearance instanceof BaseStream) || !rect) {
+      return null;
+    }
+    const size = [0, 0, rect[2] - rect[0], rect[3] - rect[1]];
+    const matrix = lookupMatrix(appearance.dict?.getArray("Matrix"), IDENTITY_MATRIX);
+    const originalBBox = lookupRect(appearance.dict?.getArray("BBox"), null);
+    let bbox = originalBBox ?? size;
+    const transform = getTransformMatrix(rect, bbox, matrix);
+    const box = BBOX_INIT.slice();
+    Util.axialAlignedBoundingBox(bbox, matrix, box);
+    if (box[0] === box[2] || box[1] === box[3]) {
+      bbox = BBOX_INIT.slice();
+      Util.axialAlignedBoundingBox(size, Util.inverseTransform(matrix), bbox);
+      if (!bbox.every(Number.isFinite)) {
+        bbox = size;
+      }
+    }
+    if (!transform.every(Number.isFinite) || !bbox.every(Number.isFinite)) {
+      return null;
+    }
+    if (!(ref instanceof Ref) || !isName(appearance.dict?.get("Subtype"), "Form") || bbox !== originalBBox) {
+      appearance = this.#copyObject(appearance, bbox);
+      appearance.dict.setIfName("Subtype", "Form");
+      appearance.dict.set("BBox", bbox);
+      ref = this.#page.xref.getNewTemporaryRef();
+      this.#changes.put(ref, {
+        data: appearance
+      });
+    }
+    return {
+      ref,
+      transform
+    };
+  }
+  #copyObject(obj, bbox) {
+    if (obj instanceof BaseStream) {
+      bbox = lookupRect(obj.dict?.getArray("BBox"), bbox);
+      const dict = obj.dict ? this.#copyObject(obj.dict, bbox) : new Dict(this.#page.xref);
+      dict.delete("Filter");
+      dict.delete("DecodeParms");
+      dict.delete("Length");
+      if (isName(dict.get("Subtype"), "Form") && !lookupRect(dict.getArray("BBox"), null)) {
+        dict.set("BBox", bbox);
+      }
+      obj.reset();
+      const bytes = obj.getBytes();
+      obj.reset();
+      return new Stream(bytes, 0, bytes.length, dict);
+    }
+    const toIndirect = value => {
+      const copy = this.#copyObject(value, bbox);
+      if (!(copy instanceof BaseStream)) {
+        return copy;
+      }
+      const ref = this.#page.xref.getNewTemporaryRef();
+      this.#changes.put(ref, {
+        data: copy
+      });
+      return ref;
+    };
+    if (obj instanceof Dict) {
+      const dict = new Dict(this.#page.xref);
+      for (const [key, value] of obj.getRawEntries()) {
+        dict.set(key, toIndirect(value));
+      }
+      return dict;
+    }
+    return Array.isArray(obj) ? obj.map(toIndirect) : obj;
+  }
+}
+function getUnbalancedOperators(stream, xref) {
+  const result = {
+    saves: 0,
+    unmatchedRestores: 0,
+    markedContent: 0,
+    inText: false
+  };
+  const preprocessor = new EvaluatorPreprocessor(stream, xref);
+  const operation = {
+    fn: 0,
+    args: []
+  };
+  while (true) {
+    operation.args.length = 0;
+    if (!preprocessor.read(operation)) {
+      break;
+    }
+    switch (operation.fn | 0) {
+      case OPS.save:
+        result.saves++;
+        break;
+      case OPS.restore:
+        if (result.saves > 0) {
+          result.saves--;
+        } else {
+          result.unmatchedRestores++;
+        }
+        break;
+      case OPS.beginText:
+        result.inText = true;
+        break;
+      case OPS.endText:
+        result.inText = false;
+        break;
+      case OPS.beginMarkedContent:
+      case OPS.beginMarkedContentProps:
+        result.markedContent++;
+        break;
+      case OPS.endMarkedContent:
+        if (result.markedContent > 0) {
+          result.markedContent--;
+        }
+        break;
+    }
+  }
+  return result;
+}
+function removeUnmatchedRestores(stream, count, xref) {
+  try {
+    stream.reset();
+    const data = stream.getBytes().slice();
+    const lexer = new Lexer(new Stream(data), EvaluatorPreprocessor.opMap);
+    let saves = 0,
+      nesting = 0;
+    for (let obj = lexer.getObj(); obj !== EOF; obj = lexer.getObj()) {
+      while (isCmd(obj, "BI")) {
+        const parser = new Parser({
+          lexer,
+          xref
+        });
+        parser.makeInlineImage(null);
+        obj = parser.buf2;
+      }
+      if (!(obj instanceof Cmd)) {
+        continue;
+      }
+      switch (obj.cmd) {
+        case "[":
+        case "<<":
+          nesting++;
+          break;
+        case "]":
+        case ">>":
+          nesting = Math.max(nesting - 1, 0);
+          break;
+        case "q":
+          if (nesting === 0) {
+            saves++;
+          }
+          break;
+        case "Q":
+          if (nesting > 0) {
+            break;
+          }
+          if (saves > 0) {
+            saves--;
+            break;
+          }
+          const end = lexer.currentChar < 0 ? data.length : lexer.stream.pos - 1;
+          data[end - 1] = 0x20;
+          count--;
+          break;
+      }
+    }
+    return count === 0 ? data : null;
+  } catch (ex) {
+    warn(`flattenAnnotations - cannot remove the unmatched restores: "${ex}".`);
+    return null;
+  }
+}
+function isSelfContained(obj) {
+  if (obj instanceof Ref) {
+    return false;
+  }
+  if (obj instanceof BaseStream) {
+    return !obj.dict || isSelfContained(obj.dict);
+  }
+  return obj instanceof Dict ? obj.getRawValues().every(isSelfContained) : !Array.isArray(obj) || obj.every(isSelfContained);
+}
+async function finalizeFlattening({
+  results,
+  manager,
+  acroForm,
+  acroFormRef,
+  catalogRef,
+  changes,
+  xref,
+  flattenForms
+}) {
+  const changesXref = new ChangesXRefWrapper(changes, xref);
+  const getDict = obj => {
+    try {
+      const data = changesXref.fetchIfRef(obj);
+      return data instanceof Dict ? data : null;
+    } catch {
+      return null;
+    }
+  };
+  const removed = new RefSet();
+  for (const result of results) {
+    for (const ref of result.removed ?? []) {
+      removed.put(ref);
+    }
+  }
+  const keepAcroForm = !flattenForms || !(catalogRef instanceof Ref) || !results.some(({
+    hadWidgets
+  }) => hadWidgets) || results.some(({
+    hasWidgets
+  }) => hasWidgets) || (await manager.ensureDoc("formInfo")).hasSignatures;
+  if (!keepAcroForm) {
+    const catalog = getDict(catalogRef);
+    if (catalog instanceof Dict && catalog.has("AcroForm")) {
+      const newCatalog = catalog.clone();
+      newCatalog.delete("AcroForm");
+      changes.put(catalogRef, {
+        data: newCatalog
+      });
+    }
+    acroForm = null;
+  } else if (flattenForms && acroForm instanceof Dict) {
+    acroForm = pruneFields({
+      acroForm,
+      acroFormRef,
+      catalogRef,
+      changes,
+      removed,
+      getDict
+    });
+  }
+  pruneChanges({
+    changes,
+    removed,
+    removeFields: !keepAcroForm,
+    xref,
+    getDict
+  });
+  return acroForm;
+}
+function pruneFields({
+  acroForm,
+  acroFormRef,
+  catalogRef,
+  changes,
+  removed,
+  getDict
+}) {
+  const visited = new RefSet();
+  const pruneKids = kids => {
+    const newKids = [];
+    let modified = false;
+    for (const kid of kids) {
+      const dict = getDict(kid);
+      if (kid instanceof Ref) {
+        if (removed.has(kid) && !(dict && isName(getInheritableProperty({
+          dict,
+          key: "FT"
+        }), "Sig"))) {
+          modified = true;
+          continue;
+        }
+        if (visited.has(kid)) {
+          newKids.push(kid);
+          continue;
+        }
+        visited.put(kid);
+      }
+      const grandKids = dict?.get("Kids");
+      const newGrandKids = Array.isArray(grandKids) && grandKids.length > 0 ? pruneKids(grandKids) : grandKids;
+      if (newGrandKids === grandKids) {
+        newKids.push(kid);
+        continue;
+      }
+      modified = true;
+      if (newGrandKids.length === 0) {
+        if (kid instanceof Ref) {
+          removed.put(kid);
+        }
+        continue;
+      }
+      const newDict = dict.clone();
+      newDict.set("Kids", newGrandKids);
+      if (kid instanceof Ref) {
+        changes.put(kid, {
+          ...changes.get(kid),
+          data: newDict
+        });
+        newKids.push(kid);
+      } else {
+        newKids.push(newDict);
+      }
+    }
+    return modified ? newKids : kids;
+  };
+  const fields = acroForm.get("Fields");
+  if (!Array.isArray(fields)) {
+    return acroForm;
+  }
+  const newFields = pruneKids(fields);
+  const co = acroForm.get("CO");
+  const newCO = Array.isArray(co) ? co.filter(ref => !(ref instanceof Ref && removed.has(ref))) : co;
+  if (newFields === fields && newCO?.length === co?.length) {
+    return acroForm;
+  }
+  acroForm = acroForm.clone();
+  acroForm.set("Fields", newFields);
+  if (Array.isArray(newCO)) {
+    acroForm.set("CO", newCO);
+  }
+  if (acroFormRef) {
+    changes.put(acroFormRef, {
+      data: acroForm
+    });
+  } else if (catalogRef instanceof Ref) {
+    const catalog = getDict(catalogRef);
+    if (catalog instanceof Dict) {
+      const newCatalog = catalog.clone();
+      newCatalog.set("AcroForm", acroForm);
+      changes.put(catalogRef, {
+        data: newCatalog
+      });
+    }
+  }
+  return acroForm;
+}
+function pruneChanges({
+  changes,
+  removed,
+  removeFields,
+  xref,
+  getDict
+}) {
+  const pruned = new RefSet(removed);
+  if (removeFields) {
+    for (const refStr of removed) {
+      for (let parent = getDict(Ref.fromString(refStr))?.getRaw("Parent"); parent instanceof Ref && !pruned.has(parent); parent = getDict(parent)?.getRaw("Parent")) {
+        pruned.put(parent);
+      }
+    }
+  }
+  for (const ref of pruned) {
+    changes.remove(ref);
+  }
+  const isNew = ref => !xref.getEntry(ref.num);
+  const used = new RefSet();
+  const visit = obj => {
+    if (obj instanceof Ref) {
+      if (isNew(obj) && changes.has(obj) && !used.has(obj)) {
+        used.put(obj);
+        visit(changes.get(obj).data);
+      }
+    } else if (obj instanceof BaseStream) {
+      visit(obj.dict);
+    } else if (obj instanceof Dict) {
+      for (const value of obj.getRawValues()) {
+        visit(value);
+      }
+    } else if (Array.isArray(obj)) {
+      for (const value of obj) {
+        visit(value);
+      }
+    }
+  };
+  for (const [ref, {
+    data
+  }] of changes.items()) {
+    if (!isNew(ref)) {
+      visit(data);
+    }
+  }
+  for (const ref of changes.keys()) {
+    if (isNew(ref) && !used.has(ref)) {
+      changes.remove(ref);
+    }
+  }
+}
+
 ;// ./src/core/calculate_sha_other.js
 
 class Word64 {
@@ -59374,6 +60670,7 @@ class XRef {
 
 
 
+
 const LETTER_SIZE_MEDIABOX = [0, 0, 612, 792];
 const SIGNATURE_TAIL_CHUNK_SIZE = 65536;
 class Page {
@@ -59635,6 +60932,13 @@ class Page {
       }));
     }
     return Promise.all(promises);
+  }
+  async flattenAnnotations(handler, task, options) {
+    return new PageAnnotationFlattener({
+      ...options,
+      page: this,
+      getResources: streamDict => this.#getMergedResources(streamDict, RESOURCES_KEYS_OPERATOR_LIST)
+    }).flatten(handler, task);
   }
   async loadResources(keys) {
     await (this.#resourcesPromise ??= this.pdfManager.ensure(this, "resources"));
@@ -60387,7 +61691,7 @@ class PDFDocument {
     return Promise.all([this.#loadXfaFonts(handler, task).catch(noopFn), this.#loadXfaImages()]);
   }
   serializeXfaData(annotationStorage) {
-    return this.xfaFactory ? this.xfaFactory.serializeData(annotationStorage) : null;
+    return this.xfaFactory && annotationStorage ? this.xfaFactory.serializeData(annotationStorage) : null;
   }
   get version() {
     return this.catalog.version || this.#version;
@@ -61513,6 +62817,7 @@ class MessageHandler {
 /* unused harmony import specifier */ var print_appearances_stringToBytes;
 /* unused harmony import specifier */ var print_appearances_warn;
 /* unused harmony import specifier */ var print_appearances_BaseStream;
+/* unused harmony import specifier */ var print_appearances_ChangesXRefWrapper;
 /* unused harmony import specifier */ var print_appearances_EvaluatorPreprocessor;
 /* unused harmony import specifier */ var print_appearances_Lexer;
 /* unused harmony import specifier */ var print_appearances_LocalPdfManager;
@@ -61524,30 +62829,8 @@ class MessageHandler {
 
 
 
+
 const MARKED_CONTENT_OPS = new Set(["BDC", "BMC", "DP", "EMC", "MP"]);
-class ChangesXRefWrapper {
-  #changes;
-  #xref;
-  constructor(changes, xref) {
-    this.#changes = changes;
-    this.#xref = xref;
-  }
-  getNewTemporaryRef() {
-    return this.#xref.getNewTemporaryRef();
-  }
-  fetch(ref) {
-    return this.#changes.has(ref) ? this.#changes.get(ref).data : this.#xref.fetch(ref);
-  }
-  fetchIfRef(obj) {
-    return obj instanceof print_appearances_Ref ? this.fetch(obj) : obj;
-  }
-  async fetchAsync(ref) {
-    return this.fetch(ref);
-  }
-  async fetchIfRefAsync(obj) {
-    return this.fetchIfRef(obj);
-  }
-}
 async function copyObject(obj, sourceXref, target) {
   const {
     changes,
@@ -61655,7 +62938,7 @@ async function importPrintedAppearances({
     changes,
     refs: new print_appearances_RefMap(),
     xref,
-    xrefWrapper: new ChangesXRefWrapper(changes, xref)
+    xrefWrapper: new print_appearances_ChangesXRefWrapper(changes, xref)
   };
   for (let i = 0, ii = entries.length; i < ii; i++) {
     const {
@@ -61685,455 +62968,6 @@ async function importPrintedAppearances({
     appearances.set(key, ref);
   }
   return appearances;
-}
-
-;// ./src/core/writer.js
-
-
-
-
-
-
-
-async function writeObject(ref, obj, buffer, {
-  encrypt = null,
-  encryptRef = null
-}) {
-  const transform = encrypt && encryptRef !== ref ? encrypt.createCipherTransform(ref.num, ref.gen) : null;
-  buffer.push(`${ref.num} ${ref.gen} obj\n`);
-  await writeValue(obj, buffer, transform);
-  buffer.push("\nendobj\n");
-}
-async function writeDict(dict, buffer, transform) {
-  buffer.push("<<");
-  for (const [key, rawObj] of dict.getRawEntries()) {
-    buffer.push(` /${escapePDFName(key)} `);
-    await writeValue(rawObj, buffer, transform);
-  }
-  buffer.push(">>");
-}
-async function writeStream(stream, buffer, transform) {
-  stream = stream.getOriginalStream();
-  stream.reset();
-  let bytes = stream.getBytes();
-  const {
-    dict
-  } = stream;
-  let [filter, params] = await Promise.all([dict.getAsync("Filter"), dict.getAsync("DecodeParms")]);
-  const filters = Array.isArray(filter) ? await Promise.all(filter.map(f => dict.xref.fetchIfRefAsync(f))) : [filter];
-  let cryptFilterName = null;
-  const cryptFilterIndex = filters.findIndex(f => isName(f, "Crypt"));
-  if (cryptFilterIndex !== -1) {
-    if (transform) {
-      const cryptParams = Array.isArray(params) ? await dict.xref.fetchIfRefAsync(params[cryptFilterIndex]) : params;
-      const name = cryptParams instanceof Dict ? cryptParams.get("Name") : null;
-      cryptFilterName = name instanceof Name ? name : Name.get("Identity");
-    } else {
-      filters.splice(cryptFilterIndex, 1);
-      if (filters.length === 0) {
-        filter = params = undefined;
-        dict.delete("Filter");
-        dict.delete("DecodeParms");
-      } else {
-        filter = filter.toSpliced(cryptFilterIndex, 1);
-        dict.set("Filter", filter);
-        if (Array.isArray(params)) {
-          params = params.toSpliced(cryptFilterIndex, 1);
-          dict.set("DecodeParms", params);
-        }
-      }
-    }
-  }
-  const filterZero = filters[0];
-  const isFilterZeroFlateDecode = isName(filterZero, "FlateDecode");
-  const isFilterZeroImageDecode = isName(filterZero, "DCTDecode") || isName(filterZero, "JPXDecode") || isName(filterZero, "JBIG2Decode") || isName(filterZero, "CCITTFaxDecode") || isName(filterZero, "LZWDecode");
-  const isFilterZeroCompressedObject = isFilterZeroFlateDecode || isFilterZeroImageDecode || isName(filterZero, "BrotliDecode");
-  const MIN_LENGTH_FOR_COMPRESSING = 256;
-  if (!isFilterZeroCompressedObject && !cryptFilterName && !isDict(dict, "Metadata") && bytes.length >= MIN_LENGTH_FOR_COMPRESSING) {
-    try {
-      const cs = new CompressionStream("deflate");
-      const writer = cs.writable.getWriter();
-      await writer.ready;
-      writer.write(bytes).then(async () => {
-        await writer.ready;
-        await writer.close();
-      }).catch(noopFn);
-      bytes = await new Response(cs.readable).bytes();
-      let newFilter, newParams;
-      if (!filter) {
-        newFilter = Name.get("FlateDecode");
-      } else if (!isFilterZeroFlateDecode) {
-        newFilter = Array.isArray(filter) ? [Name.get("FlateDecode"), ...filter] : [Name.get("FlateDecode"), filter];
-        if (params) {
-          newParams = Array.isArray(params) ? [null, ...params] : [null, params];
-        }
-      }
-      if (newFilter) {
-        dict.set("Filter", newFilter);
-      }
-      if (newParams) {
-        dict.set("DecodeParms", newParams);
-      }
-    } catch (ex) {
-      info(`writeStream - cannot compress data: "${ex}".`);
-    }
-  }
-  let string = bytesToString(bytes);
-  if (transform) {
-    string = transform.encryptStream(string, dict, cryptFilterName);
-  }
-  dict.set("Length", string.length);
-  await writeDict(dict, buffer, transform);
-  buffer.push(" stream\n", string, "\nendstream");
-}
-async function writeArray(array, buffer, transform) {
-  buffer.push("[");
-  for (let i = 0, ii = array.length; i < ii; i++) {
-    await writeValue(array[i], buffer, transform);
-    if (i < ii - 1) {
-      buffer.push(" ");
-    }
-  }
-  buffer.push("]");
-}
-function numberToPDFString(value) {
-  if (Number.isInteger(value) && Math.abs(value) >= 1e21) {
-    return BigInt(value).toString();
-  }
-  const str = value.toFixed(10);
-  let end = str.length;
-  while (str[end - 1] === "0") {
-    end--;
-  }
-  if (str[end - 1] === ".") {
-    end--;
-  }
-  return str.slice(0, end);
-}
-async function writeValue(value, buffer, transform) {
-  if (value instanceof Name) {
-    buffer.push(`/${escapePDFName(value.name)}`);
-  } else if (value instanceof Ref) {
-    buffer.push(`${value.num} ${value.gen} R`);
-  } else if (Array.isArray(value) || ArrayBuffer.isView(value)) {
-    await writeArray(value, buffer, transform);
-  } else if (typeof value === "string") {
-    if (transform) {
-      value = transform.encryptString(value);
-    }
-    buffer.push(`(${escapeString(value)})`);
-  } else if (typeof value === "number") {
-    buffer.push(numberToPDFString(value));
-  } else if (typeof value === "boolean") {
-    buffer.push(value.toString());
-  } else if (value instanceof Dict) {
-    await writeDict(value, buffer, transform);
-  } else if (value instanceof BaseStream) {
-    await writeStream(value, buffer, transform);
-  } else if (value === null) {
-    buffer.push("null");
-  } else {
-    warn(`Unhandled value in writer: ${typeof value}, please file a bug.`);
-  }
-}
-function writeInt(number, size, offset, buffer) {
-  for (let i = size + offset - 1; i > offset - 1; i--) {
-    buffer[i] = number & 0xff;
-    number >>= 8;
-  }
-  return offset + size;
-}
-function writeString(string, offset, buffer) {
-  const ii = string.length;
-  for (let i = 0; i < ii; i++) {
-    buffer[offset + i] = string.charCodeAt(i) & 0xff;
-  }
-  return offset + ii;
-}
-function computeMD5(filesize, xrefInfo) {
-  const time = Math.floor(Date.now() / 1000);
-  const filename = xrefInfo.filename || "";
-  const md5Buffer = [time.toString(), filename, filesize.toString(), ...xrefInfo.infoMap.values()];
-  const md5BufferLen = Math.sumPrecise(md5Buffer.map(str => str.length));
-  const array = new Uint8Array(md5BufferLen);
-  let offset = 0;
-  for (const str of md5Buffer) {
-    offset = writeString(str, offset, array);
-  }
-  return bytesToString(calculateMD5(array, 0, array.length));
-}
-function writeXFADataForAcroform(str, changes) {
-  const xml = new SimpleXMLParser({
-    hasAttributes: true
-  }).parseFromString(str);
-  for (const {
-    xfa
-  } of changes) {
-    if (!xfa) {
-      continue;
-    }
-    const {
-      path,
-      value
-    } = xfa;
-    if (!path || value === null) {
-      continue;
-    }
-    const nodePath = parseXFAPath(path);
-    let node = xml.documentElement.searchNode(nodePath, 0);
-    if (!node && nodePath.length > 1) {
-      node = xml.documentElement.searchNode([nodePath.at(-1)], 0);
-    }
-    if (node) {
-      node.childNodes = Array.isArray(value) ? value.map(val => new SimpleDOMNode("value", val)) : [new SimpleDOMNode("#text", value)];
-    } else {
-      warn(`Node not found for path: ${path}`);
-    }
-  }
-  const buffer = [];
-  xml.documentElement.dump(buffer);
-  return buffer.join("");
-}
-async function updateAcroform({
-  xref,
-  acroForm,
-  acroFormRef,
-  hasXfa,
-  hasXfaDatasetsEntry,
-  xfaDatasetsRef,
-  needAppearances,
-  changes
-}) {
-  if (hasXfa && !hasXfaDatasetsEntry && !xfaDatasetsRef) {
-    warn("XFA - Cannot save it");
-  }
-  if (!needAppearances && (!hasXfa || !xfaDatasetsRef || hasXfaDatasetsEntry)) {
-    return;
-  }
-  const dict = acroForm.clone();
-  if (hasXfa && !hasXfaDatasetsEntry) {
-    const newXfa = acroForm.get("XFA").slice();
-    newXfa.splice(2, 0, "datasets");
-    newXfa.splice(3, 0, xfaDatasetsRef);
-    dict.set("XFA", newXfa);
-  }
-  if (needAppearances) {
-    dict.set("NeedAppearances", true);
-  }
-  changes.put(acroFormRef, {
-    data: dict
-  });
-}
-function updateXFA({
-  xfaData,
-  xfaDatasetsRef,
-  changes,
-  xref
-}) {
-  if (xfaData === null) {
-    const datasets = xref.fetchIfRef(xfaDatasetsRef);
-    xfaData = writeXFADataForAcroform(datasets.getString(), changes);
-  }
-  const xfaDataStream = new StringStream(xfaData, new Dict(xref));
-  xfaDataStream.dict.setIfName("Type", "EmbeddedFile");
-  changes.put(xfaDatasetsRef, {
-    data: xfaDataStream
-  });
-}
-async function getXRefTable(xrefInfo, baseOffset, newRefs, newXref, buffer) {
-  buffer.push("xref\n");
-  const indexes = getIndexes(newRefs);
-  let indexesPosition = 0;
-  for (const {
-    ref,
-    data
-  } of newRefs) {
-    if (ref.num === indexes[indexesPosition]) {
-      buffer.push(`${indexes[indexesPosition]} ${indexes[indexesPosition + 1]}\n`);
-      indexesPosition += 2;
-    }
-    if (data !== null) {
-      buffer.push(`${baseOffset.toString().padStart(10, "0")} ${Math.min(ref.gen, 0xffff).toString().padStart(5, "0")} n\r\n`);
-      baseOffset += data.length;
-    } else {
-      buffer.push(`0000000000 ${Math.min(ref.gen + 1, 0xffff).toString().padStart(5, "0")} f\r\n`);
-    }
-  }
-  computeIDs(baseOffset, xrefInfo, newXref);
-  buffer.push("trailer\n");
-  await writeDict(newXref, buffer, null);
-  buffer.push("\nstartxref\n", baseOffset.toString(), "\n%%EOF\n");
-}
-function getIndexes(newRefs) {
-  const indexes = [];
-  for (const {
-    ref
-  } of newRefs) {
-    if (ref.num === indexes.at(-2) + indexes.at(-1)) {
-      indexes[indexes.length - 1] += 1;
-    } else {
-      indexes.push(ref.num, 1);
-    }
-  }
-  return indexes;
-}
-async function getXRefStreamTable(xrefInfo, baseOffset, newRefs, newXref, buffer) {
-  const xrefTableData = [];
-  let maxOffset = 0;
-  let maxGen = 0;
-  for (const {
-    ref,
-    data,
-    objStreamRef,
-    index
-  } of newRefs) {
-    let gen;
-    maxOffset = Math.max(maxOffset, baseOffset);
-    if (objStreamRef) {
-      gen = index;
-      xrefTableData.push([2, objStreamRef.num, gen]);
-    } else if (data !== null) {
-      gen = Math.min(ref.gen, 0xffff);
-      xrefTableData.push([1, baseOffset, gen]);
-      baseOffset += data.length;
-    } else {
-      gen = Math.min(ref.gen + 1, 0xffff);
-      xrefTableData.push([0, 0, gen]);
-    }
-    maxGen = Math.max(maxGen, gen);
-  }
-  newXref.set("Index", getIndexes(newRefs));
-  const offsetSize = getSizeInBytes(maxOffset);
-  const maxGenSize = getSizeInBytes(maxGen);
-  const sizes = [1, offsetSize, maxGenSize];
-  newXref.set("W", sizes);
-  computeIDs(baseOffset, xrefInfo, newXref);
-  const structSize = Math.sumPrecise(sizes);
-  const data = new Uint8Array(structSize * xrefTableData.length);
-  const stream = new Stream(data);
-  stream.dict = newXref;
-  let offset = 0;
-  for (const [type, objOffset, gen] of xrefTableData) {
-    offset = writeInt(type, sizes[0], offset, data);
-    offset = writeInt(objOffset, sizes[1], offset, data);
-    offset = writeInt(gen, sizes[2], offset, data);
-  }
-  await writeObject(xrefInfo.newRef, stream, buffer, {});
-  buffer.push("startxref\n", baseOffset.toString(), "\n%%EOF\n");
-}
-function computeIDs(baseOffset, xrefInfo, newXref) {
-  if (Array.isArray(xrefInfo.fileIds) && xrefInfo.fileIds.length > 0) {
-    const md5 = computeMD5(baseOffset, xrefInfo);
-    newXref.set("ID", [xrefInfo.fileIds[0] || md5, md5]);
-  }
-}
-function getTrailerDict(xrefInfo, changes, useXrefStream) {
-  const newXref = new Dict(null);
-  newXref.setIfDefined("Prev", xrefInfo?.startXRef);
-  const refForXrefTable = xrefInfo.newRef;
-  if (useXrefStream) {
-    changes.put(refForXrefTable, {
-      data: ""
-    });
-    newXref.set("Size", refForXrefTable.num + 1);
-    newXref.setIfName("Type", "XRef");
-  } else {
-    newXref.set("Size", refForXrefTable.num);
-  }
-  newXref.setIfDefined("Root", xrefInfo?.rootRef);
-  newXref.setIfDefined("Info", xrefInfo?.infoRef);
-  newXref.setIfDefined("Encrypt", xrefInfo?.encryptRef);
-  return newXref;
-}
-async function writeChanges(changes, xref, buffer = []) {
-  const newRefs = [];
-  for (const [ref, {
-    data,
-    objStreamRef,
-    index
-  }] of changes.items()) {
-    if (objStreamRef) {
-      newRefs.push({
-        ref,
-        data,
-        objStreamRef,
-        index
-      });
-      continue;
-    }
-    if (data === null || typeof data === "string") {
-      newRefs.push({
-        ref,
-        data
-      });
-      continue;
-    }
-    await writeObject(ref, data, buffer, xref);
-    newRefs.push({
-      ref,
-      data: buffer.join("")
-    });
-    buffer.length = 0;
-  }
-  return newRefs.sort((a, b) => a.ref.num - b.ref.num);
-}
-async function incrementalUpdate({
-  originalData,
-  xrefInfo,
-  changes,
-  xref = null,
-  hasXfa = false,
-  xfaDatasetsRef = null,
-  hasXfaDatasetsEntry = false,
-  needAppearances,
-  acroFormRef = null,
-  acroForm = null,
-  xfaData = null,
-  useXrefStream = false
-}) {
-  await updateAcroform({
-    xref,
-    acroForm,
-    acroFormRef,
-    hasXfa,
-    hasXfaDatasetsEntry,
-    xfaDatasetsRef,
-    needAppearances,
-    changes
-  });
-  if (hasXfa) {
-    updateXFA({
-      xfaData,
-      xfaDatasetsRef,
-      changes,
-      xref
-    });
-  }
-  const newXref = getTrailerDict(xrefInfo, changes, useXrefStream);
-  const buffer = [];
-  const newRefs = await writeChanges(changes, xref, buffer);
-  let baseOffset = originalData.length;
-  const lastByte = originalData.at(-1);
-  if (lastByte !== 0x0a && lastByte !== 0x0d) {
-    buffer.push("\n");
-    baseOffset += 1;
-  }
-  for (const {
-    data
-  } of newRefs) {
-    if (data !== null) {
-      buffer.push(data);
-    }
-  }
-  await (useXrefStream ? getXRefStreamTable(xrefInfo, baseOffset, newRefs, newXref, buffer) : getXRefTable(xrefInfo, baseOffset, newRefs, newXref, buffer));
-  const totalLength = originalData.length + Math.sumPrecise(buffer.map(str => str.length));
-  const array = new Uint8Array(totalLength);
-  array.set(originalData);
-  let offset = originalData.length;
-  for (const str of buffer) {
-    offset = writeString(str, offset, array);
-  }
-  return array;
 }
 
 ;// ./src/core/editor/pdf_editor.js
@@ -64807,6 +65641,7 @@ class PDFWorkerStreamRangeReader extends BasePDFStreamRangeReader {
 
 
 
+
 class WorkerTask {
   #capability = createPromiseCapability();
   terminated = false;
@@ -65290,13 +66125,61 @@ class WorkerMessageHandler {
         managers?.forEach(manager => manager.terminate(new AbortException("ExtractPages was finished.")));
       }
     });
+    async function flattenDocument({
+      manager,
+      numPages,
+      annotationStorage,
+      acroForm,
+      acroFormRef,
+      catalogRef,
+      changes,
+      xref,
+      flattenForms,
+      intent
+    }) {
+      const promises = [];
+      for (let pageIndex = 0; pageIndex < numPages; pageIndex++) {
+        promises.push(runPageTask(manager, pageIndex, "Flatten", async (page, task) => {
+          try {
+            return await page.flattenAnnotations(handler, task, {
+              annotationStorage,
+              changes,
+              flattenForms,
+              intent
+            });
+          } catch (reason) {
+            warn(`flattenDocument - ignoring page ${pageIndex}: "${reason}".`);
+            return {
+              hadWidgets: true,
+              hasWidgets: true
+            };
+          }
+        }));
+      }
+      const results = await Promise.all(promises);
+      return finalizeFlattening({
+        results,
+        manager,
+        acroForm,
+        acroFormRef,
+        catalogRef,
+        changes,
+        xref,
+        flattenForms
+      });
+    }
     async function saveDocument(manager, {
       isPureXfa,
       numPages,
       annotationStorage,
       supportsPrintToPDF,
-      filename
+      filename,
+      flatten,
+      intent
     }) {
+      if (isPureXfa) {
+        flatten = false;
+      }
       const globalPromises = [manager.requestLoadedStream(), manager.ensureCatalog("acroForm"), manager.ensureCatalog("acroFormRef"), manager.ensureDoc("startXRef"), manager.ensureDoc("xref"), manager.ensureCatalog("structTreeRoot")];
       const changes = new RefMap();
       const promises = [];
@@ -65348,6 +66231,18 @@ class WorkerMessageHandler {
         }
       }
       const refs = await Promise.all(promises);
+      const keptAcroForm = flatten ? await flattenDocument({
+        manager,
+        numPages,
+        annotationStorage,
+        acroForm,
+        acroFormRef,
+        catalogRef,
+        changes,
+        xref,
+        flattenForms: flatten !== "non-forms",
+        intent
+      }) : acroForm;
       let xfaData = null;
       if (isPureXfa) {
         xfaData = refs[0];
@@ -65357,9 +66252,9 @@ class WorkerMessageHandler {
       } else if (changes.size === 0) {
         return stream.bytes;
       }
-      const hasAcroForm = acroForm instanceof Dict;
+      const hasAcroForm = keptAcroForm instanceof Dict;
       const needAppearances = acroFormRef && hasAcroForm && changes.values().some(ref => ref.needAppearances);
-      const xfa = hasAcroForm && acroForm.get("XFA") || null;
+      const xfa = hasAcroForm && keptAcroForm.get("XFA") || null;
       let xfaDatasetsRef = null;
       let hasXfaDatasetsEntry = false;
       if (Array.isArray(xfa)) {
@@ -65407,7 +66302,7 @@ class WorkerMessageHandler {
         hasXfaDatasetsEntry,
         needAppearances,
         acroFormRef,
-        acroForm,
+        acroForm: keptAcroForm,
         xfaData,
         useXrefStream: isDict(xref.topDict, "XRef")
       }).finally(() => {
