@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = caa4c31
+ * pdfjsBuild = 5f2d718
  */
 
 ;// ./src/shared/util.js
@@ -24792,6 +24792,9 @@ class Glyph {
   get category() {
     return shadow(this, "category", getCharUnicodeCategory(this.unicode), true);
   }
+  get normalizedUnicode() {
+    return shadow(this, "normalizedUnicode", normalizeUnicode(this.unicode), true);
+  }
 }
 function int16(b0, b1) {
   return (b0 << 8) + b1;
@@ -31826,14 +31829,13 @@ function isOdd(i) {
 function isEven(i) {
   return (i & 1) === 0;
 }
-function findUnequal(arr, start, value) {
-  let j, jj;
-  for (j = start, jj = arr.length; j < jj; ++j) {
+function findUnequal(arr, start, value, end = arr.length) {
+  for (let j = start; j < end; ++j) {
     if (arr[j] !== value) {
       return j;
     }
   }
-  return j;
+  return end;
 }
 function reverseValues(arr, start, end) {
   for (let i = start, j = end - 1; i < j; ++i, --j) {
@@ -31856,8 +31858,10 @@ function createBidiText(str, isLTR, vertical = false) {
 }
 const chars = [];
 const types = [];
-function bidi(str, startLevel = -1, vertical = false) {
+function bidi(text, startLevel = -1, vertical = false) {
   let isLTR = true;
+  const glyphs = Array.isArray(text) ? text : null;
+  const str = glyphs ? glyphs.join("") : text;
   const strLength = str.length;
   if (strLength === 0 || vertical) {
     return createBidiText(str, isLTR, vertical);
@@ -32029,6 +32033,17 @@ function bidi(str, startLevel = -1, vertical = false) {
       lowestOddLevel = level;
     }
   }
+  if (glyphs) {
+    let pos = 0;
+    for (const glyph of glyphs) {
+      const end = pos + glyph.length;
+      if (glyph.length > 1 && findUnequal(levels, pos + 1, levels[pos], end) === end) {
+        chars[pos] = glyph;
+        chars.fill("", pos + 1, end);
+      }
+      pos = end;
+    }
+  }
   for (level = highestLevel; level >= lowestOddLevel; --level) {
     let start = -1;
     for (i = 0, ii = levels.length; i < ii; ++i) {
@@ -32045,13 +32060,7 @@ function bidi(str, startLevel = -1, vertical = false) {
       reverseValues(chars, start, levels.length);
     }
   }
-  for (i = 0, ii = chars.length; i < ii; ++i) {
-    const ch = chars[i];
-    if (ch === "<" || ch === ">") {
-      chars[i] = "";
-    }
-  }
-  return createBidiText(chars.join(""), isLTR);
+  return createBidiText(chars.join("").replaceAll(/[<>]/g, ""), isLTR);
 }
 
 ;// ./src/core/font_substitutions.js
@@ -35988,11 +35997,7 @@ class PartialEvaluator {
       textContentItem.textAdvanceScale = scaleFactor;
     }
     function runBidiTransform(textChunk) {
-      let text = textChunk.str.join("");
-      if (!disableNormalization) {
-        text = normalizeUnicode(text);
-      }
-      const bidiResult = bidi(text, -1, textChunk.vertical);
+      const bidiResult = bidi(textChunk.str, -1, textChunk.vertical);
       return {
         str: bidiResult.str,
         dir: bidiResult.dir,
@@ -36313,7 +36318,7 @@ class PartialEvaluator {
           intersector?.addExtraChar(" ");
         }
         if (!intersector) {
-          textChunk.str.push(glyphUnicode);
+          textChunk.str.push(disableNormalization ? glyphUnicode : glyph.normalizedUnicode);
         }
         if (charSpacing) {
           if (!font.vertical) {
