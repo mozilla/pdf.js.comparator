@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = 5f2d718
+ * pdfjsBuild = 1e611f1
  */
 
 ;// ./src/shared/util.js
@@ -1379,7 +1379,7 @@ class XfaLayer {
           }
       }
     }
-    if (isHTMLAnchorElement) {
+    if (isHTMLAnchorElement && attributes.href) {
       linkService?.addLinkAttributes(html, attributes.href, attributes.newWindow);
     }
     if (storage && attributes.dataId) {
@@ -2086,7 +2086,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "51334651-0f01-47be-bb62-77ce50b94b17";
+const INTERNAL_EVT = "cf7e3cb4-736c-4c91-bc0e-c940b6c762cb";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -2270,16 +2270,22 @@ class ImageManager {
     }
     return this.getFromUrl(data.url);
   }
-  getFromCanvas(id, canvas) {
+  getFromCanvas(id, canvas, rotation = 0) {
     this.#cache ||= new Map();
     let data = this.#cache.get(id);
     if (data?.bitmap) {
       data.refCounter += 1;
       return data;
     }
-    const offscreen = new OffscreenCanvas(canvas.width, canvas.height);
+    const {
+      width,
+      height
+    } = canvas;
+    const offscreen = rotation % 180 === 0 ? new OffscreenCanvas(width, height) : new OffscreenCanvas(height, width);
     const ctx = offscreen.getContext("2d");
-    ctx.drawImage(canvas, 0, 0);
+    ctx.translate(offscreen.width / 2, offscreen.height / 2);
+    ctx.rotate(rotation * Math.PI / 180);
+    ctx.drawImage(canvas, -width / 2, -height / 2);
     data = {
       bitmap: offscreen.transferToImageBitmap(),
       id: `image_${this.#baseId}_${this.#id++}`,
@@ -18077,7 +18083,7 @@ class InternalRenderTask {
   }
 }
 const version = "7.0.0";
-const build = "5f2d718";
+const build = "1e611f1";
 
 ;// ./src/display/editor/color_picker.js
 
@@ -27332,7 +27338,7 @@ class StampEditor extends AnnotationEditor {
     const {
       id: bitmapId,
       bitmap
-    } = this._uiManager.imageManager.getFromCanvas(annotationElementId, canvas);
+    } = this._uiManager.imageManager.getFromCanvas(annotationElementId, canvas, this._initialData?.rotation);
     canvas.remove();
     if (bitmapId && this._uiManager.imageManager.isValidId(bitmapId)) {
       this.#bitmapId = bitmapId;
@@ -27592,7 +27598,7 @@ class StampEditor extends AnnotationEditor {
         ({
           id: bitmapId,
           bitmap
-        } = uiManager.imageManager.getFromCanvas(container.id, canvas));
+        } = uiManager.imageManager.getFromCanvas(container.id, canvas, rotation));
         canvas.remove();
       } else {
         missingCanvas = true;
@@ -27624,7 +27630,6 @@ class StampEditor extends AnnotationEditor {
     }
     const editor = await super.deserialize(data, parent, uiManager);
     const {
-      rect,
       bitmap,
       bitmapUrl,
       bitmapId,
@@ -27643,9 +27648,6 @@ class StampEditor extends AnnotationEditor {
       editor.#bitmapUrl = bitmapUrl;
     }
     editor.#isSvg = isSvg;
-    const [parentWidth, parentHeight] = editor.pageDimensions;
-    editor.width = (rect[2] - rect[0]) / parentWidth;
-    editor.height = (rect[3] - rect[1]) / parentHeight;
     if (accessibilityData) {
       editor.altTextData = accessibilityData;
     }
