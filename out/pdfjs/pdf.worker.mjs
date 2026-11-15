@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = e573c76
+ * pdfjsBuild = d82ed35
  */
 
 ;// ./src/shared/util.js
@@ -1773,249 +1773,6 @@ class ChangesXRefWrapper {
   }
 }
 
-;// ./external/qcms/qcms_utils.js
-const ALPHA_MASK = new Uint8Array(new Uint32Array([1]).buffer)[0] === 1 ? 0xff000000 : 0x000000ff;
-const RGB_MASK = ~ALPHA_MASK;
-class QCMS {
-  static #memoryArray = null;
-  static _memory = null;
-  static _destBuffer = null;
-  static _destOffset = 0;
-  static _keepAlpha = false;
-  static get _memoryArray() {
-    const array = this.#memoryArray;
-    if (array?.byteLength) {
-      return array;
-    }
-    return this.#memoryArray = new Uint8Array(this._memory.buffer);
-  }
-}
-function copy_result(ptr, len) {
-  const {
-    _destBuffer,
-    _destOffset,
-    _keepAlpha,
-    _memoryArray
-  } = QCMS;
-  if (!_keepAlpha) {
-    _destBuffer.set(_memoryArray.subarray(ptr, ptr + len), _destOffset);
-    return;
-  }
-  const count = len >> 2;
-  const destStart = _destBuffer.byteOffset + _destOffset;
-  if (((destStart | ptr) & 3) === 0) {
-    const dest32 = new Uint32Array(_destBuffer.buffer, destStart, count);
-    const src32 = new Uint32Array(QCMS._memory.buffer, ptr, count);
-    for (let i = 0; i < count; i++) {
-      dest32[i] = dest32[i] & ALPHA_MASK | src32[i] & RGB_MASK;
-    }
-    return;
-  }
-  for (let i = ptr, ii = ptr + len, j = _destOffset; i < ii; i += 4, j += 4) {
-    _destBuffer[j] = _memoryArray[i];
-    _destBuffer[j + 1] = _memoryArray[i + 1];
-    _destBuffer[j + 2] = _memoryArray[i + 2];
-  }
-}
-
-;// ./external/qcms/qcms.js
-
-const DataType = Object.freeze({
-  RGB8: 0,
-  "0": "RGB8",
-  RGBA8: 1,
-  "1": "RGBA8",
-  BGRA8: 2,
-  "2": "BGRA8",
-  Gray8: 3,
-  "3": "Gray8",
-  GrayA8: 4,
-  "4": "GrayA8",
-  CMYK: 5,
-  "5": "CMYK"
-});
-const Intent = Object.freeze({
-  Perceptual: 0,
-  "0": "Perceptual",
-  RelativeColorimetric: 1,
-  "1": "RelativeColorimetric",
-  Saturation: 2,
-  "2": "Saturation",
-  AbsoluteColorimetric: 3,
-  "3": "AbsoluteColorimetric"
-});
-function qcms_convert_array(transformer, src, add_alpha) {
-  const ptr0 = passArray8ToWasm0(src, wasm.__wbindgen_malloc);
-  const len0 = WASM_VECTOR_LEN;
-  wasm.qcms_convert_array(transformer, ptr0, len0, add_alpha);
-}
-function qcms_convert_four(transformer, src1, src2, src3, src4) {
-  const ret = wasm.qcms_convert_four(transformer, src1, src2, src3, src4);
-  return ret >>> 0;
-}
-function qcms_convert_one(transformer, src) {
-  const ret = wasm.qcms_convert_one(transformer, src);
-  return ret >>> 0;
-}
-function qcms_convert_three(transformer, src1, src2, src3) {
-  const ret = wasm.qcms_convert_three(transformer, src1, src2, src3);
-  return ret >>> 0;
-}
-function qcms_drop_transformer(transformer) {
-  wasm.qcms_drop_transformer(transformer);
-}
-function qcms_transformer_from_memory(mem, in_type, intent) {
-  const ptr0 = passArray8ToWasm0(mem, wasm.__wbindgen_malloc);
-  const len0 = WASM_VECTOR_LEN;
-  const ret = wasm.qcms_transformer_from_memory(ptr0, len0, in_type, intent);
-  return ret >>> 0;
-}
-function __wbg_get_imports() {
-  const import0 = {
-    __proto__: null,
-    __wbg___wbindgen_throw_344f42d3211c4765: function (arg0, arg1) {
-      throw new Error(getStringFromWasm0(arg0, arg1));
-    },
-    __wbg_copy_result_0d15f3bf9d9012ae: function (arg0, arg1) {
-      copy_result(arg0 >>> 0, arg1 >>> 0);
-    },
-    __wbindgen_init_externref_table: function () {
-      const table = wasm.__wbindgen_externrefs;
-      const offset = table.grow(4);
-      table.set(0, undefined);
-      table.set(offset + 0, undefined);
-      table.set(offset + 1, null);
-      table.set(offset + 2, true);
-      table.set(offset + 3, false);
-    }
-  };
-  return {
-    __proto__: null,
-    "./qcms_bg.js": import0
-  };
-}
-function getStringFromWasm0(ptr, len) {
-  return decodeText(ptr >>> 0, len);
-}
-let cachedUint8ArrayMemory0 = null;
-function getUint8ArrayMemory0() {
-  if (cachedUint8ArrayMemory0 === null || cachedUint8ArrayMemory0.byteLength === 0) {
-    cachedUint8ArrayMemory0 = new Uint8Array(wasm.memory.buffer);
-  }
-  return cachedUint8ArrayMemory0;
-}
-function passArray8ToWasm0(arg, malloc) {
-  const ptr = malloc(arg.length * 1, 1) >>> 0;
-  getUint8ArrayMemory0().set(arg, ptr / 1);
-  WASM_VECTOR_LEN = arg.length;
-  return ptr;
-}
-let cachedTextDecoder = new TextDecoder('utf-8', {
-  ignoreBOM: true,
-  fatal: true
-});
-cachedTextDecoder.decode();
-const MAX_SAFARI_DECODE_BYTES = 2146435072;
-let numBytesDecoded = 0;
-function decodeText(ptr, len) {
-  numBytesDecoded += len;
-  if (numBytesDecoded >= MAX_SAFARI_DECODE_BYTES) {
-    cachedTextDecoder = new TextDecoder('utf-8', {
-      ignoreBOM: true,
-      fatal: true
-    });
-    cachedTextDecoder.decode();
-    numBytesDecoded = len;
-  }
-  return cachedTextDecoder.decode(getUint8ArrayMemory0().subarray(ptr, ptr + len));
-}
-let WASM_VECTOR_LEN = 0;
-let wasmModule, wasmInstance, wasm;
-function __wbg_finalize_init(instance, module) {
-  wasmInstance = instance;
-  wasm = instance.exports;
-  wasmModule = module;
-  cachedUint8ArrayMemory0 = null;
-  wasm.__wbindgen_start();
-  return wasm;
-}
-async function __wbg_load(module, imports) {
-  if (typeof Response === 'function' && module instanceof Response) {
-    if (typeof WebAssembly.instantiateStreaming === 'function') {
-      try {
-        return await WebAssembly.instantiateStreaming(module, imports);
-      } catch (e) {
-        const validResponse = module.ok && expectedResponseType(module.type);
-        if (validResponse && module.headers.get('Content-Type') !== 'application/wasm') {
-          console.warn("`WebAssembly.instantiateStreaming` failed because your server does not serve Wasm with `application/wasm` MIME type. Falling back to `WebAssembly.instantiate` which is slower. Original error:\n", e);
-        } else {
-          throw e;
-        }
-      }
-    }
-    const bytes = await module.arrayBuffer();
-    return await WebAssembly.instantiate(bytes, imports);
-  } else {
-    const instance = await WebAssembly.instantiate(module, imports);
-    if (instance instanceof WebAssembly.Instance) {
-      return {
-        instance,
-        module
-      };
-    } else {
-      return instance;
-    }
-  }
-  function expectedResponseType(type) {
-    switch (type) {
-      case 'basic':
-      case 'cors':
-      case 'default':
-        return true;
-    }
-    return false;
-  }
-}
-function initSync(module) {
-  if (wasm !== undefined) return wasm;
-  if (module !== undefined) {
-    if (Object.getPrototypeOf(module) === Object.prototype) {
-      ({
-        module
-      } = module);
-    } else {
-      console.warn('using deprecated parameters for `initSync()`; pass a single object instead');
-    }
-  }
-  const imports = __wbg_get_imports();
-  if (!(module instanceof WebAssembly.Module)) {
-    module = new WebAssembly.Module(module);
-  }
-  const instance = new WebAssembly.Instance(module, imports);
-  return __wbg_finalize_init(instance, module);
-}
-async function __wbg_init(module_or_path) {
-  if (wasm !== undefined) return wasm;
-  if (module_or_path !== undefined) {
-    if (Object.getPrototypeOf(module_or_path) === Object.prototype) {
-      ({
-        module_or_path
-      } = module_or_path);
-    } else {
-      console.warn('using deprecated parameters for the initialization function; pass a single object instead');
-    }
-  }
-  const imports = __wbg_get_imports();
-  if (typeof module_or_path === 'string' || typeof Request === 'function' && module_or_path instanceof Request || typeof URL === 'function' && module_or_path instanceof URL) {
-    module_or_path = fetch(module_or_path);
-  }
-  const {
-    instance,
-    module
-  } = await __wbg_load(await module_or_path, imports);
-  return __wbg_finalize_init(instance, module);
-}
-
 ;// ./src/shared/math_clamp.js
 function MathClamp(v, min, max) {
   return Math.min(Math.max(v, min), max);
@@ -2707,6 +2464,249 @@ class LabCS extends ColorSpace {
   }
 }
 
+;// ./external/qcms/qcms_utils.js
+const ALPHA_MASK = new Uint8Array(new Uint32Array([1]).buffer)[0] === 1 ? 0xff000000 : 0x000000ff;
+const RGB_MASK = ~ALPHA_MASK;
+class QCMS {
+  static #memoryArray = null;
+  static _memory = null;
+  static _destBuffer = null;
+  static _destOffset = 0;
+  static _keepAlpha = false;
+  static get _memoryArray() {
+    const array = this.#memoryArray;
+    if (array?.byteLength) {
+      return array;
+    }
+    return this.#memoryArray = new Uint8Array(this._memory.buffer);
+  }
+}
+function copy_result(ptr, len) {
+  const {
+    _destBuffer,
+    _destOffset,
+    _keepAlpha,
+    _memoryArray
+  } = QCMS;
+  if (!_keepAlpha) {
+    _destBuffer.set(_memoryArray.subarray(ptr, ptr + len), _destOffset);
+    return;
+  }
+  const count = len >> 2;
+  const destStart = _destBuffer.byteOffset + _destOffset;
+  if (((destStart | ptr) & 3) === 0) {
+    const dest32 = new Uint32Array(_destBuffer.buffer, destStart, count);
+    const src32 = new Uint32Array(QCMS._memory.buffer, ptr, count);
+    for (let i = 0; i < count; i++) {
+      dest32[i] = dest32[i] & ALPHA_MASK | src32[i] & RGB_MASK;
+    }
+    return;
+  }
+  for (let i = ptr, ii = ptr + len, j = _destOffset; i < ii; i += 4, j += 4) {
+    _destBuffer[j] = _memoryArray[i];
+    _destBuffer[j + 1] = _memoryArray[i + 1];
+    _destBuffer[j + 2] = _memoryArray[i + 2];
+  }
+}
+
+;// ./external/qcms/qcms.js
+
+const DataType = Object.freeze({
+  RGB8: 0,
+  "0": "RGB8",
+  RGBA8: 1,
+  "1": "RGBA8",
+  BGRA8: 2,
+  "2": "BGRA8",
+  Gray8: 3,
+  "3": "Gray8",
+  GrayA8: 4,
+  "4": "GrayA8",
+  CMYK: 5,
+  "5": "CMYK"
+});
+const Intent = Object.freeze({
+  Perceptual: 0,
+  "0": "Perceptual",
+  RelativeColorimetric: 1,
+  "1": "RelativeColorimetric",
+  Saturation: 2,
+  "2": "Saturation",
+  AbsoluteColorimetric: 3,
+  "3": "AbsoluteColorimetric"
+});
+function qcms_convert_array(transformer, src, add_alpha) {
+  const ptr0 = passArray8ToWasm0(src, wasm.__wbindgen_malloc);
+  const len0 = WASM_VECTOR_LEN;
+  wasm.qcms_convert_array(transformer, ptr0, len0, add_alpha);
+}
+function qcms_convert_four(transformer, src1, src2, src3, src4) {
+  const ret = wasm.qcms_convert_four(transformer, src1, src2, src3, src4);
+  return ret >>> 0;
+}
+function qcms_convert_one(transformer, src) {
+  const ret = wasm.qcms_convert_one(transformer, src);
+  return ret >>> 0;
+}
+function qcms_convert_three(transformer, src1, src2, src3) {
+  const ret = wasm.qcms_convert_three(transformer, src1, src2, src3);
+  return ret >>> 0;
+}
+function qcms_drop_transformer(transformer) {
+  wasm.qcms_drop_transformer(transformer);
+}
+function qcms_transformer_from_memory(mem, in_type, intent) {
+  const ptr0 = passArray8ToWasm0(mem, wasm.__wbindgen_malloc);
+  const len0 = WASM_VECTOR_LEN;
+  const ret = wasm.qcms_transformer_from_memory(ptr0, len0, in_type, intent);
+  return ret >>> 0;
+}
+function __wbg_get_imports() {
+  const import0 = {
+    __proto__: null,
+    __wbg___wbindgen_throw_344f42d3211c4765: function (arg0, arg1) {
+      throw new Error(getStringFromWasm0(arg0, arg1));
+    },
+    __wbg_copy_result_0d15f3bf9d9012ae: function (arg0, arg1) {
+      copy_result(arg0 >>> 0, arg1 >>> 0);
+    },
+    __wbindgen_init_externref_table: function () {
+      const table = wasm.__wbindgen_externrefs;
+      const offset = table.grow(4);
+      table.set(0, undefined);
+      table.set(offset + 0, undefined);
+      table.set(offset + 1, null);
+      table.set(offset + 2, true);
+      table.set(offset + 3, false);
+    }
+  };
+  return {
+    __proto__: null,
+    "./qcms_bg.js": import0
+  };
+}
+function getStringFromWasm0(ptr, len) {
+  return decodeText(ptr >>> 0, len);
+}
+let cachedUint8ArrayMemory0 = null;
+function getUint8ArrayMemory0() {
+  if (cachedUint8ArrayMemory0 === null || cachedUint8ArrayMemory0.byteLength === 0) {
+    cachedUint8ArrayMemory0 = new Uint8Array(wasm.memory.buffer);
+  }
+  return cachedUint8ArrayMemory0;
+}
+function passArray8ToWasm0(arg, malloc) {
+  const ptr = malloc(arg.length * 1, 1) >>> 0;
+  getUint8ArrayMemory0().set(arg, ptr / 1);
+  WASM_VECTOR_LEN = arg.length;
+  return ptr;
+}
+let cachedTextDecoder = new TextDecoder('utf-8', {
+  ignoreBOM: true,
+  fatal: true
+});
+cachedTextDecoder.decode();
+const MAX_SAFARI_DECODE_BYTES = 2146435072;
+let numBytesDecoded = 0;
+function decodeText(ptr, len) {
+  numBytesDecoded += len;
+  if (numBytesDecoded >= MAX_SAFARI_DECODE_BYTES) {
+    cachedTextDecoder = new TextDecoder('utf-8', {
+      ignoreBOM: true,
+      fatal: true
+    });
+    cachedTextDecoder.decode();
+    numBytesDecoded = len;
+  }
+  return cachedTextDecoder.decode(getUint8ArrayMemory0().subarray(ptr, ptr + len));
+}
+let WASM_VECTOR_LEN = 0;
+let wasmModule, wasmInstance, wasm;
+function __wbg_finalize_init(instance, module) {
+  wasmInstance = instance;
+  wasm = instance.exports;
+  wasmModule = module;
+  cachedUint8ArrayMemory0 = null;
+  wasm.__wbindgen_start();
+  return wasm;
+}
+async function __wbg_load(module, imports) {
+  if (typeof Response === 'function' && module instanceof Response) {
+    if (typeof WebAssembly.instantiateStreaming === 'function') {
+      try {
+        return await WebAssembly.instantiateStreaming(module, imports);
+      } catch (e) {
+        const validResponse = module.ok && expectedResponseType(module.type);
+        if (validResponse && module.headers.get('Content-Type') !== 'application/wasm') {
+          console.warn("`WebAssembly.instantiateStreaming` failed because your server does not serve Wasm with `application/wasm` MIME type. Falling back to `WebAssembly.instantiate` which is slower. Original error:\n", e);
+        } else {
+          throw e;
+        }
+      }
+    }
+    const bytes = await module.arrayBuffer();
+    return await WebAssembly.instantiate(bytes, imports);
+  } else {
+    const instance = await WebAssembly.instantiate(module, imports);
+    if (instance instanceof WebAssembly.Instance) {
+      return {
+        instance,
+        module
+      };
+    } else {
+      return instance;
+    }
+  }
+  function expectedResponseType(type) {
+    switch (type) {
+      case 'basic':
+      case 'cors':
+      case 'default':
+        return true;
+    }
+    return false;
+  }
+}
+function initSync(module) {
+  if (wasm !== undefined) return wasm;
+  if (module !== undefined) {
+    if (Object.getPrototypeOf(module) === Object.prototype) {
+      ({
+        module
+      } = module);
+    } else {
+      console.warn('using deprecated parameters for `initSync()`; pass a single object instead');
+    }
+  }
+  const imports = __wbg_get_imports();
+  if (!(module instanceof WebAssembly.Module)) {
+    module = new WebAssembly.Module(module);
+  }
+  const instance = new WebAssembly.Instance(module, imports);
+  return __wbg_finalize_init(instance, module);
+}
+async function __wbg_init(module_or_path) {
+  if (wasm !== undefined) return wasm;
+  if (module_or_path !== undefined) {
+    if (Object.getPrototypeOf(module_or_path) === Object.prototype) {
+      ({
+        module_or_path
+      } = module_or_path);
+    } else {
+      console.warn('using deprecated parameters for the initialization function; pass a single object instead');
+    }
+  }
+  const imports = __wbg_get_imports();
+  if (typeof module_or_path === 'string' || typeof Request === 'function' && module_or_path instanceof Request || typeof URL === 'function' && module_or_path instanceof URL) {
+    module_or_path = fetch(module_or_path);
+  }
+  const {
+    instance,
+    module
+  } = await __wbg_load(await module_or_path, imports);
+  return __wbg_finalize_init(instance, module);
+}
+
 ;// ./src/core/icc_colorspace.js
 
 
@@ -2848,1142 +2848,6 @@ class CmykICCBasedCS extends IccColorSpace {
       }
     }
     return shadow(this, "isUsable", isUsable);
-  }
-}
-
-;// ./src/core/stream.js
-
-
-class Stream extends BaseStream {
-  constructor(arrayBuffer, start, length, dict) {
-    super();
-    this.bytes = arrayBuffer instanceof Uint8Array ? arrayBuffer : new Uint8Array(arrayBuffer);
-    this.start = start || 0;
-    this.pos = this.start;
-    this.end = start + length || this.bytes.length;
-    this.dict = dict;
-  }
-  get length() {
-    return this.end - this.start;
-  }
-  get isEmpty() {
-    return this.length === 0;
-  }
-  getByte() {
-    return this.pos >= this.end ? -1 : this.bytes[this.pos++];
-  }
-  getBytes(length) {
-    const pos = this.pos;
-    const endPos = !length ? this.end : Math.min(pos + length, this.end);
-    this.pos = endPos;
-    return this.bytes.subarray(pos, endPos);
-  }
-  getByteRange(begin, end) {
-    if (begin < 0) {
-      begin = 0;
-    }
-    if (end > this.end) {
-      end = this.end;
-    }
-    return this.bytes.subarray(begin, end);
-  }
-  reset() {
-    this.pos = this.start;
-  }
-  moveStart() {
-    this.start = this.pos;
-  }
-  makeSubStream(start, length, dict = null) {
-    return new Stream(this.bytes.buffer, start, length, dict);
-  }
-  clone() {
-    return new Stream(this.bytes.buffer, this.start, this.length, this.dict?.clone());
-  }
-}
-class StringStream extends Stream {
-  constructor(str, dict = null) {
-    super(stringToBytes(str), NaN, NaN, dict);
-  }
-}
-class NullStream extends Stream {
-  constructor() {
-    super(new Uint8Array(0));
-  }
-}
-
-;// ./src/core/chunked_stream.js
-
-
-
-
-class ChunkedStream extends Stream {
-  progressiveDataLength = 0;
-  _lastSuccessfulEnsureByteChunk = -1;
-  _loadedChunks = new Set();
-  constructor(length, chunkSize, manager) {
-    super(new Uint8Array(length), 0, length, null);
-    this.chunkSize = chunkSize;
-    this.numChunks = Math.ceil(length / chunkSize);
-    this.manager = manager;
-  }
-  getMissingChunks() {
-    const chunks = [];
-    for (let chunk = 0, n = this.numChunks; chunk < n; ++chunk) {
-      if (!this._loadedChunks.has(chunk)) {
-        chunks.push(chunk);
-      }
-    }
-    return chunks;
-  }
-  get numChunksLoaded() {
-    return this._loadedChunks.size;
-  }
-  get isDataLoaded() {
-    return this.numChunksLoaded === this.numChunks;
-  }
-  onReceiveData(begin, chunk) {
-    const chunkSize = this.chunkSize;
-    if (begin % chunkSize !== 0) {
-      throw new Error(`Bad begin offset: ${begin}`);
-    }
-    const end = begin + chunk.byteLength;
-    if (end % chunkSize !== 0 && end !== this.bytes.length) {
-      throw new Error(`Bad end offset: ${end}`);
-    }
-    this.bytes.set(new Uint8Array(chunk), begin);
-    const beginChunk = Math.floor(begin / chunkSize);
-    const endChunk = Math.floor((end - 1) / chunkSize) + 1;
-    for (let curChunk = beginChunk; curChunk < endChunk; ++curChunk) {
-      this._loadedChunks.add(curChunk);
-    }
-  }
-  onReceiveProgressiveData(data) {
-    let position = this.progressiveDataLength;
-    const beginChunk = Math.floor(position / this.chunkSize);
-    this.bytes.set(new Uint8Array(data), position);
-    position += data.byteLength;
-    this.progressiveDataLength = position;
-    const endChunk = position >= this.end ? this.numChunks : Math.floor(position / this.chunkSize);
-    for (let curChunk = beginChunk; curChunk < endChunk; ++curChunk) {
-      this._loadedChunks.add(curChunk);
-    }
-  }
-  ensureByte(pos) {
-    if (pos < this.progressiveDataLength) {
-      return;
-    }
-    const chunk = Math.floor(pos / this.chunkSize);
-    if (chunk > this.numChunks || chunk === this._lastSuccessfulEnsureByteChunk) {
-      return;
-    }
-    if (!this._loadedChunks.has(chunk)) {
-      throw new MissingDataException(pos, pos + 1);
-    }
-    this._lastSuccessfulEnsureByteChunk = chunk;
-  }
-  ensureRange(begin, end) {
-    if (begin >= end || end <= this.progressiveDataLength) {
-      return;
-    }
-    const beginChunk = Math.floor(begin / this.chunkSize);
-    if (beginChunk > this.numChunks) {
-      return;
-    }
-    const endChunk = Math.min(Math.floor((end - 1) / this.chunkSize) + 1, this.numChunks);
-    for (let chunk = beginChunk; chunk < endChunk; ++chunk) {
-      if (!this._loadedChunks.has(chunk)) {
-        throw new MissingDataException(begin, end);
-      }
-    }
-  }
-  nextEmptyChunk(beginChunk) {
-    const numChunks = this.numChunks;
-    for (let i = 0; i < numChunks; ++i) {
-      const chunk = (beginChunk + i) % numChunks;
-      if (!this._loadedChunks.has(chunk)) {
-        return chunk;
-      }
-    }
-    return null;
-  }
-  hasChunk(chunk) {
-    return this._loadedChunks.has(chunk);
-  }
-  getByte() {
-    const pos = this.pos;
-    if (pos >= this.end) {
-      return -1;
-    }
-    if (pos >= this.progressiveDataLength) {
-      this.ensureByte(pos);
-    }
-    return this.bytes[this.pos++];
-  }
-  getBytes(length) {
-    const pos = this.pos;
-    const endPos = !length ? this.end : Math.min(pos + length, this.end);
-    if (endPos > this.progressiveDataLength) {
-      this.ensureRange(pos, endPos);
-    }
-    this.pos = endPos;
-    return this.bytes.subarray(pos, endPos);
-  }
-  getByteRange(begin, end) {
-    if (begin < 0) {
-      begin = 0;
-    }
-    if (end > this.end) {
-      end = this.end;
-    }
-    if (end > this.progressiveDataLength) {
-      this.ensureRange(begin, end);
-    }
-    return this.bytes.subarray(begin, end);
-  }
-  makeSubStream(start, length, dict = null) {
-    if (length) {
-      if (start + length > this.progressiveDataLength) {
-        this.ensureRange(start, start + length);
-      }
-    } else if (start >= this.progressiveDataLength) {
-      this.ensureByte(start);
-    }
-    function ChunkedStreamSubstream() {}
-    ChunkedStreamSubstream.prototype = Object.create(this);
-    ChunkedStreamSubstream.prototype.getMissingChunks = function () {
-      const chunkSize = this.chunkSize;
-      const beginChunk = Math.floor(this.start / chunkSize);
-      const endChunk = Math.floor((this.end - 1) / chunkSize) + 1;
-      const missingChunks = [];
-      for (let chunk = beginChunk; chunk < endChunk; ++chunk) {
-        if (!this._loadedChunks.has(chunk)) {
-          missingChunks.push(chunk);
-        }
-      }
-      return missingChunks;
-    };
-    Object.defineProperty(ChunkedStreamSubstream.prototype, "isDataLoaded", {
-      get() {
-        return this.numChunksLoaded === this.numChunks || this.getMissingChunks().length === 0;
-      },
-      configurable: true
-    });
-    const subStream = new ChunkedStreamSubstream();
-    subStream.pos = subStream.start = start;
-    subStream.end = start + length || this.end;
-    subStream.dict = dict;
-    return subStream;
-  }
-  getBaseStreams() {
-    return [this];
-  }
-}
-class ChunkedStreamManager {
-  #abortReason = null;
-  #requestId = 0;
-  #chunksNeededByRequest = new Map();
-  #loadedStreamCapability = createPromiseCapability();
-  _promisesByRequest = new Map();
-  _requestsByChunk = new Map();
-  constructor(pdfStream, args) {
-    this.length = args.length;
-    this.chunkSize = args.rangeChunkSize;
-    this.stream = new ChunkedStream(this.length, this.chunkSize, this);
-    this.pdfStream = pdfStream;
-    this.disableAutoFetch = args.disableAutoFetch;
-    this.msgHandler = args.msgHandler;
-  }
-  async sendRequest(begin, end) {
-    const rangeReader = this.pdfStream.getRangeReader(begin, end);
-    let chunks = [];
-    while (true) {
-      const {
-        value,
-        done
-      } = await rangeReader.read();
-      if (this.#abortReason) {
-        chunks = null;
-        return;
-      }
-      if (done) {
-        break;
-      }
-      chunks.push(value);
-    }
-    if (chunks.length === 0 && this.disableAutoFetch) {
-      return;
-    }
-    const data = arrayBuffersToBytes(chunks);
-    chunks = null;
-    this.onReceiveData({
-      chunk: data.buffer,
-      begin
-    });
-  }
-  requestAllChunks(noFetch = false) {
-    if (!noFetch && !this.#abortReason) {
-      const missingChunks = this.stream.getMissingChunks();
-      this.#requestChunks(missingChunks);
-    }
-    return this.#loadedStreamCapability.promise;
-  }
-  #requestChunks(chunks) {
-    if (this.#abortReason) {
-      return Promise.reject(this.#abortReason);
-    }
-    const chunksNeeded = new Set();
-    for (const chunk of chunks) {
-      if (!this.stream.hasChunk(chunk)) {
-        chunksNeeded.add(chunk);
-      }
-    }
-    if (chunksNeeded.size === 0) {
-      return Promise.resolve();
-    }
-    const requestId = this.#requestId++;
-    this.#chunksNeededByRequest.set(requestId, chunksNeeded);
-    const capability = createPromiseCapability();
-    this._promisesByRequest.set(requestId, capability);
-    const chunksToRequest = [];
-    for (const chunk of chunksNeeded) {
-      const requestIds = this._requestsByChunk.getOrInsertComputed(chunk, () => {
-        chunksToRequest.push(chunk);
-        return [];
-      });
-      requestIds.push(requestId);
-    }
-    if (chunksToRequest.length > 0) {
-      const groupedChunksToRequest = this.groupChunks(chunksToRequest);
-      for (const groupedChunk of groupedChunksToRequest) {
-        const begin = groupedChunk.beginChunk * this.chunkSize;
-        const end = Math.min(groupedChunk.endChunk * this.chunkSize, this.length);
-        this.sendRequest(begin, end).catch(capability.reject);
-      }
-    }
-    return capability.promise;
-  }
-  getStream() {
-    return this.stream;
-  }
-  requestRange(begin, end) {
-    end = Math.min(end, this.length);
-    const beginChunk = this.getBeginChunk(begin);
-    const endChunk = this.getEndChunk(end);
-    const chunks = [];
-    for (let chunk = beginChunk; chunk < endChunk; ++chunk) {
-      chunks.push(chunk);
-    }
-    return this.#requestChunks(chunks);
-  }
-  requestRanges(ranges = []) {
-    const chunksToRequest = [];
-    for (const range of ranges) {
-      const beginChunk = this.getBeginChunk(range.begin);
-      const endChunk = this.getEndChunk(range.end);
-      for (let chunk = beginChunk; chunk < endChunk; ++chunk) {
-        if (!chunksToRequest.includes(chunk)) {
-          chunksToRequest.push(chunk);
-        }
-      }
-    }
-    chunksToRequest.sort((a, b) => a - b);
-    return this.#requestChunks(chunksToRequest);
-  }
-  groupChunks(chunks) {
-    const groupedChunks = [];
-    let beginChunk = -1;
-    let prevChunk = -1;
-    for (let i = 0, ii = chunks.length; i < ii; ++i) {
-      const chunk = chunks[i];
-      if (beginChunk < 0) {
-        beginChunk = chunk;
-      }
-      if (prevChunk >= 0 && prevChunk + 1 !== chunk) {
-        groupedChunks.push({
-          beginChunk,
-          endChunk: prevChunk + 1
-        });
-        beginChunk = chunk;
-      }
-      if (i + 1 === chunks.length) {
-        groupedChunks.push({
-          beginChunk,
-          endChunk: chunk + 1
-        });
-      }
-      prevChunk = chunk;
-    }
-    return groupedChunks;
-  }
-  onReceiveData(args) {
-    const {
-      chunkSize,
-      length,
-      stream
-    } = this;
-    const chunk = args.chunk;
-    const isProgressive = args.begin === undefined;
-    const begin = isProgressive ? stream.progressiveDataLength : args.begin;
-    const end = begin + chunk.byteLength;
-    const beginChunk = Math.floor(begin / chunkSize);
-    const endChunk = end < length ? Math.floor(end / chunkSize) : Math.ceil(end / chunkSize);
-    if (isProgressive) {
-      stream.onReceiveProgressiveData(chunk);
-    } else {
-      stream.onReceiveData(begin, chunk);
-    }
-    if (stream.isDataLoaded) {
-      this.#loadedStreamCapability.resolve(stream);
-    }
-    const loadedRequests = [];
-    for (let curChunk = beginChunk; curChunk < endChunk; ++curChunk) {
-      const requestIds = this._requestsByChunk.get(curChunk);
-      if (!requestIds) {
-        continue;
-      }
-      this._requestsByChunk.delete(curChunk);
-      for (const requestId of requestIds) {
-        const chunksNeeded = this.#chunksNeededByRequest.get(requestId);
-        chunksNeeded.delete(curChunk);
-        if (chunksNeeded.size > 0) {
-          continue;
-        }
-        loadedRequests.push(requestId);
-      }
-    }
-    if (!this.disableAutoFetch && !this._requestsByChunk.size && !this.#abortReason) {
-      let nextEmptyChunk;
-      if (stream.numChunksLoaded === 1) {
-        const lastChunk = stream.numChunks - 1;
-        if (!stream.hasChunk(lastChunk)) {
-          nextEmptyChunk = lastChunk;
-        }
-      } else {
-        nextEmptyChunk = stream.nextEmptyChunk(endChunk);
-      }
-      if (Number.isInteger(nextEmptyChunk)) {
-        this.#requestChunks([nextEmptyChunk]);
-      }
-    }
-    for (const requestId of loadedRequests) {
-      const capability = this._promisesByRequest.get(requestId);
-      this._promisesByRequest.delete(requestId);
-      capability.resolve();
-    }
-    this.msgHandler.send("DocProgress", {
-      loaded: MathClamp(stream.numChunksLoaded * chunkSize, stream.progressiveDataLength, length),
-      total: length
-    });
-  }
-  getBeginChunk(begin) {
-    return Math.floor(begin / this.chunkSize);
-  }
-  getEndChunk(end) {
-    return Math.floor((end - 1) / this.chunkSize) + 1;
-  }
-  abort(reason) {
-    assert(reason instanceof Error, "abort must have a valid reason");
-    this.#abortReason = reason;
-    this.pdfStream?.cancelAllRequests(reason);
-    for (const capability of this._promisesByRequest.values()) {
-      capability.reject(reason);
-    }
-    this.#loadedStreamCapability.reject(reason);
-  }
-}
-
-;// ./src/shared/image_utils.js
-
-
-function convertToRGBA(params) {
-  switch (params.kind) {
-    case ImageKind.GRAYSCALE_1BPP:
-      return convertBlackAndWhiteToRGBA(params);
-    case ImageKind.RGB_24BPP:
-      return convertRGBToRGBA(params);
-  }
-  return null;
-}
-function convertBlackAndWhiteToRGBA({
-  src,
-  srcPos = 0,
-  dest,
-  width,
-  height,
-  nonBlackColor = 0xffffffff,
-  inverseDecode = false
-}) {
-  const black = FeatureTest.isLittleEndian ? 0xff000000 : 0x000000ff;
-  const [zeroMapping, oneMapping] = inverseDecode ? [nonBlackColor, black] : [black, nonBlackColor];
-  const widthInSource = width >> 3;
-  const widthRemainder = width & 7;
-  const xorMask = zeroMapping ^ oneMapping;
-  const srcLength = src.length;
-  dest = new Uint32Array(dest.buffer);
-  let destPos = 0;
-  for (let i = 0; i < height; ++i) {
-    for (const max = srcPos + widthInSource; srcPos < max; ++srcPos, destPos += 8) {
-      const elem = src[srcPos];
-      dest[destPos] = zeroMapping ^ -(elem >> 7 & 1) & xorMask;
-      dest[destPos + 1] = zeroMapping ^ -(elem >> 6 & 1) & xorMask;
-      dest[destPos + 2] = zeroMapping ^ -(elem >> 5 & 1) & xorMask;
-      dest[destPos + 3] = zeroMapping ^ -(elem >> 4 & 1) & xorMask;
-      dest[destPos + 4] = zeroMapping ^ -(elem >> 3 & 1) & xorMask;
-      dest[destPos + 5] = zeroMapping ^ -(elem >> 2 & 1) & xorMask;
-      dest[destPos + 6] = zeroMapping ^ -(elem >> 1 & 1) & xorMask;
-      dest[destPos + 7] = zeroMapping ^ -(elem & 1) & xorMask;
-    }
-    if (widthRemainder === 0) {
-      continue;
-    }
-    const elem = srcPos < srcLength ? src[srcPos++] : 255;
-    for (let j = 0; j < widthRemainder; ++j, ++destPos) {
-      dest[destPos] = zeroMapping ^ -(elem >> 7 - j & 1) & xorMask;
-    }
-  }
-  return {
-    srcPos,
-    destPos
-  };
-}
-function convertRGBToRGBA({
-  src,
-  srcPos = 0,
-  dest,
-  destPos = 0,
-  width,
-  height
-}) {
-  let i = 0;
-  const len = width * height * 3;
-  const byteOffset = src.byteOffset + srcPos;
-  const len32 = byteOffset % 4 === 0 ? Math.floor(MathClamp(src.length - srcPos, 0, len) / 4) : 0;
-  const src32 = len32 > 0 ? new Uint32Array(src.buffer, byteOffset, len32) : null;
-  const alphaMask = FeatureTest.isLittleEndian ? 0xff000000 : 0xff;
-  if (FeatureTest.isLittleEndian) {
-    for (; i < len32 - 2; i += 3, destPos += 4) {
-      const s1 = src32[i],
-        s2 = src32[i + 1],
-        s3 = src32[i + 2];
-      dest[destPos] = s1 | alphaMask;
-      dest[destPos + 1] = s1 >>> 24 | s2 << 8 | alphaMask;
-      dest[destPos + 2] = s2 >>> 16 | s3 << 16 | alphaMask;
-      dest[destPos + 3] = s3 >>> 8 | alphaMask;
-    }
-    for (let j = srcPos + i * 4, jj = srcPos + len; j < jj; j += 3) {
-      dest[destPos++] = src[j] | src[j + 1] << 8 | src[j + 2] << 16 | alphaMask;
-    }
-  } else {
-    for (; i < len32 - 2; i += 3, destPos += 4) {
-      const s1 = src32[i],
-        s2 = src32[i + 1],
-        s3 = src32[i + 2];
-      dest[destPos] = s1 | alphaMask;
-      dest[destPos + 1] = s1 << 24 | s2 >>> 8 | alphaMask;
-      dest[destPos + 2] = s2 << 16 | s3 >>> 16 | alphaMask;
-      dest[destPos + 3] = s3 << 8 | alphaMask;
-    }
-    for (let j = srcPos + i * 4, jj = srcPos + len; j < jj; j += 3) {
-      dest[destPos++] = src[j] << 24 | src[j + 1] << 16 | src[j + 2] << 8 | alphaMask;
-    }
-  }
-  return {
-    srcPos: srcPos + len,
-    destPos
-  };
-}
-function grayToRGBA(src, dest) {
-  if (FeatureTest.isLittleEndian) {
-    for (let i = 0, ii = src.length; i < ii; i++) {
-      dest[i] = src[i] * 0x10101 | 0xff000000;
-    }
-  } else {
-    for (let i = 0, ii = src.length; i < ii; i++) {
-      dest[i] = src[i] * 0x1010100 | 0x000000ff;
-    }
-  }
-}
-
-;// ./src/core/image_resizer.js
-
-
-
-const MIN_IMAGE_DIM = 2048;
-const MAX_IMAGE_DIM = 32768;
-const MAX_ERROR = 128;
-class ImageResizer {
-  static #goodSquareLength = MIN_IMAGE_DIM;
-  static #isImageDecoderSupported = FeatureTest.isImageDecoderSupported;
-  constructor(imgData, isMask) {
-    this._imgData = imgData;
-    this._isMask = isMask;
-  }
-  static get canUseImageDecoder() {
-    return shadow(this, "canUseImageDecoder", this.#isImageDecoderSupported ? ImageDecoder.isTypeSupported("image/bmp") : Promise.resolve(false));
-  }
-  static needsToBeResized(width, height) {
-    if (width <= this.#goodSquareLength && height <= this.#goodSquareLength) {
-      return false;
-    }
-    const {
-      MAX_DIM
-    } = this;
-    if (width > MAX_DIM || height > MAX_DIM) {
-      return true;
-    }
-    const area = width * height;
-    if (this._hasMaxArea) {
-      return area > this.MAX_AREA;
-    }
-    if (area < this.#goodSquareLength ** 2) {
-      return false;
-    }
-    if (this._areGoodDims(width, height)) {
-      this.#goodSquareLength = Math.max(this.#goodSquareLength, Math.floor(Math.sqrt(width * height)));
-      return false;
-    }
-    this.#goodSquareLength = this._guessMax(this.#goodSquareLength, MAX_DIM, MAX_ERROR, 0);
-    const maxArea = this.MAX_AREA = this.#goodSquareLength ** 2;
-    return area > maxArea;
-  }
-  static getReducePower(width, height, maxArea = Infinity) {
-    if (!Number.isInteger(width) || width <= 0 || !Number.isInteger(height) || height <= 0) {
-      return 0;
-    }
-    const area = width * height;
-    if (!this.needsToBeResized(width, height)) {
-      return area > maxArea ? Math.ceil(Math.log2(area / maxArea)) : 0;
-    }
-    const {
-      MAX_DIM,
-      MAX_AREA
-    } = this;
-    const minFactor = Math.max(width / MAX_DIM, height / MAX_DIM, Math.sqrt(area / Math.min(maxArea, MAX_AREA)));
-    return Math.max(0, Math.ceil(Math.log2(minFactor)));
-  }
-  static getReducePowerForJPX(width, height, componentsCount) {
-    return this.getReducePower(width, height, 2 ** 30 / (componentsCount * 4));
-  }
-  static get MAX_DIM() {
-    return shadow(this, "MAX_DIM", this._guessMax(MIN_IMAGE_DIM, MAX_IMAGE_DIM, 0, 1));
-  }
-  static get MAX_AREA() {
-    this._hasMaxArea = true;
-    return shadow(this, "MAX_AREA", this._guessMax(this.#goodSquareLength, this.MAX_DIM, MAX_ERROR, 0) ** 2);
-  }
-  static set MAX_AREA(area) {
-    if (area >= 0) {
-      this._hasMaxArea = true;
-      shadow(this, "MAX_AREA", area);
-    }
-  }
-  static setOptions({
-    canvasMaxAreaInBytes = -1,
-    isImageDecoderSupported = false
-  }) {
-    if (!this._hasMaxArea) {
-      this.MAX_AREA = canvasMaxAreaInBytes >> 2;
-    }
-    this.#isImageDecoderSupported = isImageDecoderSupported;
-  }
-  static _areGoodDims(width, height) {
-    try {
-      const canvas = new OffscreenCanvas(width, height);
-      const ctx = canvas.getContext("2d");
-      ctx.fillRect(0, 0, 1, 1);
-      const opacity = ctx.getImageData(0, 0, 1, 1).data[3];
-      canvas.width = canvas.height = 1;
-      return opacity !== 0;
-    } catch {
-      return false;
-    }
-  }
-  static _guessMax(start, end, tolerance, defaultHeight) {
-    while (start + tolerance + 1 < end) {
-      const middle = Math.floor((start + end) / 2);
-      const height = defaultHeight || middle;
-      if (this._areGoodDims(middle, height)) {
-        start = middle;
-      } else {
-        end = middle;
-      }
-    }
-    return start;
-  }
-  static async createImage(imgData, isMask = false) {
-    return new ImageResizer(imgData, isMask)._createImage();
-  }
-  async _createImage() {
-    const {
-      _imgData: imgData
-    } = this;
-    const {
-      width,
-      height
-    } = imgData;
-    if (width * height * 4 > MAX_INT_32) {
-      const result = this._rescaleImageData();
-      if (result) {
-        return result;
-      }
-    }
-    const data = this._encodeBMP();
-    let decoder, imagePromise;
-    if (await ImageResizer.canUseImageDecoder) {
-      decoder = new ImageDecoder({
-        data,
-        type: "image/bmp",
-        preferAnimation: false,
-        transfer: [data.buffer]
-      });
-      imagePromise = decoder.decode().catch(reason => {
-        warn(`BMP image decoding failed: ${reason}`);
-        return createImageBitmap(new Blob([this._encodeBMP().buffer], {
-          type: "image/bmp"
-        }));
-      }).finally(() => {
-        decoder.close();
-      });
-    } else {
-      imagePromise = createImageBitmap(new Blob([data.buffer], {
-        type: "image/bmp"
-      }));
-    }
-    const {
-      MAX_AREA,
-      MAX_DIM
-    } = ImageResizer;
-    const minFactor = Math.max(width / MAX_DIM, height / MAX_DIM, Math.sqrt(width * height / MAX_AREA));
-    const firstFactor = Math.max(minFactor, 2);
-    const factor = Math.round(10 * (minFactor + 1.25)) / 10 / firstFactor;
-    const N = Math.floor(Math.log2(factor));
-    const steps = new Array(N + 2).fill(2);
-    steps[0] = firstFactor;
-    steps.splice(-1, 1, factor / (1 << N));
-    let newWidth = width;
-    let newHeight = height;
-    const result = await imagePromise;
-    let bitmap = result.image || result;
-    for (const step of steps) {
-      const prevWidth = newWidth;
-      const prevHeight = newHeight;
-      newWidth = Math.floor(newWidth / step);
-      newHeight = Math.floor(newHeight / step);
-      const canvas = new OffscreenCanvas(newWidth, newHeight);
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(bitmap, 0, 0, prevWidth, prevHeight, 0, 0, newWidth, newHeight);
-      bitmap.close();
-      bitmap = canvas.transferToImageBitmap();
-    }
-    imgData.data = null;
-    imgData.bitmap = bitmap;
-    imgData.width = newWidth;
-    imgData.height = newHeight;
-    return imgData;
-  }
-  _rescaleImageData(maxSize = MAX_INT_32) {
-    const {
-      _imgData: imgData
-    } = this;
-    const {
-      data,
-      width,
-      height,
-      kind
-    } = imgData;
-    const rgbaSize = width * height * 4;
-    const K = Math.ceil(Math.log2(rgbaSize / maxSize));
-    const newWidth = width >> K;
-    const newHeight = height >> K;
-    let rgbaData;
-    let maxHeight = height;
-    try {
-      rgbaData = new Uint8Array(rgbaSize);
-    } catch {
-      let n = Math.floor(Math.log2(rgbaSize + 1));
-      while (true) {
-        try {
-          rgbaData = new Uint8Array(2 ** n - 1);
-          break;
-        } catch {
-          n -= 1;
-        }
-      }
-      maxHeight = Math.floor((2 ** n - 1) / (width * 4));
-      if (maxHeight === 0) {
-        return null;
-      }
-      if (maxHeight >= 4) {
-        maxHeight -= maxHeight % 4;
-      }
-      const newSize = width * maxHeight * 4;
-      if (newSize < rgbaData.length) {
-        rgbaData = new Uint8Array(newSize);
-      }
-    }
-    const src32 = new Uint32Array(rgbaData.buffer);
-    const dest32 = new Uint32Array(newWidth * newHeight);
-    let srcPos = 0;
-    let newIndex = 0;
-    const lastRow = newHeight << K;
-    let row = 0;
-    for (let y = 0; y < height; y += maxHeight) {
-      const h = Math.min(maxHeight, height - y);
-      ({
-        srcPos
-      } = convertToRGBA({
-        kind,
-        src: data,
-        dest: src32,
-        width,
-        height: h,
-        inverseDecode: this._isMask,
-        srcPos
-      }));
-      for (const end = Math.min(y + h, lastRow); row < end; row += 1 << K) {
-        const buf = src32.subarray((row - y) * width);
-        for (let j = 0; j < newWidth; j++) {
-          dest32[newIndex++] = buf[j << K];
-        }
-      }
-    }
-    if (ImageResizer.needsToBeResized(newWidth, newHeight)) {
-      imgData.data = dest32;
-      imgData.width = newWidth;
-      imgData.height = newHeight;
-      imgData.kind = ImageKind.RGBA_32BPP;
-      return null;
-    }
-    const canvas = new OffscreenCanvas(newWidth, newHeight);
-    const ctx = canvas.getContext("2d", {
-      willReadFrequently: true
-    });
-    ctx.putImageData(new ImageData(new Uint8ClampedArray(dest32.buffer), newWidth, newHeight), 0, 0);
-    imgData.data = null;
-    imgData.bitmap = canvas.transferToImageBitmap();
-    imgData.width = newWidth;
-    imgData.height = newHeight;
-    return imgData;
-  }
-  _encodeBMP() {
-    const {
-      width,
-      height,
-      kind
-    } = this._imgData;
-    let data = this._imgData.data;
-    let bitPerPixel;
-    let colorTable = new Uint8Array(0);
-    let maskTable = colorTable;
-    let compression = 0;
-    switch (kind) {
-      case ImageKind.GRAYSCALE_1BPP:
-        {
-          bitPerPixel = 1;
-          colorTable = new Uint8Array(this._isMask ? [255, 255, 255, 255, 0, 0, 0, 0] : [0, 0, 0, 0, 255, 255, 255, 255]);
-          const rowLen = width + 7 >> 3;
-          const rowSize = rowLen + 3 & -4;
-          if (rowLen !== rowSize) {
-            const newData = new Uint8Array(rowSize * height);
-            let k = 0;
-            for (let i = 0, ii = height * rowLen; i < ii; i += rowLen, k += rowSize) {
-              newData.set(data.subarray(i, i + rowLen), k);
-            }
-            data = newData;
-          }
-          break;
-        }
-      case ImageKind.RGB_24BPP:
-        {
-          bitPerPixel = 24;
-          if (width & 3) {
-            const rowLen = 3 * width;
-            const rowSize = rowLen + 3 & -4;
-            const extraLen = rowSize - rowLen;
-            const newData = new Uint8Array(rowSize * height);
-            let k = 0;
-            for (let i = 0, ii = height * rowLen; i < ii; i += rowLen) {
-              const row = data.subarray(i, i + rowLen);
-              for (let j = 0; j < rowLen; j += 3) {
-                newData[k++] = row[j + 2];
-                newData[k++] = row[j + 1];
-                newData[k++] = row[j];
-              }
-              k += extraLen;
-            }
-            data = newData;
-          } else {
-            for (let i = 0, ii = data.length; i < ii; i += 3) {
-              const tmp = data[i];
-              data[i] = data[i + 2];
-              data[i + 2] = tmp;
-            }
-          }
-          break;
-        }
-      case ImageKind.RGBA_32BPP:
-        bitPerPixel = 32;
-        compression = 3;
-        maskTable = new Uint8Array(4 + 4 + 4 + 4 + 52);
-        const view = new DataView(maskTable.buffer);
-        if (FeatureTest.isLittleEndian) {
-          view.setUint32(0, 0x000000ff, true);
-          view.setUint32(4, 0x0000ff00, true);
-          view.setUint32(8, 0x00ff0000, true);
-          view.setUint32(12, 0xff000000, true);
-        } else {
-          view.setUint32(0, 0xff000000, true);
-          view.setUint32(4, 0x00ff0000, true);
-          view.setUint32(8, 0x0000ff00, true);
-          view.setUint32(12, 0x000000ff, true);
-        }
-        break;
-      default:
-        throw new Error("invalid format");
-    }
-    let i = 0;
-    const headerLength = 40 + maskTable.length;
-    const fileLength = 14 + headerLength + colorTable.length + data.length;
-    const bmpData = new Uint8Array(fileLength);
-    const view = new DataView(bmpData.buffer);
-    view.setUint16(i, 0x4d42, true);
-    i += 2;
-    view.setUint32(i, fileLength, true);
-    i += 4;
-    view.setUint32(i, 0, true);
-    i += 4;
-    view.setUint32(i, 14 + headerLength + colorTable.length, true);
-    i += 4;
-    view.setUint32(i, headerLength, true);
-    i += 4;
-    view.setInt32(i, width, true);
-    i += 4;
-    view.setInt32(i, -height, true);
-    i += 4;
-    view.setUint16(i, 1, true);
-    i += 2;
-    view.setUint16(i, bitPerPixel, true);
-    i += 2;
-    view.setUint32(i, compression, true);
-    i += 4;
-    view.setUint32(i, 0, true);
-    i += 4;
-    view.setInt32(i, 0, true);
-    i += 4;
-    view.setInt32(i, 0, true);
-    i += 4;
-    view.setUint32(i, colorTable.length / 4, true);
-    i += 4;
-    view.setUint32(i, 0, true);
-    i += 4;
-    bmpData.set(maskTable, i);
-    i += maskTable.length;
-    bmpData.set(colorTable, i);
-    i += colorTable.length;
-    bmpData.set(data, i);
-    return bmpData;
-  }
-}
-
-;// ./src/core/decode_stream.js
-
-
-
-const emptyBuffer = new Uint8Array(0);
-class DecodeStream extends BaseStream {
-  buffer = emptyBuffer;
-  bufferLength = 0;
-  eof = false;
-  minBufferLength = 512;
-  pos = 0;
-  constructor(maybeMinBufferLength) {
-    super();
-    this._rawMinBufferLength = maybeMinBufferLength || 0;
-    if (maybeMinBufferLength) {
-      while (this.minBufferLength < maybeMinBufferLength) {
-        this.minBufferLength *= 2;
-      }
-    }
-  }
-  readBlock() {
-    unreachable("Abstract method `readBlock` called");
-  }
-  get isEmpty() {
-    while (!this.eof && this.bufferLength === 0) {
-      this.readBlock();
-    }
-    return this.bufferLength === 0;
-  }
-  ensureBuffer(requested) {
-    const buffer = this.buffer;
-    if (requested <= buffer.byteLength) {
-      return buffer;
-    }
-    let size = this.minBufferLength;
-    while (size < requested) {
-      size *= 2;
-    }
-    const buffer2 = new Uint8Array(size);
-    buffer2.set(buffer);
-    return this.buffer = buffer2;
-  }
-  getByte() {
-    const pos = this.pos;
-    while (this.bufferLength <= pos) {
-      if (this.eof) {
-        return -1;
-      }
-      this.readBlock();
-    }
-    return this.buffer[this.pos++];
-  }
-  getBytes(length, decoderOptions = null) {
-    const pos = this.pos;
-    let end;
-    if (length) {
-      this.ensureBuffer(pos + length);
-      end = pos + length;
-      while (!this.eof && this.bufferLength < end) {
-        this.readBlock(decoderOptions);
-      }
-      const bufEnd = this.bufferLength;
-      if (end > bufEnd) {
-        end = bufEnd;
-      }
-    } else {
-      while (!this.eof) {
-        this.readBlock(decoderOptions);
-      }
-      end = this.bufferLength;
-    }
-    this.pos = end;
-    return this.buffer.subarray(pos, end);
-  }
-  async getImageData(length, decoderOptions) {
-    if (!this.canAsyncDecodeImageFromBuffer) {
-      return this.isAsyncDecoder ? this.decodeImage(null, length, decoderOptions) : this.getBytes(length, decoderOptions);
-    }
-    const data = await this.stream.asyncGetBytes();
-    return this.decodeImage(data, length, decoderOptions);
-  }
-  async asyncGetBytesFromDecompressionStream(name) {
-    this.stream.reset();
-    const bytes = this.stream.isAsync && (await this.stream.asyncGetBytes()) || this.stream.getBytes();
-    try {
-      const {
-        readable,
-        writable
-      } = new DecompressionStream(name);
-      const writer = writable.getWriter();
-      writer.write(bytes).catch(noopFn);
-      writer.close().catch(noopFn);
-      const chunks = [];
-      let totalLength = 0;
-      const reader = readable.getReader();
-      while (true) {
-        const {
-          value: chunk,
-          done
-        } = await reader.read();
-        if (done) {
-          break;
-        }
-        chunks.push(chunk);
-        totalLength += chunk.byteLength;
-      }
-      if (chunks.length === 1) {
-        return {
-          decompressed: chunks[0],
-          compressed: bytes
-        };
-      }
-      const data = new Uint8Array(totalLength);
-      let offset = 0;
-      for (const chunk of chunks) {
-        data.set(chunk, offset);
-        offset += chunk.byteLength;
-      }
-      return {
-        decompressed: data,
-        compressed: bytes
-      };
-    } catch {
-      return {
-        decompressed: null,
-        compressed: bytes
-      };
-    }
-  }
-  reset() {
-    this.pos = 0;
-  }
-  makeSubStream(start, length, dict = null) {
-    if (length === undefined) {
-      while (!this.eof) {
-        this.readBlock();
-      }
-    } else {
-      const end = start + length;
-      while (this.bufferLength <= end && !this.eof) {
-        this.readBlock();
-      }
-    }
-    return new Stream(this.buffer, start, length, dict);
-  }
-  clone() {
-    while (!this.eof) {
-      this.readBlock();
-    }
-    return new Stream(this.buffer, 0, this.bufferLength, this.dict?.clone());
-  }
-  getBaseStreams() {
-    return this.stream ? this.stream.getBaseStreams() : null;
-  }
-}
-class StreamsSequenceStream extends DecodeStream {
-  constructor(streams, onError = null) {
-    streams = streams.filter(s => s instanceof BaseStream && !s.isImageStream);
-    let maybeLength = 0;
-    for (const stream of streams) {
-      maybeLength += stream instanceof DecodeStream ? stream._rawMinBufferLength : stream.length;
-    }
-    super(maybeLength);
-    this.streams = streams;
-    this._onError = onError;
-  }
-  readBlock() {
-    const streams = this.streams;
-    if (streams.length === 0) {
-      this.eof = true;
-      return;
-    }
-    const stream = streams.shift();
-    let chunk;
-    try {
-      chunk = stream.getBytes();
-    } catch (reason) {
-      if (this._onError) {
-        this._onError(reason, stream.dict?.objId);
-        return;
-      }
-      throw reason;
-    }
-    const bufferLength = this.bufferLength;
-    const newLength = bufferLength + chunk.length + 1;
-    const buffer = this.ensureBuffer(newLength);
-    buffer.set(chunk, bufferLength);
-    buffer[newLength - 1] = 0x0a;
-    this.bufferLength = newLength;
-  }
-  getBaseStreams() {
-    const baseStreamsBuf = [];
-    for (const stream of this.streams) {
-      const baseStreams = stream.getBaseStreams();
-      if (baseStreams) {
-        baseStreamsBuf.push(...baseStreams);
-      }
-    }
-    return baseStreamsBuf.length > 0 ? baseStreamsBuf : null;
   }
 }
 
@@ -4218,1230 +3082,6 @@ class ColorSpaceUtils {
       }
     }
     return shadow(this, "cmyk", new DeviceCmykCS());
-  }
-}
-
-;// ./src/core/jpg.js
-
-
-
-
-class JpegError extends BaseException {
-  constructor(msg) {
-    super(msg, "JpegError");
-  }
-}
-class DNLMarkerError extends BaseException {
-  constructor(message, scanLines) {
-    super(message, "DNLMarkerError");
-    this.scanLines = scanLines;
-  }
-}
-class EOIMarkerError extends BaseException {
-  constructor(msg) {
-    super(msg, "EOIMarkerError");
-  }
-}
-const dctZigZag = new Uint8Array([0, 1, 8, 16, 9, 2, 3, 10, 17, 24, 32, 25, 18, 11, 4, 5, 12, 19, 26, 33, 40, 48, 41, 34, 27, 20, 13, 6, 7, 14, 21, 28, 35, 42, 49, 56, 57, 50, 43, 36, 29, 22, 15, 23, 30, 37, 44, 51, 58, 59, 52, 45, 38, 31, 39, 46, 53, 60, 61, 54, 47, 55, 62, 63]);
-const dctCos1 = 4017;
-const dctSin1 = 799;
-const dctCos3 = 3406;
-const dctSin3 = 2276;
-const dctCos6 = 1567;
-const dctSin6 = 3784;
-const dctSqrt2 = 5793;
-const dctSqrt1d2 = 2896;
-function buildHuffmanTable(codeLengths, values) {
-  let k = 0,
-    i,
-    j,
-    length = 16;
-  while (length > 0 && !codeLengths[length - 1]) {
-    length--;
-  }
-  const code = [{
-    children: [],
-    index: 0
-  }];
-  let p = code[0],
-    q;
-  for (i = 0; i < length; i++) {
-    for (j = 0; j < codeLengths[i]; j++) {
-      p = code.pop();
-      p.children[p.index] = values[k];
-      while (p.index > 0) {
-        p = code.pop();
-      }
-      p.index++;
-      code.push(p);
-      while (code.length <= i) {
-        code.push(q = {
-          children: [],
-          index: 0
-        });
-        p.children[p.index] = q.children;
-        p = q;
-      }
-      k++;
-    }
-    if (i + 1 < length) {
-      code.push(q = {
-        children: [],
-        index: 0
-      });
-      p.children[p.index] = q.children;
-      p = q;
-    }
-  }
-  return code[0].children;
-}
-function getBlockBufferOffset(component, row, col) {
-  return 64 * ((component.blocksPerLine + 1) * row + col);
-}
-function decodeScan(data, view, offset, frame, components, resetInterval, spectralStart, spectralEnd, successivePrev, successive, parseDNLMarker = false) {
-  const mcusPerLine = frame.mcusPerLine;
-  const progressive = frame.progressive;
-  const startOffset = offset;
-  let bitsData = 0,
-    bitsCount = 0;
-  function readBit() {
-    if (bitsCount > 0) {
-      bitsCount--;
-      return bitsData >> bitsCount & 1;
-    }
-    bitsData = data[offset++];
-    if (bitsData === 0xff) {
-      const nextByte = data[offset++];
-      if (nextByte) {
-        if (nextByte === 0xdc && parseDNLMarker) {
-          offset += 2;
-          const scanLines = view.getUint16(offset);
-          offset += 2;
-          if (scanLines > 0 && scanLines !== frame.scanLines) {
-            throw new DNLMarkerError("Found DNL marker (0xFFDC) while parsing scan data", scanLines);
-          }
-        } else if (nextByte === 0xd9) {
-          if (parseDNLMarker) {
-            const maybeScanLines = blockRow * (frame.precision === 8 ? 8 : 0);
-            if (maybeScanLines > 0 && Math.round(frame.scanLines / maybeScanLines) >= 5) {
-              throw new DNLMarkerError("Found EOI marker (0xFFD9) while parsing scan data, " + "possibly caused by incorrect `scanLines` parameter", maybeScanLines);
-            }
-          }
-          throw new EOIMarkerError("Found EOI marker (0xFFD9) while parsing scan data");
-        }
-        throw new JpegError(`unexpected marker ${(bitsData << 8 | nextByte).toString(16)}`);
-      }
-    }
-    bitsCount = 7;
-    return bitsData >>> 7;
-  }
-  function decodeHuffman(tree) {
-    let node = tree;
-    while (true) {
-      node = node[readBit()];
-      switch (typeof node) {
-        case "number":
-          return node;
-        case "object":
-          continue;
-      }
-      throw new JpegError("invalid huffman sequence");
-    }
-  }
-  function receive(length) {
-    let n = 0;
-    while (length > 0) {
-      n = n << 1 | readBit();
-      length--;
-    }
-    return n;
-  }
-  function receiveAndExtend(length) {
-    if (length === 1) {
-      return readBit() === 1 ? 1 : -1;
-    }
-    const n = receive(length);
-    return n >= 1 << length - 1 ? n : n + (-1 << length) + 1;
-  }
-  function decodeBaseline(component, blockOffset) {
-    const t = decodeHuffman(component.huffmanTableDC);
-    const diff = t === 0 ? 0 : receiveAndExtend(t);
-    component.blockData[blockOffset] = component.pred += diff;
-    let k = 1;
-    while (k < 64) {
-      const rs = decodeHuffman(component.huffmanTableAC);
-      const s = rs & 15,
-        r = rs >> 4;
-      if (s === 0) {
-        if (r < 15) {
-          break;
-        }
-        k += 16;
-        continue;
-      }
-      k += r;
-      const z = dctZigZag[k];
-      component.blockData[blockOffset + z] = receiveAndExtend(s);
-      k++;
-    }
-  }
-  function decodeDCFirst(component, blockOffset) {
-    const t = decodeHuffman(component.huffmanTableDC);
-    const diff = t === 0 ? 0 : receiveAndExtend(t) << successive;
-    component.blockData[blockOffset] = component.pred += diff;
-  }
-  function decodeDCSuccessive(component, blockOffset) {
-    component.blockData[blockOffset] |= readBit() << successive;
-  }
-  let eobrun = 0;
-  function decodeACFirst(component, blockOffset) {
-    if (eobrun > 0) {
-      eobrun--;
-      return;
-    }
-    let k = spectralStart;
-    const e = spectralEnd;
-    while (k <= e) {
-      const rs = decodeHuffman(component.huffmanTableAC);
-      const s = rs & 15,
-        r = rs >> 4;
-      if (s === 0) {
-        if (r < 15) {
-          eobrun = receive(r) + (1 << r) - 1;
-          break;
-        }
-        k += 16;
-        continue;
-      }
-      k += r;
-      const z = dctZigZag[k];
-      component.blockData[blockOffset + z] = receiveAndExtend(s) * (1 << successive);
-      k++;
-    }
-  }
-  let successiveACState = 0,
-    successiveACNextValue;
-  function decodeACSuccessive(component, blockOffset) {
-    let k = spectralStart;
-    const e = spectralEnd;
-    let r = 0;
-    let s;
-    let rs;
-    while (k <= e) {
-      const offsetZ = blockOffset + dctZigZag[k];
-      const sign = component.blockData[offsetZ] < 0 ? -1 : 1;
-      switch (successiveACState) {
-        case 0:
-          rs = decodeHuffman(component.huffmanTableAC);
-          s = rs & 15;
-          r = rs >> 4;
-          if (s === 0) {
-            if (r < 15) {
-              eobrun = receive(r) + (1 << r);
-              successiveACState = 4;
-            } else {
-              r = 16;
-              successiveACState = 1;
-            }
-          } else {
-            if (s !== 1) {
-              throw new JpegError("invalid ACn encoding");
-            }
-            successiveACNextValue = receiveAndExtend(s);
-            successiveACState = r ? 2 : 3;
-          }
-          continue;
-        case 1:
-        case 2:
-          if (component.blockData[offsetZ]) {
-            component.blockData[offsetZ] += sign * (readBit() << successive);
-          } else {
-            r--;
-            if (r === 0) {
-              successiveACState = successiveACState === 2 ? 3 : 0;
-            }
-          }
-          break;
-        case 3:
-          if (component.blockData[offsetZ]) {
-            component.blockData[offsetZ] += sign * (readBit() << successive);
-          } else {
-            component.blockData[offsetZ] = successiveACNextValue << successive;
-            successiveACState = 0;
-          }
-          break;
-        case 4:
-          if (component.blockData[offsetZ]) {
-            component.blockData[offsetZ] += sign * (readBit() << successive);
-          }
-          break;
-      }
-      k++;
-    }
-    if (successiveACState === 4) {
-      eobrun--;
-      if (eobrun === 0) {
-        successiveACState = 0;
-      }
-    }
-  }
-  let blockRow = 0;
-  function decodeMcu(component, decode, mcu, row, col) {
-    const mcuRow = mcu / mcusPerLine | 0;
-    const mcuCol = mcu % mcusPerLine;
-    blockRow = mcuRow * component.v + row;
-    const blockCol = mcuCol * component.h + col;
-    const blockOffset = getBlockBufferOffset(component, blockRow, blockCol);
-    decode(component, blockOffset);
-  }
-  function decodeBlock(component, decode, mcu) {
-    blockRow = mcu / component.blocksPerLine | 0;
-    const blockCol = mcu % component.blocksPerLine;
-    const blockOffset = getBlockBufferOffset(component, blockRow, blockCol);
-    decode(component, blockOffset);
-  }
-  const componentsLength = components.length;
-  let component, i, j, k, n;
-  let decodeFn;
-  if (progressive) {
-    if (spectralStart === 0) {
-      decodeFn = successivePrev === 0 ? decodeDCFirst : decodeDCSuccessive;
-    } else {
-      decodeFn = successivePrev === 0 ? decodeACFirst : decodeACSuccessive;
-    }
-  } else {
-    decodeFn = decodeBaseline;
-  }
-  let mcu = 0,
-    fileMarker;
-  const mcuExpected = componentsLength === 1 ? components[0].blocksPerLine * components[0].blocksPerColumn : mcusPerLine * frame.mcusPerColumn;
-  let h, v;
-  while (mcu <= mcuExpected) {
-    const mcuToRead = resetInterval ? Math.min(mcuExpected - mcu, resetInterval) : mcuExpected;
-    if (mcuToRead > 0) {
-      for (i = 0; i < componentsLength; i++) {
-        components[i].pred = 0;
-      }
-      eobrun = 0;
-      if (componentsLength === 1) {
-        component = components[0];
-        for (n = 0; n < mcuToRead; n++) {
-          decodeBlock(component, decodeFn, mcu);
-          mcu++;
-        }
-      } else {
-        for (n = 0; n < mcuToRead; n++) {
-          for (i = 0; i < componentsLength; i++) {
-            component = components[i];
-            h = component.h;
-            v = component.v;
-            for (j = 0; j < v; j++) {
-              for (k = 0; k < h; k++) {
-                decodeMcu(component, decodeFn, mcu, j, k);
-              }
-            }
-          }
-          mcu++;
-        }
-      }
-    }
-    bitsCount = 0;
-    fileMarker = findNextFileMarker(data, view, offset);
-    if (!fileMarker) {
-      break;
-    }
-    if (fileMarker.invalid) {
-      const partialMsg = mcuToRead > 0 ? "unexpected" : "excessive";
-      warn(`decodeScan - ${partialMsg} MCU data, current marker is: ${fileMarker.invalid}`);
-      offset = fileMarker.offset;
-    }
-    if (fileMarker.marker >= 0xffd0 && fileMarker.marker <= 0xffd7) {
-      offset += 2;
-    } else {
-      break;
-    }
-  }
-  return offset - startOffset;
-}
-function quantizeAndInverse(component, blockBufferOffset, p) {
-  const qt = component.quantizationTable,
-    blockData = component.blockData;
-  let v0, v1, v2, v3, v4, v5, v6, v7;
-  let p0, p1, p2, p3, p4, p5, p6, p7;
-  let t;
-  if (!qt) {
-    throw new JpegError("missing required Quantization Table.");
-  }
-  for (let row = 0; row < 64; row += 8) {
-    p0 = blockData[blockBufferOffset + row];
-    p1 = blockData[blockBufferOffset + row + 1];
-    p2 = blockData[blockBufferOffset + row + 2];
-    p3 = blockData[blockBufferOffset + row + 3];
-    p4 = blockData[blockBufferOffset + row + 4];
-    p5 = blockData[blockBufferOffset + row + 5];
-    p6 = blockData[blockBufferOffset + row + 6];
-    p7 = blockData[blockBufferOffset + row + 7];
-    p0 *= qt[row];
-    if ((p1 | p2 | p3 | p4 | p5 | p6 | p7) === 0) {
-      t = dctSqrt2 * p0 + 512 >> 10;
-      p[row] = t;
-      p[row + 1] = t;
-      p[row + 2] = t;
-      p[row + 3] = t;
-      p[row + 4] = t;
-      p[row + 5] = t;
-      p[row + 6] = t;
-      p[row + 7] = t;
-      continue;
-    }
-    p1 *= qt[row + 1];
-    p2 *= qt[row + 2];
-    p3 *= qt[row + 3];
-    p4 *= qt[row + 4];
-    p5 *= qt[row + 5];
-    p6 *= qt[row + 6];
-    p7 *= qt[row + 7];
-    v0 = dctSqrt2 * p0 + 128 >> 8;
-    v1 = dctSqrt2 * p4 + 128 >> 8;
-    v2 = p2;
-    v3 = p6;
-    v4 = dctSqrt1d2 * (p1 - p7) + 128 >> 8;
-    v7 = dctSqrt1d2 * (p1 + p7) + 128 >> 8;
-    v5 = p3 << 4;
-    v6 = p5 << 4;
-    v0 = v0 + v1 + 1 >> 1;
-    v1 = v0 - v1;
-    t = v2 * dctSin6 + v3 * dctCos6 + 128 >> 8;
-    v2 = v2 * dctCos6 - v3 * dctSin6 + 128 >> 8;
-    v3 = t;
-    v4 = v4 + v6 + 1 >> 1;
-    v6 = v4 - v6;
-    v7 = v7 + v5 + 1 >> 1;
-    v5 = v7 - v5;
-    v0 = v0 + v3 + 1 >> 1;
-    v3 = v0 - v3;
-    v1 = v1 + v2 + 1 >> 1;
-    v2 = v1 - v2;
-    t = v4 * dctSin3 + v7 * dctCos3 + 2048 >> 12;
-    v4 = v4 * dctCos3 - v7 * dctSin3 + 2048 >> 12;
-    v7 = t;
-    t = v5 * dctSin1 + v6 * dctCos1 + 2048 >> 12;
-    v5 = v5 * dctCos1 - v6 * dctSin1 + 2048 >> 12;
-    v6 = t;
-    p[row] = v0 + v7;
-    p[row + 7] = v0 - v7;
-    p[row + 1] = v1 + v6;
-    p[row + 6] = v1 - v6;
-    p[row + 2] = v2 + v5;
-    p[row + 5] = v2 - v5;
-    p[row + 3] = v3 + v4;
-    p[row + 4] = v3 - v4;
-  }
-  for (let col = 0; col < 8; ++col) {
-    p0 = p[col];
-    p1 = p[col + 8];
-    p2 = p[col + 16];
-    p3 = p[col + 24];
-    p4 = p[col + 32];
-    p5 = p[col + 40];
-    p6 = p[col + 48];
-    p7 = p[col + 56];
-    if ((p1 | p2 | p3 | p4 | p5 | p6 | p7) === 0) {
-      t = dctSqrt2 * p0 + 8192 >> 14;
-      if (t < -2040) {
-        t = 0;
-      } else if (t >= 2024) {
-        t = 255;
-      } else {
-        t = t + 2056 >> 4;
-      }
-      blockData[blockBufferOffset + col] = t;
-      blockData[blockBufferOffset + col + 8] = t;
-      blockData[blockBufferOffset + col + 16] = t;
-      blockData[blockBufferOffset + col + 24] = t;
-      blockData[blockBufferOffset + col + 32] = t;
-      blockData[blockBufferOffset + col + 40] = t;
-      blockData[blockBufferOffset + col + 48] = t;
-      blockData[blockBufferOffset + col + 56] = t;
-      continue;
-    }
-    v0 = dctSqrt2 * p0 + 2048 >> 12;
-    v1 = dctSqrt2 * p4 + 2048 >> 12;
-    v2 = p2;
-    v3 = p6;
-    v4 = dctSqrt1d2 * (p1 - p7) + 2048 >> 12;
-    v7 = dctSqrt1d2 * (p1 + p7) + 2048 >> 12;
-    v5 = p3;
-    v6 = p5;
-    v0 = (v0 + v1 + 1 >> 1) + 4112;
-    v1 = v0 - v1;
-    t = v2 * dctSin6 + v3 * dctCos6 + 2048 >> 12;
-    v2 = v2 * dctCos6 - v3 * dctSin6 + 2048 >> 12;
-    v3 = t;
-    v4 = v4 + v6 + 1 >> 1;
-    v6 = v4 - v6;
-    v7 = v7 + v5 + 1 >> 1;
-    v5 = v7 - v5;
-    v0 = v0 + v3 + 1 >> 1;
-    v3 = v0 - v3;
-    v1 = v1 + v2 + 1 >> 1;
-    v2 = v1 - v2;
-    t = v4 * dctSin3 + v7 * dctCos3 + 2048 >> 12;
-    v4 = v4 * dctCos3 - v7 * dctSin3 + 2048 >> 12;
-    v7 = t;
-    t = v5 * dctSin1 + v6 * dctCos1 + 2048 >> 12;
-    v5 = v5 * dctCos1 - v6 * dctSin1 + 2048 >> 12;
-    v6 = t;
-    p0 = v0 + v7;
-    p7 = v0 - v7;
-    p1 = v1 + v6;
-    p6 = v1 - v6;
-    p2 = v2 + v5;
-    p5 = v2 - v5;
-    p3 = v3 + v4;
-    p4 = v3 - v4;
-    if (p0 < 16) {
-      p0 = 0;
-    } else if (p0 >= 4080) {
-      p0 = 255;
-    } else {
-      p0 >>= 4;
-    }
-    if (p1 < 16) {
-      p1 = 0;
-    } else if (p1 >= 4080) {
-      p1 = 255;
-    } else {
-      p1 >>= 4;
-    }
-    if (p2 < 16) {
-      p2 = 0;
-    } else if (p2 >= 4080) {
-      p2 = 255;
-    } else {
-      p2 >>= 4;
-    }
-    if (p3 < 16) {
-      p3 = 0;
-    } else if (p3 >= 4080) {
-      p3 = 255;
-    } else {
-      p3 >>= 4;
-    }
-    if (p4 < 16) {
-      p4 = 0;
-    } else if (p4 >= 4080) {
-      p4 = 255;
-    } else {
-      p4 >>= 4;
-    }
-    if (p5 < 16) {
-      p5 = 0;
-    } else if (p5 >= 4080) {
-      p5 = 255;
-    } else {
-      p5 >>= 4;
-    }
-    if (p6 < 16) {
-      p6 = 0;
-    } else if (p6 >= 4080) {
-      p6 = 255;
-    } else {
-      p6 >>= 4;
-    }
-    if (p7 < 16) {
-      p7 = 0;
-    } else if (p7 >= 4080) {
-      p7 = 255;
-    } else {
-      p7 >>= 4;
-    }
-    blockData[blockBufferOffset + col] = p0;
-    blockData[blockBufferOffset + col + 8] = p1;
-    blockData[blockBufferOffset + col + 16] = p2;
-    blockData[blockBufferOffset + col + 24] = p3;
-    blockData[blockBufferOffset + col + 32] = p4;
-    blockData[blockBufferOffset + col + 40] = p5;
-    blockData[blockBufferOffset + col + 48] = p6;
-    blockData[blockBufferOffset + col + 56] = p7;
-  }
-}
-function buildComponentData(frame, component) {
-  const blocksPerLine = component.blocksPerLine;
-  const blocksPerColumn = component.blocksPerColumn;
-  const computationBuffer = new Int16Array(64);
-  for (let blockRow = 0; blockRow < blocksPerColumn; blockRow++) {
-    for (let blockCol = 0; blockCol < blocksPerLine; blockCol++) {
-      const offset = getBlockBufferOffset(component, blockRow, blockCol);
-      quantizeAndInverse(component, offset, computationBuffer);
-    }
-  }
-  return component.blockData;
-}
-function findNextFileMarker(data, view, currentPos, startPos = currentPos) {
-  const maxPos = data.length - 1;
-  let newPos = startPos < currentPos ? startPos : currentPos;
-  if (currentPos >= maxPos) {
-    return null;
-  }
-  const currentMarker = view.getUint16(currentPos);
-  if (currentMarker >= 0xffc0 && currentMarker <= 0xfffe) {
-    return {
-      invalid: null,
-      marker: currentMarker,
-      offset: currentPos
-    };
-  }
-  let newMarker = view.getUint16(newPos);
-  while (!(newMarker >= 0xffc0 && newMarker <= 0xfffe)) {
-    if (++newPos >= maxPos) {
-      return null;
-    }
-    newMarker = view.getUint16(newPos);
-  }
-  return {
-    invalid: currentMarker.toString(16),
-    marker: newMarker,
-    offset: newPos
-  };
-}
-function prepareComponents(frame) {
-  const mcusPerLine = Math.ceil(frame.samplesPerLine / 8 / frame.maxH);
-  const mcusPerColumn = Math.ceil(frame.scanLines / 8 / frame.maxV);
-  for (const component of frame.components) {
-    const blocksPerLine = Math.ceil(Math.ceil(frame.samplesPerLine / 8) * component.h / frame.maxH);
-    const blocksPerColumn = Math.ceil(Math.ceil(frame.scanLines / 8) * component.v / frame.maxV);
-    const blocksPerLineForMcu = mcusPerLine * component.h;
-    const blocksPerColumnForMcu = mcusPerColumn * component.v;
-    const blocksBufferSize = 64 * blocksPerColumnForMcu * (blocksPerLineForMcu + 1);
-    component.blockData = new Int16Array(blocksBufferSize);
-    component.blocksPerLine = blocksPerLine;
-    component.blocksPerColumn = blocksPerColumn;
-  }
-  frame.mcusPerLine = mcusPerLine;
-  frame.mcusPerColumn = mcusPerColumn;
-}
-function readDataBlock(data, view, offset) {
-  const length = view.getUint16(offset);
-  offset += 2;
-  let endOffset = offset + length - 2;
-  const fileMarker = findNextFileMarker(data, view, endOffset, offset);
-  if (fileMarker?.invalid) {
-    warn("readDataBlock - incorrect length, current marker is: " + fileMarker.invalid);
-    endOffset = fileMarker.offset;
-  }
-  const array = data.subarray(offset, endOffset);
-  return {
-    appData: array,
-    oldOffset: offset,
-    newOffset: offset + array.length
-  };
-}
-function skipData(data, view, offset) {
-  const length = view.getUint16(offset);
-  offset += 2;
-  const endOffset = offset + length - 2;
-  const fileMarker = findNextFileMarker(data, view, endOffset, offset);
-  return fileMarker?.invalid ? fileMarker.offset : endOffset;
-}
-class JpegImage {
-  constructor(options) {
-    this._colorTransform = options?.colorTransform ?? -1;
-  }
-  static canUseImageDecoder(data, colorTransform = -1) {
-    const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
-    const info = {
-      width: 0,
-      height: 0,
-      exifStart: 0,
-      exifEnd: 0
-    };
-    let offset = 0;
-    let numComponents = null;
-    let fileMarker = view.getUint16(offset);
-    offset += 2;
-    if (fileMarker !== 0xffd8) {
-      throw new JpegError("SOI not found");
-    }
-    fileMarker = view.getUint16(offset);
-    offset += 2;
-    markerLoop: while (fileMarker !== 0xffd9) {
-      switch (fileMarker) {
-        case 0xffe1:
-          const {
-            appData,
-            oldOffset,
-            newOffset
-          } = readDataBlock(data, view, offset);
-          offset = newOffset;
-          if (appData[0] === 0x45 && appData[1] === 0x78 && appData[2] === 0x69 && appData[3] === 0x66 && appData[4] === 0 && appData[5] === 0) {
-            if (info.exifStart) {
-              throw new JpegError("Duplicate EXIF-blocks found.");
-            }
-            info.exifStart = oldOffset + 6;
-            info.exifEnd = newOffset;
-          }
-          fileMarker = view.getUint16(offset);
-          offset += 2;
-          continue;
-        case 0xffc0:
-        case 0xffc1:
-        case 0xffc2:
-          info.height = view.getUint16(offset + (2 + 1));
-          info.width = view.getUint16(offset + (2 + 1 + 2));
-          numComponents = data[offset + (2 + 1 + 2 + 2)];
-          break markerLoop;
-        case 0xffff:
-          if (data[offset] !== 0xff) {
-            offset--;
-          }
-          break;
-      }
-      offset = skipData(data, view, offset);
-      fileMarker = view.getUint16(offset);
-      offset += 2;
-    }
-    if (numComponents === 4) {
-      return null;
-    }
-    if (numComponents === 3 && colorTransform === 0) {
-      return null;
-    }
-    return info;
-  }
-  parse(data, {
-    dnlScanLines = null
-  } = {}) {
-    const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
-    const maxOffset = data.length - 1;
-    let offset = 0;
-    let jfif = null;
-    let adobe = null;
-    let frame, resetInterval;
-    let numSOSMarkers = 0;
-    const quantizationTables = [];
-    const huffmanTablesAC = [],
-      huffmanTablesDC = [];
-    let fileMarker = view.getUint16(offset);
-    offset += 2;
-    if (fileMarker !== 0xffd8) {
-      throw new JpegError("SOI not found");
-    }
-    fileMarker = view.getUint16(offset);
-    offset += 2;
-    markerLoop: while (fileMarker !== 0xffd9) {
-      let i, j, l;
-      switch (fileMarker) {
-        case 0xffe0:
-        case 0xffe1:
-        case 0xffe2:
-        case 0xffe3:
-        case 0xffe4:
-        case 0xffe5:
-        case 0xffe6:
-        case 0xffe7:
-        case 0xffe8:
-        case 0xffe9:
-        case 0xffea:
-        case 0xffeb:
-        case 0xffec:
-        case 0xffed:
-        case 0xffee:
-        case 0xffef:
-        case 0xfffe:
-          const {
-            appData,
-            newOffset
-          } = readDataBlock(data, view, offset);
-          offset = newOffset;
-          if (fileMarker === 0xffe0) {
-            if (appData[0] === 0x4a && appData[1] === 0x46 && appData[2] === 0x49 && appData[3] === 0x46 && appData[4] === 0) {
-              jfif = {
-                version: {
-                  major: appData[5],
-                  minor: appData[6]
-                },
-                densityUnits: appData[7],
-                xDensity: appData[8] << 8 | appData[9],
-                yDensity: appData[10] << 8 | appData[11],
-                thumbWidth: appData[12],
-                thumbHeight: appData[13],
-                thumbData: appData.subarray(14, 14 + 3 * appData[12] * appData[13])
-              };
-            }
-          }
-          if (fileMarker === 0xffee) {
-            if (appData[0] === 0x41 && appData[1] === 0x64 && appData[2] === 0x6f && appData[3] === 0x62 && appData[4] === 0x65) {
-              adobe = {
-                version: appData[5] << 8 | appData[6],
-                flags0: appData[7] << 8 | appData[8],
-                flags1: appData[9] << 8 | appData[10],
-                transformCode: appData[11]
-              };
-            }
-          }
-          break;
-        case 0xffdb:
-          const quantizationTablesLength = view.getUint16(offset);
-          offset += 2;
-          const quantizationTablesEnd = quantizationTablesLength + offset - 2;
-          let z;
-          while (offset < quantizationTablesEnd) {
-            const quantizationTableSpec = data[offset++];
-            const tableData = new Uint16Array(64);
-            if (quantizationTableSpec >> 4 === 0) {
-              for (j = 0; j < 64; j++) {
-                z = dctZigZag[j];
-                tableData[z] = data[offset++];
-              }
-            } else if (quantizationTableSpec >> 4 === 1) {
-              for (j = 0; j < 64; j++) {
-                z = dctZigZag[j];
-                tableData[z] = view.getUint16(offset);
-                offset += 2;
-              }
-            } else {
-              throw new JpegError("DQT - invalid table spec");
-            }
-            quantizationTables[quantizationTableSpec & 15] = tableData;
-          }
-          break;
-        case 0xffc0:
-        case 0xffc1:
-        case 0xffc2:
-          if (frame) {
-            throw new JpegError("Only single frame JPEGs supported");
-          }
-          offset += 2;
-          frame = {};
-          frame.extended = fileMarker === 0xffc1;
-          frame.progressive = fileMarker === 0xffc2;
-          frame.precision = data[offset++];
-          const sofScanLines = view.getUint16(offset);
-          offset += 2;
-          frame.scanLines = dnlScanLines || sofScanLines;
-          frame.samplesPerLine = view.getUint16(offset);
-          offset += 2;
-          frame.components = [];
-          frame.componentIds = {};
-          const componentsCount = data[offset++];
-          let maxH = 0,
-            maxV = 0;
-          for (i = 0; i < componentsCount; i++) {
-            const componentId = data[offset];
-            const h = data[offset + 1] >> 4;
-            const v = data[offset + 1] & 15;
-            if (maxH < h) {
-              maxH = h;
-            }
-            if (maxV < v) {
-              maxV = v;
-            }
-            const qId = data[offset + 2];
-            l = frame.components.push({
-              h,
-              v,
-              quantizationId: qId,
-              quantizationTable: null
-            });
-            frame.componentIds[componentId] = l - 1;
-            offset += 3;
-          }
-          frame.maxH = maxH;
-          frame.maxV = maxV;
-          prepareComponents(frame);
-          break;
-        case 0xffc4:
-          const huffmanLength = view.getUint16(offset);
-          offset += 2;
-          for (i = 2; i < huffmanLength;) {
-            const huffmanTableSpec = data[offset++];
-            const codeLengths = new Uint8Array(16);
-            let codeLengthSum = 0;
-            for (j = 0; j < 16; j++, offset++) {
-              codeLengthSum += codeLengths[j] = data[offset];
-            }
-            const huffmanValues = new Uint8Array(codeLengthSum);
-            for (j = 0; j < codeLengthSum; j++, offset++) {
-              huffmanValues[j] = data[offset];
-            }
-            i += 17 + codeLengthSum;
-            (huffmanTableSpec >> 4 === 0 ? huffmanTablesDC : huffmanTablesAC)[huffmanTableSpec & 15] = buildHuffmanTable(codeLengths, huffmanValues);
-          }
-          break;
-        case 0xffdd:
-          offset += 2;
-          resetInterval = view.getUint16(offset);
-          offset += 2;
-          break;
-        case 0xffda:
-          const parseDNLMarker = ++numSOSMarkers === 1 && !dnlScanLines;
-          offset += 2;
-          const selectorsCount = data[offset++],
-            components = [];
-          for (i = 0; i < selectorsCount; i++) {
-            const index = data[offset++];
-            const componentIndex = frame.componentIds[index];
-            const component = frame.components[componentIndex];
-            component.index = index;
-            const tableSpec = data[offset++];
-            component.huffmanTableDC = huffmanTablesDC[tableSpec >> 4];
-            component.huffmanTableAC = huffmanTablesAC[tableSpec & 15];
-            components.push(component);
-          }
-          const spectralStart = data[offset++],
-            spectralEnd = data[offset++],
-            successiveApproximation = data[offset++];
-          try {
-            const processed = decodeScan(data, view, offset, frame, components, resetInterval, spectralStart, spectralEnd, successiveApproximation >> 4, successiveApproximation & 15, parseDNLMarker);
-            offset += processed;
-          } catch (ex) {
-            if (ex instanceof DNLMarkerError) {
-              warn(`${ex.message} -- attempting to re-parse the JPEG image.`);
-              return this.parse(data, {
-                dnlScanLines: ex.scanLines
-              });
-            } else if (ex instanceof EOIMarkerError) {
-              warn(`${ex.message} -- ignoring the rest of the image data.`);
-              break markerLoop;
-            }
-            throw ex;
-          }
-          break;
-        case 0xffdc:
-          offset += 4;
-          break;
-        case 0xffff:
-          if (data[offset] !== 0xff) {
-            offset--;
-          }
-          break;
-        default:
-          const nextFileMarker = findNextFileMarker(data, view, offset - 2, offset - 3);
-          if (nextFileMarker?.invalid) {
-            warn("JpegImage.parse - unexpected data, current marker is: " + nextFileMarker.invalid);
-            offset = nextFileMarker.offset;
-            break;
-          }
-          if (!nextFileMarker || offset >= maxOffset) {
-            warn("JpegImage.parse - reached the end of the image data " + "without finding an EOI marker (0xFFD9).");
-            break markerLoop;
-          }
-          throw new JpegError("JpegImage.parse - unknown marker: " + fileMarker.toString(16));
-      }
-      if (offset < maxOffset) {
-        fileMarker = view.getUint16(offset);
-        offset += 2;
-      } else {
-        fileMarker = 0;
-      }
-    }
-    if (!frame) {
-      throw new JpegError("JpegImage.parse - no frame data found.");
-    }
-    this.width = frame.samplesPerLine;
-    this.height = frame.scanLines;
-    this.jfif = jfif;
-    this.adobe = adobe;
-    this.components = [];
-    for (const component of frame.components) {
-      const quantizationTable = quantizationTables[component.quantizationId];
-      if (quantizationTable) {
-        component.quantizationTable = quantizationTable;
-      }
-      this.components.push({
-        index: component.index,
-        output: buildComponentData(frame, component),
-        scaleX: component.h / frame.maxH,
-        scaleY: component.v / frame.maxV,
-        blocksPerLine: component.blocksPerLine,
-        blocksPerColumn: component.blocksPerColumn
-      });
-    }
-    this.numComponents = this.components.length;
-    return undefined;
-  }
-  #getLinearizedBlockData(width, height) {
-    const scaleX = this.width / width,
-      scaleY = this.height / height;
-    let component, componentScaleX, componentScaleY, blocksPerScanline;
-    let x, y, i, j;
-    let offset = 0;
-    const numComponents = this.components.length;
-    const dataLength = width * height * numComponents;
-    const data = new Uint8ClampedArray(dataLength);
-    const xScaleBlockOffset = new Uint32Array(width);
-    const mask3LSB = 0xfffffff8;
-    let lastComponentScaleX;
-    for (i = 0; i < numComponents; i++) {
-      component = this.components[i];
-      componentScaleX = component.scaleX * scaleX;
-      componentScaleY = component.scaleY * scaleY;
-      offset = i;
-      const output = component.output;
-      blocksPerScanline = component.blocksPerLine + 1 << 3;
-      if (componentScaleX !== lastComponentScaleX) {
-        for (x = 0; x < width; x++) {
-          j = 0 | x * componentScaleX;
-          xScaleBlockOffset[x] = (j & mask3LSB) << 3 | j & 7;
-        }
-        lastComponentScaleX = componentScaleX;
-      }
-      for (y = 0; y < height; y++) {
-        j = 0 | y * componentScaleY;
-        const index = blocksPerScanline * (j & mask3LSB) | (j & 7) << 3;
-        for (x = 0; x < width; x++) {
-          data[offset] = output[index + xScaleBlockOffset[x]];
-          offset += numComponents;
-        }
-      }
-    }
-    return data;
-  }
-  get _isColorConversionNeeded() {
-    if (this.adobe) {
-      return !!this.adobe.transformCode;
-    }
-    if (this.numComponents === 3) {
-      if (this._colorTransform === 0) {
-        return false;
-      } else if (this.components[0].index === 0x52 && this.components[1].index === 0x47 && this.components[2].index === 0x42) {
-        return false;
-      }
-      return true;
-    }
-    if (this._colorTransform === 1) {
-      return true;
-    }
-    return false;
-  }
-  _convertYccToRgb(data) {
-    let Y, Cb, Cr;
-    for (let i = 0, ii = data.length; i < ii; i += 3) {
-      Y = data[i];
-      Cb = data[i + 1];
-      Cr = data[i + 2];
-      data[i] = Y - 179.456 + 1.402 * Cr;
-      data[i + 1] = Y + 135.459 - 0.344 * Cb - 0.714 * Cr;
-      data[i + 2] = Y - 226.816 + 1.772 * Cb;
-    }
-    return data;
-  }
-  _convertYccToRgba(data, out) {
-    for (let i = 0, j = 0, ii = data.length; i < ii; i += 3, j += 4) {
-      const Y = data[i];
-      const Cb = data[i + 1];
-      const Cr = data[i + 2];
-      out[j] = Y - 179.456 + 1.402 * Cr;
-      out[j + 1] = Y + 135.459 - 0.344 * Cb - 0.714 * Cr;
-      out[j + 2] = Y - 226.816 + 1.772 * Cb;
-      out[j + 3] = 255;
-    }
-    return out;
-  }
-  _convertYcckToRgb(data) {
-    this._convertYcckToCmyk(data);
-    return this._convertCmykToRgb(data);
-  }
-  _convertYcckToRgba(data) {
-    this._convertYcckToCmyk(data);
-    return this._convertCmykToRgba(data);
-  }
-  _convertYcckToCmyk(data) {
-    let Y, Cb, Cr;
-    for (let i = 0, ii = data.length; i < ii; i += 4) {
-      Y = data[i];
-      Cb = data[i + 1];
-      Cr = data[i + 2];
-      data[i] = 434.456 - Y - 1.402 * Cr;
-      data[i + 1] = 119.541 - Y + 0.344 * Cb + 0.714 * Cr;
-      data[i + 2] = 481.816 - Y - 1.772 * Cb;
-    }
-    return data;
-  }
-  _convertCmykToRgb(data) {
-    const count = data.length / 4;
-    ColorSpaceUtils.cmyk.getRgbBuffer(data, 0, count, data, 0, 8, 0);
-    return data.subarray(0, count * 3);
-  }
-  _convertCmykToRgba(data) {
-    ColorSpaceUtils.cmyk.getRgbBuffer(data, 0, data.length / 4, data, 0, 8, 1);
-    if (ColorSpaceUtils.cmyk instanceof DeviceCmykCS) {
-      for (let i = 3, ii = data.length; i < ii; i += 4) {
-        data[i] = 255;
-      }
-    }
-    return data;
-  }
-  getData({
-    width,
-    height,
-    forceRGBA = false,
-    forceRGB = false
-  }) {
-    if (this.numComponents > 4) {
-      throw new JpegError("Unsupported color mode");
-    }
-    const data = this.#getLinearizedBlockData(width, height);
-    if (this.numComponents === 1 && (forceRGBA || forceRGB)) {
-      const len = data.length * (forceRGBA ? 4 : 3);
-      const rgbaData = new Uint8ClampedArray(len);
-      if (forceRGBA) {
-        grayToRGBA(data, new Uint32Array(rgbaData.buffer));
-      } else {
-        let offset = 0;
-        for (const grayColor of data) {
-          rgbaData[offset++] = grayColor;
-          rgbaData[offset++] = grayColor;
-          rgbaData[offset++] = grayColor;
-        }
-      }
-      return rgbaData;
-    } else if (this.numComponents === 3 && this._isColorConversionNeeded) {
-      if (forceRGBA) {
-        const rgbaData = new Uint8ClampedArray(data.length / 3 * 4);
-        return this._convertYccToRgba(data, rgbaData);
-      }
-      return this._convertYccToRgb(data);
-    } else if (this.numComponents === 4) {
-      if (this._isColorConversionNeeded) {
-        if (forceRGBA) {
-          return this._convertYcckToRgba(data);
-        }
-        return forceRGB ? this._convertYcckToRgb(data) : this._convertYcckToCmyk(data);
-      } else if (forceRGBA) {
-        return this._convertCmykToRgba(data);
-      } else if (forceRGB) {
-        return this._convertCmykToRgb(data);
-      }
-    }
-    return data;
-  }
-}
-
-;// ./src/core/jpeg_stream.js
-
-
-
-
-
-class JpegStream extends DecodeStream {
-  static #isImageDecoderSupported = FeatureTest.isImageDecoderSupported;
-  constructor(stream, maybeLength, params) {
-    super(maybeLength);
-    this.stream = stream;
-    this.dict = stream.dict;
-    this.maybeLength = maybeLength;
-    this.params = params;
-  }
-  static get canUseImageDecoder() {
-    return shadow(this, "canUseImageDecoder", this.#isImageDecoderSupported ? ImageDecoder.isTypeSupported("image/jpeg") : Promise.resolve(false));
-  }
-  static setOptions({
-    isImageDecoderSupported = false
-  }) {
-    this.#isImageDecoderSupported = isImageDecoderSupported;
-  }
-  get bytes() {
-    return shadow(this, "bytes", this.stream.getBytes(this.maybeLength));
-  }
-  ensureBuffer(requested) {}
-  readBlock() {
-    this.decodeImage();
-  }
-  get jpegOptions() {
-    const jpegOptions = {
-      colorTransform: undefined
-    };
-    if (this.params instanceof Dict) {
-      const colorTransform = this.params.get("ColorTransform");
-      if (Number.isInteger(colorTransform)) {
-        jpegOptions.colorTransform = colorTransform;
-      }
-    }
-    return shadow(this, "jpegOptions", jpegOptions);
-  }
-  #skipUselessBytes(data) {
-    for (let i = 0, ii = data.length - 1; i < ii; i++) {
-      if (data[i] === 0xff && data[i + 1] === 0xd8) {
-        if (i > 0) {
-          data = data.subarray(i);
-        }
-        break;
-      }
-    }
-    return data;
-  }
-  decodeImage(bytes) {
-    if (this.eof) {
-      return this.buffer;
-    }
-    bytes = this.#skipUselessBytes(bytes || this.bytes);
-    const jpegImage = new JpegImage(this.jpegOptions);
-    jpegImage.parse(bytes);
-    const data = jpegImage.getData({
-      width: this.drawWidth,
-      height: this.drawHeight,
-      forceRGBA: this.forceRGBA,
-      forceRGB: this.forceRGB
-    });
-    this.buffer = data;
-    this.bufferLength = data.length;
-    this.eof = true;
-    return this.buffer;
-  }
-  get canAsyncDecodeImageFromBuffer() {
-    return this.stream.isAsync;
-  }
-  async getTransferableImage(width, height) {
-    if (!(await JpegStream.canUseImageDecoder)) {
-      return null;
-    }
-    const jpegOptions = this.jpegOptions;
-    let decoder;
-    try {
-      const bytes = this.canAsyncDecodeImageFromBuffer && (await this.stream.asyncGetBytes()) || this.bytes;
-      if (!bytes) {
-        return null;
-      }
-      let data = this.#skipUselessBytes(bytes);
-      const useImageDecoder = JpegImage.canUseImageDecoder(data, jpegOptions.colorTransform);
-      if (!useImageDecoder) {
-        return null;
-      }
-      const {
-        width: frameWidth,
-        height: frameHeight
-      } = useImageDecoder;
-      const reducePower = ImageResizer.getReducePower(frameWidth, frameHeight);
-      if ((frameWidth !== width || frameHeight !== height) && (reducePower || !frameHeight)) {
-        return null;
-      }
-      if (useImageDecoder.exifStart) {
-        data = data.slice();
-        data.fill(0x00, useImageDecoder.exifStart, useImageDecoder.exifEnd);
-      }
-      const init = {
-        data,
-        type: "image/jpeg",
-        preferAnimation: false
-      };
-      if (reducePower) {
-        const factor = 2 ** reducePower;
-        init.desiredWidth = Math.ceil(frameWidth / factor);
-        init.desiredHeight = Math.ceil(frameHeight / factor);
-      }
-      decoder = new ImageDecoder(init);
-      return (await decoder.decode()).image;
-    } catch (reason) {
-      warn(`getTransferableImage - failed: "${reason}".`);
-      return null;
-    } finally {
-      decoder?.close();
-    }
-  }
-  get isImageStream() {
-    return true;
   }
 }
 
@@ -6061,6 +3701,66 @@ class CheckedOperatorList extends OperatorList {
   }
 }
 
+;// ./src/core/stream.js
+
+
+class Stream extends BaseStream {
+  constructor(arrayBuffer, start, length, dict) {
+    super();
+    this.bytes = arrayBuffer instanceof Uint8Array ? arrayBuffer : new Uint8Array(arrayBuffer);
+    this.start = start || 0;
+    this.pos = this.start;
+    this.end = start + length || this.bytes.length;
+    this.dict = dict;
+  }
+  get length() {
+    return this.end - this.start;
+  }
+  get isEmpty() {
+    return this.length === 0;
+  }
+  getByte() {
+    return this.pos >= this.end ? -1 : this.bytes[this.pos++];
+  }
+  getBytes(length) {
+    const pos = this.pos;
+    const endPos = !length ? this.end : Math.min(pos + length, this.end);
+    this.pos = endPos;
+    return this.bytes.subarray(pos, endPos);
+  }
+  getByteRange(begin, end) {
+    if (begin < 0) {
+      begin = 0;
+    }
+    if (end > this.end) {
+      end = this.end;
+    }
+    return this.bytes.subarray(begin, end);
+  }
+  reset() {
+    this.pos = this.start;
+  }
+  moveStart() {
+    this.start = this.pos;
+  }
+  makeSubStream(start, length, dict = null) {
+    return new Stream(this.bytes.buffer, start, length, dict);
+  }
+  clone() {
+    return new Stream(this.bytes.buffer, this.start, this.length, this.dict?.clone());
+  }
+}
+class StringStream extends Stream {
+  constructor(str, dict = null) {
+    super(stringToBytes(str), NaN, NaN, dict);
+  }
+}
+class NullStream extends Stream {
+  constructor() {
+    super(new Uint8Array(0));
+  }
+}
+
 ;// ./src/core/binary_cmap.js
 
 
@@ -6075,7 +3775,7 @@ function hexToStr(a, size) {
   if (size === 1) {
     return String.fromCharCode(a[0], a[1]);
   }
-  return size === 3 ? String.fromCharCode(a[0], a[1], a[2], a[3]) : String.fromCharCode(...a.subarray(0, size + 1));
+  return size === 3 ? String.fromCharCode(a[0], a[1], a[2], a[3]) : bytesToString(a.subarray(0, size + 1));
 }
 function addHex(a, b, size) {
   let c = 0;
@@ -6155,13 +3855,18 @@ class BinaryCMapStream extends Stream {
       num[i] = c >> 1 ^ sign;
     }
   }
-  readString() {
-    const len = this.readNumber(),
-      buf = new Array(len);
-    for (let i = 0; i < len; i++) {
-      buf[i] = this.readNumber();
+  readString(skip = false) {
+    const ii = this.readNumber();
+    if (skip) {
+      for (let i = 0; i < ii; i++) {
+        this.readNumber();
+      }
+      return null;
     }
-    return String.fromCharCode(...buf);
+    const buf = Array.from({
+      length: ii
+    }, () => this.readNumber());
+    return bytesToString(buf);
   }
 }
 class BinaryCMapReader {
@@ -6182,7 +3887,7 @@ class BinaryCMapReader {
       if (type === 7) {
         switch (b & 0x1f) {
           case 0:
-            stream.readString();
+            stream.readString(true);
             break;
           case 1:
             useCMap = stream.readString();
@@ -6373,6 +4078,208 @@ class CharCodeMap {
     map.#dense = this.#dense.slice();
     map.#sparse = this.#sparse && new Map(this.#sparse);
     return map;
+  }
+}
+
+;// ./src/core/decode_stream.js
+
+
+
+const emptyBuffer = new Uint8Array(0);
+class DecodeStream extends BaseStream {
+  buffer = emptyBuffer;
+  bufferLength = 0;
+  eof = false;
+  minBufferLength = 512;
+  pos = 0;
+  constructor(maybeMinBufferLength) {
+    super();
+    this._rawMinBufferLength = maybeMinBufferLength || 0;
+    if (maybeMinBufferLength) {
+      while (this.minBufferLength < maybeMinBufferLength) {
+        this.minBufferLength *= 2;
+      }
+    }
+  }
+  readBlock() {
+    unreachable("Abstract method `readBlock` called");
+  }
+  get isEmpty() {
+    while (!this.eof && this.bufferLength === 0) {
+      this.readBlock();
+    }
+    return this.bufferLength === 0;
+  }
+  ensureBuffer(requested) {
+    const buffer = this.buffer;
+    if (requested <= buffer.byteLength) {
+      return buffer;
+    }
+    let size = this.minBufferLength;
+    while (size < requested) {
+      size *= 2;
+    }
+    const buffer2 = new Uint8Array(size);
+    buffer2.set(buffer);
+    return this.buffer = buffer2;
+  }
+  getByte() {
+    const pos = this.pos;
+    while (this.bufferLength <= pos) {
+      if (this.eof) {
+        return -1;
+      }
+      this.readBlock();
+    }
+    return this.buffer[this.pos++];
+  }
+  getBytes(length, decoderOptions = null) {
+    const pos = this.pos;
+    let end;
+    if (length) {
+      this.ensureBuffer(pos + length);
+      end = pos + length;
+      while (!this.eof && this.bufferLength < end) {
+        this.readBlock(decoderOptions);
+      }
+      const bufEnd = this.bufferLength;
+      if (end > bufEnd) {
+        end = bufEnd;
+      }
+    } else {
+      while (!this.eof) {
+        this.readBlock(decoderOptions);
+      }
+      end = this.bufferLength;
+    }
+    this.pos = end;
+    return this.buffer.subarray(pos, end);
+  }
+  async getImageData(length, decoderOptions) {
+    if (!this.canAsyncDecodeImageFromBuffer) {
+      return this.isAsyncDecoder ? this.decodeImage(null, length, decoderOptions) : this.getBytes(length, decoderOptions);
+    }
+    const data = await this.stream.asyncGetBytes();
+    return this.decodeImage(data, length, decoderOptions);
+  }
+  async asyncGetBytesFromDecompressionStream(name) {
+    this.stream.reset();
+    const bytes = this.stream.isAsync && (await this.stream.asyncGetBytes()) || this.stream.getBytes();
+    try {
+      const {
+        readable,
+        writable
+      } = new DecompressionStream(name);
+      const writer = writable.getWriter();
+      writer.write(bytes).catch(noopFn);
+      writer.close().catch(noopFn);
+      const chunks = [];
+      let totalLength = 0;
+      const reader = readable.getReader();
+      while (true) {
+        const {
+          value: chunk,
+          done
+        } = await reader.read();
+        if (done) {
+          break;
+        }
+        chunks.push(chunk);
+        totalLength += chunk.byteLength;
+      }
+      if (chunks.length === 1) {
+        return {
+          decompressed: chunks[0],
+          compressed: bytes
+        };
+      }
+      const data = new Uint8Array(totalLength);
+      let offset = 0;
+      for (const chunk of chunks) {
+        data.set(chunk, offset);
+        offset += chunk.byteLength;
+      }
+      return {
+        decompressed: data,
+        compressed: bytes
+      };
+    } catch {
+      return {
+        decompressed: null,
+        compressed: bytes
+      };
+    }
+  }
+  reset() {
+    this.pos = 0;
+  }
+  makeSubStream(start, length, dict = null) {
+    if (length === undefined) {
+      while (!this.eof) {
+        this.readBlock();
+      }
+    } else {
+      const end = start + length;
+      while (this.bufferLength <= end && !this.eof) {
+        this.readBlock();
+      }
+    }
+    return new Stream(this.buffer, start, length, dict);
+  }
+  clone() {
+    while (!this.eof) {
+      this.readBlock();
+    }
+    return new Stream(this.buffer, 0, this.bufferLength, this.dict?.clone());
+  }
+  getBaseStreams() {
+    return this.stream ? this.stream.getBaseStreams() : null;
+  }
+}
+class StreamsSequenceStream extends DecodeStream {
+  constructor(streams, onError = null) {
+    streams = streams.filter(s => s instanceof BaseStream && !s.isImageStream);
+    let maybeLength = 0;
+    for (const stream of streams) {
+      maybeLength += stream instanceof DecodeStream ? stream._rawMinBufferLength : stream.length;
+    }
+    super(maybeLength);
+    this.streams = streams;
+    this._onError = onError;
+  }
+  readBlock() {
+    const streams = this.streams;
+    if (streams.length === 0) {
+      this.eof = true;
+      return;
+    }
+    const stream = streams.shift();
+    let chunk;
+    try {
+      chunk = stream.getBytes();
+    } catch (reason) {
+      if (this._onError) {
+        this._onError(reason, stream.dict?.objId);
+        return;
+      }
+      throw reason;
+    }
+    const bufferLength = this.bufferLength;
+    const newLength = bufferLength + chunk.length + 1;
+    const buffer = this.ensureBuffer(newLength);
+    buffer.set(chunk, bufferLength);
+    buffer[newLength - 1] = 0x0a;
+    this.bufferLength = newLength;
+  }
+  getBaseStreams() {
+    const baseStreamsBuf = [];
+    for (const stream of this.streams) {
+      const baseStreams = stream.getBaseStreams();
+      if (baseStreams) {
+        baseStreamsBuf.push(...baseStreams);
+      }
+    }
+    return baseStreamsBuf.length > 0 ? baseStreamsBuf : null;
   }
 }
 
@@ -9368,6 +7275,1723 @@ class Jbig2Stream extends DecodeStream {
   }
 }
 
+;// ./src/shared/image_utils.js
+
+
+function convertToRGBA(params) {
+  switch (params.kind) {
+    case ImageKind.GRAYSCALE_1BPP:
+      return convertBlackAndWhiteToRGBA(params);
+    case ImageKind.RGB_24BPP:
+      return convertRGBToRGBA(params);
+  }
+  return null;
+}
+function convertBlackAndWhiteToRGBA({
+  src,
+  srcPos = 0,
+  dest,
+  width,
+  height,
+  nonBlackColor = 0xffffffff,
+  inverseDecode = false
+}) {
+  const black = FeatureTest.isLittleEndian ? 0xff000000 : 0x000000ff;
+  const [zeroMapping, oneMapping] = inverseDecode ? [nonBlackColor, black] : [black, nonBlackColor];
+  const widthInSource = width >> 3;
+  const widthRemainder = width & 7;
+  const xorMask = zeroMapping ^ oneMapping;
+  const srcLength = src.length;
+  dest = new Uint32Array(dest.buffer);
+  let destPos = 0;
+  for (let i = 0; i < height; ++i) {
+    for (const max = srcPos + widthInSource; srcPos < max; ++srcPos, destPos += 8) {
+      const elem = src[srcPos];
+      dest[destPos] = zeroMapping ^ -(elem >> 7 & 1) & xorMask;
+      dest[destPos + 1] = zeroMapping ^ -(elem >> 6 & 1) & xorMask;
+      dest[destPos + 2] = zeroMapping ^ -(elem >> 5 & 1) & xorMask;
+      dest[destPos + 3] = zeroMapping ^ -(elem >> 4 & 1) & xorMask;
+      dest[destPos + 4] = zeroMapping ^ -(elem >> 3 & 1) & xorMask;
+      dest[destPos + 5] = zeroMapping ^ -(elem >> 2 & 1) & xorMask;
+      dest[destPos + 6] = zeroMapping ^ -(elem >> 1 & 1) & xorMask;
+      dest[destPos + 7] = zeroMapping ^ -(elem & 1) & xorMask;
+    }
+    if (widthRemainder === 0) {
+      continue;
+    }
+    const elem = srcPos < srcLength ? src[srcPos++] : 255;
+    for (let j = 0; j < widthRemainder; ++j, ++destPos) {
+      dest[destPos] = zeroMapping ^ -(elem >> 7 - j & 1) & xorMask;
+    }
+  }
+  return {
+    srcPos,
+    destPos
+  };
+}
+function convertRGBToRGBA({
+  src,
+  srcPos = 0,
+  dest,
+  destPos = 0,
+  width,
+  height
+}) {
+  let i = 0;
+  const len = width * height * 3;
+  const byteOffset = src.byteOffset + srcPos;
+  const len32 = byteOffset % 4 === 0 ? Math.floor(MathClamp(src.length - srcPos, 0, len) / 4) : 0;
+  const src32 = len32 > 0 ? new Uint32Array(src.buffer, byteOffset, len32) : null;
+  const alphaMask = FeatureTest.isLittleEndian ? 0xff000000 : 0xff;
+  if (FeatureTest.isLittleEndian) {
+    for (; i < len32 - 2; i += 3, destPos += 4) {
+      const s1 = src32[i],
+        s2 = src32[i + 1],
+        s3 = src32[i + 2];
+      dest[destPos] = s1 | alphaMask;
+      dest[destPos + 1] = s1 >>> 24 | s2 << 8 | alphaMask;
+      dest[destPos + 2] = s2 >>> 16 | s3 << 16 | alphaMask;
+      dest[destPos + 3] = s3 >>> 8 | alphaMask;
+    }
+    for (let j = srcPos + i * 4, jj = srcPos + len; j < jj; j += 3) {
+      dest[destPos++] = src[j] | src[j + 1] << 8 | src[j + 2] << 16 | alphaMask;
+    }
+  } else {
+    for (; i < len32 - 2; i += 3, destPos += 4) {
+      const s1 = src32[i],
+        s2 = src32[i + 1],
+        s3 = src32[i + 2];
+      dest[destPos] = s1 | alphaMask;
+      dest[destPos + 1] = s1 << 24 | s2 >>> 8 | alphaMask;
+      dest[destPos + 2] = s2 << 16 | s3 >>> 16 | alphaMask;
+      dest[destPos + 3] = s3 << 8 | alphaMask;
+    }
+    for (let j = srcPos + i * 4, jj = srcPos + len; j < jj; j += 3) {
+      dest[destPos++] = src[j] << 24 | src[j + 1] << 16 | src[j + 2] << 8 | alphaMask;
+    }
+  }
+  return {
+    srcPos: srcPos + len,
+    destPos
+  };
+}
+function grayToRGBA(src, dest) {
+  if (FeatureTest.isLittleEndian) {
+    for (let i = 0, ii = src.length; i < ii; i++) {
+      dest[i] = src[i] * 0x10101 | 0xff000000;
+    }
+  } else {
+    for (let i = 0, ii = src.length; i < ii; i++) {
+      dest[i] = src[i] * 0x1010100 | 0x000000ff;
+    }
+  }
+}
+
+;// ./src/core/image_resizer.js
+
+
+
+const MIN_IMAGE_DIM = 2048;
+const MAX_IMAGE_DIM = 32768;
+const MAX_ERROR = 128;
+class ImageResizer {
+  static #goodSquareLength = MIN_IMAGE_DIM;
+  static #isImageDecoderSupported = FeatureTest.isImageDecoderSupported;
+  constructor(imgData, isMask) {
+    this._imgData = imgData;
+    this._isMask = isMask;
+  }
+  static get canUseImageDecoder() {
+    return shadow(this, "canUseImageDecoder", this.#isImageDecoderSupported ? ImageDecoder.isTypeSupported("image/bmp") : Promise.resolve(false));
+  }
+  static needsToBeResized(width, height) {
+    if (width <= this.#goodSquareLength && height <= this.#goodSquareLength) {
+      return false;
+    }
+    const {
+      MAX_DIM
+    } = this;
+    if (width > MAX_DIM || height > MAX_DIM) {
+      return true;
+    }
+    const area = width * height;
+    if (this._hasMaxArea) {
+      return area > this.MAX_AREA;
+    }
+    if (area < this.#goodSquareLength ** 2) {
+      return false;
+    }
+    if (this._areGoodDims(width, height)) {
+      this.#goodSquareLength = Math.max(this.#goodSquareLength, Math.floor(Math.sqrt(width * height)));
+      return false;
+    }
+    this.#goodSquareLength = this._guessMax(this.#goodSquareLength, MAX_DIM, MAX_ERROR, 0);
+    const maxArea = this.MAX_AREA = this.#goodSquareLength ** 2;
+    return area > maxArea;
+  }
+  static getReducePower(width, height, maxArea = Infinity) {
+    if (!Number.isInteger(width) || width <= 0 || !Number.isInteger(height) || height <= 0) {
+      return 0;
+    }
+    const area = width * height;
+    if (!this.needsToBeResized(width, height)) {
+      return area > maxArea ? Math.ceil(Math.log2(area / maxArea)) : 0;
+    }
+    const {
+      MAX_DIM,
+      MAX_AREA
+    } = this;
+    const minFactor = Math.max(width / MAX_DIM, height / MAX_DIM, Math.sqrt(area / Math.min(maxArea, MAX_AREA)));
+    return Math.max(0, Math.ceil(Math.log2(minFactor)));
+  }
+  static getReducePowerForJPX(width, height, componentsCount) {
+    return this.getReducePower(width, height, 2 ** 30 / (componentsCount * 4));
+  }
+  static get MAX_DIM() {
+    return shadow(this, "MAX_DIM", this._guessMax(MIN_IMAGE_DIM, MAX_IMAGE_DIM, 0, 1));
+  }
+  static get MAX_AREA() {
+    this._hasMaxArea = true;
+    return shadow(this, "MAX_AREA", this._guessMax(this.#goodSquareLength, this.MAX_DIM, MAX_ERROR, 0) ** 2);
+  }
+  static set MAX_AREA(area) {
+    if (area >= 0) {
+      this._hasMaxArea = true;
+      shadow(this, "MAX_AREA", area);
+    }
+  }
+  static setOptions({
+    canvasMaxAreaInBytes = -1,
+    isImageDecoderSupported = false
+  }) {
+    if (!this._hasMaxArea) {
+      this.MAX_AREA = canvasMaxAreaInBytes >> 2;
+    }
+    this.#isImageDecoderSupported = isImageDecoderSupported;
+  }
+  static _areGoodDims(width, height) {
+    try {
+      const canvas = new OffscreenCanvas(width, height);
+      const ctx = canvas.getContext("2d");
+      ctx.fillRect(0, 0, 1, 1);
+      const opacity = ctx.getImageData(0, 0, 1, 1).data[3];
+      canvas.width = canvas.height = 1;
+      return opacity !== 0;
+    } catch {
+      return false;
+    }
+  }
+  static _guessMax(start, end, tolerance, defaultHeight) {
+    while (start + tolerance + 1 < end) {
+      const middle = Math.floor((start + end) / 2);
+      const height = defaultHeight || middle;
+      if (this._areGoodDims(middle, height)) {
+        start = middle;
+      } else {
+        end = middle;
+      }
+    }
+    return start;
+  }
+  static async createImage(imgData, isMask = false) {
+    return new ImageResizer(imgData, isMask)._createImage();
+  }
+  async _createImage() {
+    const {
+      _imgData: imgData
+    } = this;
+    const {
+      width,
+      height
+    } = imgData;
+    if (width * height * 4 > MAX_INT_32) {
+      const result = this._rescaleImageData();
+      if (result) {
+        return result;
+      }
+    }
+    const data = this._encodeBMP();
+    let decoder, imagePromise;
+    if (await ImageResizer.canUseImageDecoder) {
+      decoder = new ImageDecoder({
+        data,
+        type: "image/bmp",
+        preferAnimation: false,
+        transfer: [data.buffer]
+      });
+      imagePromise = decoder.decode().catch(reason => {
+        warn(`BMP image decoding failed: ${reason}`);
+        return createImageBitmap(new Blob([this._encodeBMP().buffer], {
+          type: "image/bmp"
+        }));
+      }).finally(() => {
+        decoder.close();
+      });
+    } else {
+      imagePromise = createImageBitmap(new Blob([data.buffer], {
+        type: "image/bmp"
+      }));
+    }
+    const {
+      MAX_AREA,
+      MAX_DIM
+    } = ImageResizer;
+    const minFactor = Math.max(width / MAX_DIM, height / MAX_DIM, Math.sqrt(width * height / MAX_AREA));
+    const firstFactor = Math.max(minFactor, 2);
+    const factor = Math.round(10 * (minFactor + 1.25)) / 10 / firstFactor;
+    const N = Math.floor(Math.log2(factor));
+    const steps = new Array(N + 2).fill(2);
+    steps[0] = firstFactor;
+    steps.splice(-1, 1, factor / (1 << N));
+    let newWidth = width;
+    let newHeight = height;
+    const result = await imagePromise;
+    let bitmap = result.image || result;
+    for (const step of steps) {
+      const prevWidth = newWidth;
+      const prevHeight = newHeight;
+      newWidth = Math.floor(newWidth / step);
+      newHeight = Math.floor(newHeight / step);
+      const canvas = new OffscreenCanvas(newWidth, newHeight);
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(bitmap, 0, 0, prevWidth, prevHeight, 0, 0, newWidth, newHeight);
+      bitmap.close();
+      bitmap = canvas.transferToImageBitmap();
+    }
+    imgData.data = null;
+    imgData.bitmap = bitmap;
+    imgData.width = newWidth;
+    imgData.height = newHeight;
+    return imgData;
+  }
+  _rescaleImageData(maxSize = MAX_INT_32) {
+    const {
+      _imgData: imgData
+    } = this;
+    const {
+      data,
+      width,
+      height,
+      kind
+    } = imgData;
+    const rgbaSize = width * height * 4;
+    const K = Math.ceil(Math.log2(rgbaSize / maxSize));
+    const newWidth = width >> K;
+    const newHeight = height >> K;
+    let rgbaData;
+    let maxHeight = height;
+    try {
+      rgbaData = new Uint8Array(rgbaSize);
+    } catch {
+      let n = Math.floor(Math.log2(rgbaSize + 1));
+      while (true) {
+        try {
+          rgbaData = new Uint8Array(2 ** n - 1);
+          break;
+        } catch {
+          n -= 1;
+        }
+      }
+      maxHeight = Math.floor((2 ** n - 1) / (width * 4));
+      if (maxHeight === 0) {
+        return null;
+      }
+      if (maxHeight >= 4) {
+        maxHeight -= maxHeight % 4;
+      }
+      const newSize = width * maxHeight * 4;
+      if (newSize < rgbaData.length) {
+        rgbaData = new Uint8Array(newSize);
+      }
+    }
+    const src32 = new Uint32Array(rgbaData.buffer);
+    const dest32 = new Uint32Array(newWidth * newHeight);
+    let srcPos = 0;
+    let newIndex = 0;
+    const lastRow = newHeight << K;
+    let row = 0;
+    for (let y = 0; y < height; y += maxHeight) {
+      const h = Math.min(maxHeight, height - y);
+      ({
+        srcPos
+      } = convertToRGBA({
+        kind,
+        src: data,
+        dest: src32,
+        width,
+        height: h,
+        inverseDecode: this._isMask,
+        srcPos
+      }));
+      for (const end = Math.min(y + h, lastRow); row < end; row += 1 << K) {
+        const buf = src32.subarray((row - y) * width);
+        for (let j = 0; j < newWidth; j++) {
+          dest32[newIndex++] = buf[j << K];
+        }
+      }
+    }
+    if (ImageResizer.needsToBeResized(newWidth, newHeight)) {
+      imgData.data = dest32;
+      imgData.width = newWidth;
+      imgData.height = newHeight;
+      imgData.kind = ImageKind.RGBA_32BPP;
+      return null;
+    }
+    const canvas = new OffscreenCanvas(newWidth, newHeight);
+    const ctx = canvas.getContext("2d", {
+      willReadFrequently: true
+    });
+    ctx.putImageData(new ImageData(new Uint8ClampedArray(dest32.buffer), newWidth, newHeight), 0, 0);
+    imgData.data = null;
+    imgData.bitmap = canvas.transferToImageBitmap();
+    imgData.width = newWidth;
+    imgData.height = newHeight;
+    return imgData;
+  }
+  _encodeBMP() {
+    const {
+      width,
+      height,
+      kind
+    } = this._imgData;
+    let data = this._imgData.data;
+    let bitPerPixel;
+    let colorTable = new Uint8Array(0);
+    let maskTable = colorTable;
+    let compression = 0;
+    switch (kind) {
+      case ImageKind.GRAYSCALE_1BPP:
+        {
+          bitPerPixel = 1;
+          colorTable = new Uint8Array(this._isMask ? [255, 255, 255, 255, 0, 0, 0, 0] : [0, 0, 0, 0, 255, 255, 255, 255]);
+          const rowLen = width + 7 >> 3;
+          const rowSize = rowLen + 3 & -4;
+          if (rowLen !== rowSize) {
+            const newData = new Uint8Array(rowSize * height);
+            let k = 0;
+            for (let i = 0, ii = height * rowLen; i < ii; i += rowLen, k += rowSize) {
+              newData.set(data.subarray(i, i + rowLen), k);
+            }
+            data = newData;
+          }
+          break;
+        }
+      case ImageKind.RGB_24BPP:
+        {
+          bitPerPixel = 24;
+          if (width & 3) {
+            const rowLen = 3 * width;
+            const rowSize = rowLen + 3 & -4;
+            const extraLen = rowSize - rowLen;
+            const newData = new Uint8Array(rowSize * height);
+            let k = 0;
+            for (let i = 0, ii = height * rowLen; i < ii; i += rowLen) {
+              const row = data.subarray(i, i + rowLen);
+              for (let j = 0; j < rowLen; j += 3) {
+                newData[k++] = row[j + 2];
+                newData[k++] = row[j + 1];
+                newData[k++] = row[j];
+              }
+              k += extraLen;
+            }
+            data = newData;
+          } else {
+            for (let i = 0, ii = data.length; i < ii; i += 3) {
+              const tmp = data[i];
+              data[i] = data[i + 2];
+              data[i + 2] = tmp;
+            }
+          }
+          break;
+        }
+      case ImageKind.RGBA_32BPP:
+        bitPerPixel = 32;
+        compression = 3;
+        maskTable = new Uint8Array(4 + 4 + 4 + 4 + 52);
+        const view = new DataView(maskTable.buffer);
+        if (FeatureTest.isLittleEndian) {
+          view.setUint32(0, 0x000000ff, true);
+          view.setUint32(4, 0x0000ff00, true);
+          view.setUint32(8, 0x00ff0000, true);
+          view.setUint32(12, 0xff000000, true);
+        } else {
+          view.setUint32(0, 0xff000000, true);
+          view.setUint32(4, 0x00ff0000, true);
+          view.setUint32(8, 0x0000ff00, true);
+          view.setUint32(12, 0x000000ff, true);
+        }
+        break;
+      default:
+        throw new Error("invalid format");
+    }
+    let i = 0;
+    const headerLength = 40 + maskTable.length;
+    const fileLength = 14 + headerLength + colorTable.length + data.length;
+    const bmpData = new Uint8Array(fileLength);
+    const view = new DataView(bmpData.buffer);
+    view.setUint16(i, 0x4d42, true);
+    i += 2;
+    view.setUint32(i, fileLength, true);
+    i += 4;
+    view.setUint32(i, 0, true);
+    i += 4;
+    view.setUint32(i, 14 + headerLength + colorTable.length, true);
+    i += 4;
+    view.setUint32(i, headerLength, true);
+    i += 4;
+    view.setInt32(i, width, true);
+    i += 4;
+    view.setInt32(i, -height, true);
+    i += 4;
+    view.setUint16(i, 1, true);
+    i += 2;
+    view.setUint16(i, bitPerPixel, true);
+    i += 2;
+    view.setUint32(i, compression, true);
+    i += 4;
+    view.setUint32(i, 0, true);
+    i += 4;
+    view.setInt32(i, 0, true);
+    i += 4;
+    view.setInt32(i, 0, true);
+    i += 4;
+    view.setUint32(i, colorTable.length / 4, true);
+    i += 4;
+    view.setUint32(i, 0, true);
+    i += 4;
+    bmpData.set(maskTable, i);
+    i += maskTable.length;
+    bmpData.set(colorTable, i);
+    i += colorTable.length;
+    bmpData.set(data, i);
+    return bmpData;
+  }
+}
+
+;// ./src/core/jpg.js
+
+
+
+
+class JpegError extends BaseException {
+  constructor(msg) {
+    super(msg, "JpegError");
+  }
+}
+class DNLMarkerError extends BaseException {
+  constructor(message, scanLines) {
+    super(message, "DNLMarkerError");
+    this.scanLines = scanLines;
+  }
+}
+class EOIMarkerError extends BaseException {
+  constructor(msg) {
+    super(msg, "EOIMarkerError");
+  }
+}
+const dctZigZag = new Uint8Array([0, 1, 8, 16, 9, 2, 3, 10, 17, 24, 32, 25, 18, 11, 4, 5, 12, 19, 26, 33, 40, 48, 41, 34, 27, 20, 13, 6, 7, 14, 21, 28, 35, 42, 49, 56, 57, 50, 43, 36, 29, 22, 15, 23, 30, 37, 44, 51, 58, 59, 52, 45, 38, 31, 39, 46, 53, 60, 61, 54, 47, 55, 62, 63]);
+const dctCos1 = 4017;
+const dctSin1 = 799;
+const dctCos3 = 3406;
+const dctSin3 = 2276;
+const dctCos6 = 1567;
+const dctSin6 = 3784;
+const dctSqrt2 = 5793;
+const dctSqrt1d2 = 2896;
+function buildHuffmanTable(codeLengths, values) {
+  let k = 0,
+    i,
+    j,
+    length = 16;
+  while (length > 0 && !codeLengths[length - 1]) {
+    length--;
+  }
+  const code = [{
+    children: [],
+    index: 0
+  }];
+  let p = code[0],
+    q;
+  for (i = 0; i < length; i++) {
+    for (j = 0; j < codeLengths[i]; j++) {
+      p = code.pop();
+      p.children[p.index] = values[k];
+      while (p.index > 0) {
+        p = code.pop();
+      }
+      p.index++;
+      code.push(p);
+      while (code.length <= i) {
+        code.push(q = {
+          children: [],
+          index: 0
+        });
+        p.children[p.index] = q.children;
+        p = q;
+      }
+      k++;
+    }
+    if (i + 1 < length) {
+      code.push(q = {
+        children: [],
+        index: 0
+      });
+      p.children[p.index] = q.children;
+      p = q;
+    }
+  }
+  return code[0].children;
+}
+function getBlockBufferOffset(component, row, col) {
+  return 64 * ((component.blocksPerLine + 1) * row + col);
+}
+function decodeScan(data, view, offset, frame, components, resetInterval, spectralStart, spectralEnd, successivePrev, successive, parseDNLMarker = false) {
+  const mcusPerLine = frame.mcusPerLine;
+  const progressive = frame.progressive;
+  const startOffset = offset;
+  let bitsData = 0,
+    bitsCount = 0;
+  function readBit() {
+    if (bitsCount > 0) {
+      bitsCount--;
+      return bitsData >> bitsCount & 1;
+    }
+    bitsData = data[offset++];
+    if (bitsData === 0xff) {
+      const nextByte = data[offset++];
+      if (nextByte) {
+        if (nextByte === 0xdc && parseDNLMarker) {
+          offset += 2;
+          const scanLines = view.getUint16(offset);
+          offset += 2;
+          if (scanLines > 0 && scanLines !== frame.scanLines) {
+            throw new DNLMarkerError("Found DNL marker (0xFFDC) while parsing scan data", scanLines);
+          }
+        } else if (nextByte === 0xd9) {
+          if (parseDNLMarker) {
+            const maybeScanLines = blockRow * (frame.precision === 8 ? 8 : 0);
+            if (maybeScanLines > 0 && Math.round(frame.scanLines / maybeScanLines) >= 5) {
+              throw new DNLMarkerError("Found EOI marker (0xFFD9) while parsing scan data, " + "possibly caused by incorrect `scanLines` parameter", maybeScanLines);
+            }
+          }
+          throw new EOIMarkerError("Found EOI marker (0xFFD9) while parsing scan data");
+        }
+        throw new JpegError(`unexpected marker ${(bitsData << 8 | nextByte).toString(16)}`);
+      }
+    }
+    bitsCount = 7;
+    return bitsData >>> 7;
+  }
+  function decodeHuffman(tree) {
+    let node = tree;
+    while (true) {
+      node = node[readBit()];
+      switch (typeof node) {
+        case "number":
+          return node;
+        case "object":
+          continue;
+      }
+      throw new JpegError("invalid huffman sequence");
+    }
+  }
+  function receive(length) {
+    let n = 0;
+    while (length > 0) {
+      n = n << 1 | readBit();
+      length--;
+    }
+    return n;
+  }
+  function receiveAndExtend(length) {
+    if (length === 1) {
+      return readBit() === 1 ? 1 : -1;
+    }
+    const n = receive(length);
+    return n >= 1 << length - 1 ? n : n + (-1 << length) + 1;
+  }
+  function decodeBaseline(component, blockOffset) {
+    const t = decodeHuffman(component.huffmanTableDC);
+    const diff = t === 0 ? 0 : receiveAndExtend(t);
+    component.blockData[blockOffset] = component.pred += diff;
+    let k = 1;
+    while (k < 64) {
+      const rs = decodeHuffman(component.huffmanTableAC);
+      const s = rs & 15,
+        r = rs >> 4;
+      if (s === 0) {
+        if (r < 15) {
+          break;
+        }
+        k += 16;
+        continue;
+      }
+      k += r;
+      const z = dctZigZag[k];
+      component.blockData[blockOffset + z] = receiveAndExtend(s);
+      k++;
+    }
+  }
+  function decodeDCFirst(component, blockOffset) {
+    const t = decodeHuffman(component.huffmanTableDC);
+    const diff = t === 0 ? 0 : receiveAndExtend(t) << successive;
+    component.blockData[blockOffset] = component.pred += diff;
+  }
+  function decodeDCSuccessive(component, blockOffset) {
+    component.blockData[blockOffset] |= readBit() << successive;
+  }
+  let eobrun = 0;
+  function decodeACFirst(component, blockOffset) {
+    if (eobrun > 0) {
+      eobrun--;
+      return;
+    }
+    let k = spectralStart;
+    const e = spectralEnd;
+    while (k <= e) {
+      const rs = decodeHuffman(component.huffmanTableAC);
+      const s = rs & 15,
+        r = rs >> 4;
+      if (s === 0) {
+        if (r < 15) {
+          eobrun = receive(r) + (1 << r) - 1;
+          break;
+        }
+        k += 16;
+        continue;
+      }
+      k += r;
+      const z = dctZigZag[k];
+      component.blockData[blockOffset + z] = receiveAndExtend(s) * (1 << successive);
+      k++;
+    }
+  }
+  let successiveACState = 0,
+    successiveACNextValue;
+  function decodeACSuccessive(component, blockOffset) {
+    let k = spectralStart;
+    const e = spectralEnd;
+    let r = 0;
+    let s;
+    let rs;
+    while (k <= e) {
+      const offsetZ = blockOffset + dctZigZag[k];
+      const sign = component.blockData[offsetZ] < 0 ? -1 : 1;
+      switch (successiveACState) {
+        case 0:
+          rs = decodeHuffman(component.huffmanTableAC);
+          s = rs & 15;
+          r = rs >> 4;
+          if (s === 0) {
+            if (r < 15) {
+              eobrun = receive(r) + (1 << r);
+              successiveACState = 4;
+            } else {
+              r = 16;
+              successiveACState = 1;
+            }
+          } else {
+            if (s !== 1) {
+              throw new JpegError("invalid ACn encoding");
+            }
+            successiveACNextValue = receiveAndExtend(s);
+            successiveACState = r ? 2 : 3;
+          }
+          continue;
+        case 1:
+        case 2:
+          if (component.blockData[offsetZ]) {
+            component.blockData[offsetZ] += sign * (readBit() << successive);
+          } else {
+            r--;
+            if (r === 0) {
+              successiveACState = successiveACState === 2 ? 3 : 0;
+            }
+          }
+          break;
+        case 3:
+          if (component.blockData[offsetZ]) {
+            component.blockData[offsetZ] += sign * (readBit() << successive);
+          } else {
+            component.blockData[offsetZ] = successiveACNextValue << successive;
+            successiveACState = 0;
+          }
+          break;
+        case 4:
+          if (component.blockData[offsetZ]) {
+            component.blockData[offsetZ] += sign * (readBit() << successive);
+          }
+          break;
+      }
+      k++;
+    }
+    if (successiveACState === 4) {
+      eobrun--;
+      if (eobrun === 0) {
+        successiveACState = 0;
+      }
+    }
+  }
+  let blockRow = 0;
+  function decodeMcu(component, decode, mcu, row, col) {
+    const mcuRow = mcu / mcusPerLine | 0;
+    const mcuCol = mcu % mcusPerLine;
+    blockRow = mcuRow * component.v + row;
+    const blockCol = mcuCol * component.h + col;
+    const blockOffset = getBlockBufferOffset(component, blockRow, blockCol);
+    decode(component, blockOffset);
+  }
+  function decodeBlock(component, decode, mcu) {
+    blockRow = mcu / component.blocksPerLine | 0;
+    const blockCol = mcu % component.blocksPerLine;
+    const blockOffset = getBlockBufferOffset(component, blockRow, blockCol);
+    decode(component, blockOffset);
+  }
+  const componentsLength = components.length;
+  let component, i, j, k, n;
+  let decodeFn;
+  if (progressive) {
+    if (spectralStart === 0) {
+      decodeFn = successivePrev === 0 ? decodeDCFirst : decodeDCSuccessive;
+    } else {
+      decodeFn = successivePrev === 0 ? decodeACFirst : decodeACSuccessive;
+    }
+  } else {
+    decodeFn = decodeBaseline;
+  }
+  let mcu = 0,
+    fileMarker;
+  const mcuExpected = componentsLength === 1 ? components[0].blocksPerLine * components[0].blocksPerColumn : mcusPerLine * frame.mcusPerColumn;
+  let h, v;
+  while (mcu <= mcuExpected) {
+    const mcuToRead = resetInterval ? Math.min(mcuExpected - mcu, resetInterval) : mcuExpected;
+    if (mcuToRead > 0) {
+      for (i = 0; i < componentsLength; i++) {
+        components[i].pred = 0;
+      }
+      eobrun = 0;
+      if (componentsLength === 1) {
+        component = components[0];
+        for (n = 0; n < mcuToRead; n++) {
+          decodeBlock(component, decodeFn, mcu);
+          mcu++;
+        }
+      } else {
+        for (n = 0; n < mcuToRead; n++) {
+          for (i = 0; i < componentsLength; i++) {
+            component = components[i];
+            h = component.h;
+            v = component.v;
+            for (j = 0; j < v; j++) {
+              for (k = 0; k < h; k++) {
+                decodeMcu(component, decodeFn, mcu, j, k);
+              }
+            }
+          }
+          mcu++;
+        }
+      }
+    }
+    bitsCount = 0;
+    fileMarker = findNextFileMarker(data, view, offset);
+    if (!fileMarker) {
+      break;
+    }
+    if (fileMarker.invalid) {
+      const partialMsg = mcuToRead > 0 ? "unexpected" : "excessive";
+      warn(`decodeScan - ${partialMsg} MCU data, current marker is: ${fileMarker.invalid}`);
+      offset = fileMarker.offset;
+    }
+    if (fileMarker.marker >= 0xffd0 && fileMarker.marker <= 0xffd7) {
+      offset += 2;
+    } else {
+      break;
+    }
+  }
+  return offset - startOffset;
+}
+function quantizeAndInverse(component, blockBufferOffset, p) {
+  const qt = component.quantizationTable,
+    blockData = component.blockData;
+  let v0, v1, v2, v3, v4, v5, v6, v7;
+  let p0, p1, p2, p3, p4, p5, p6, p7;
+  let t;
+  if (!qt) {
+    throw new JpegError("missing required Quantization Table.");
+  }
+  for (let row = 0; row < 64; row += 8) {
+    p0 = blockData[blockBufferOffset + row];
+    p1 = blockData[blockBufferOffset + row + 1];
+    p2 = blockData[blockBufferOffset + row + 2];
+    p3 = blockData[blockBufferOffset + row + 3];
+    p4 = blockData[blockBufferOffset + row + 4];
+    p5 = blockData[blockBufferOffset + row + 5];
+    p6 = blockData[blockBufferOffset + row + 6];
+    p7 = blockData[blockBufferOffset + row + 7];
+    p0 *= qt[row];
+    if ((p1 | p2 | p3 | p4 | p5 | p6 | p7) === 0) {
+      t = dctSqrt2 * p0 + 512 >> 10;
+      p[row] = t;
+      p[row + 1] = t;
+      p[row + 2] = t;
+      p[row + 3] = t;
+      p[row + 4] = t;
+      p[row + 5] = t;
+      p[row + 6] = t;
+      p[row + 7] = t;
+      continue;
+    }
+    p1 *= qt[row + 1];
+    p2 *= qt[row + 2];
+    p3 *= qt[row + 3];
+    p4 *= qt[row + 4];
+    p5 *= qt[row + 5];
+    p6 *= qt[row + 6];
+    p7 *= qt[row + 7];
+    v0 = dctSqrt2 * p0 + 128 >> 8;
+    v1 = dctSqrt2 * p4 + 128 >> 8;
+    v2 = p2;
+    v3 = p6;
+    v4 = dctSqrt1d2 * (p1 - p7) + 128 >> 8;
+    v7 = dctSqrt1d2 * (p1 + p7) + 128 >> 8;
+    v5 = p3 << 4;
+    v6 = p5 << 4;
+    v0 = v0 + v1 + 1 >> 1;
+    v1 = v0 - v1;
+    t = v2 * dctSin6 + v3 * dctCos6 + 128 >> 8;
+    v2 = v2 * dctCos6 - v3 * dctSin6 + 128 >> 8;
+    v3 = t;
+    v4 = v4 + v6 + 1 >> 1;
+    v6 = v4 - v6;
+    v7 = v7 + v5 + 1 >> 1;
+    v5 = v7 - v5;
+    v0 = v0 + v3 + 1 >> 1;
+    v3 = v0 - v3;
+    v1 = v1 + v2 + 1 >> 1;
+    v2 = v1 - v2;
+    t = v4 * dctSin3 + v7 * dctCos3 + 2048 >> 12;
+    v4 = v4 * dctCos3 - v7 * dctSin3 + 2048 >> 12;
+    v7 = t;
+    t = v5 * dctSin1 + v6 * dctCos1 + 2048 >> 12;
+    v5 = v5 * dctCos1 - v6 * dctSin1 + 2048 >> 12;
+    v6 = t;
+    p[row] = v0 + v7;
+    p[row + 7] = v0 - v7;
+    p[row + 1] = v1 + v6;
+    p[row + 6] = v1 - v6;
+    p[row + 2] = v2 + v5;
+    p[row + 5] = v2 - v5;
+    p[row + 3] = v3 + v4;
+    p[row + 4] = v3 - v4;
+  }
+  for (let col = 0; col < 8; ++col) {
+    p0 = p[col];
+    p1 = p[col + 8];
+    p2 = p[col + 16];
+    p3 = p[col + 24];
+    p4 = p[col + 32];
+    p5 = p[col + 40];
+    p6 = p[col + 48];
+    p7 = p[col + 56];
+    if ((p1 | p2 | p3 | p4 | p5 | p6 | p7) === 0) {
+      t = dctSqrt2 * p0 + 8192 >> 14;
+      if (t < -2040) {
+        t = 0;
+      } else if (t >= 2024) {
+        t = 255;
+      } else {
+        t = t + 2056 >> 4;
+      }
+      blockData[blockBufferOffset + col] = t;
+      blockData[blockBufferOffset + col + 8] = t;
+      blockData[blockBufferOffset + col + 16] = t;
+      blockData[blockBufferOffset + col + 24] = t;
+      blockData[blockBufferOffset + col + 32] = t;
+      blockData[blockBufferOffset + col + 40] = t;
+      blockData[blockBufferOffset + col + 48] = t;
+      blockData[blockBufferOffset + col + 56] = t;
+      continue;
+    }
+    v0 = dctSqrt2 * p0 + 2048 >> 12;
+    v1 = dctSqrt2 * p4 + 2048 >> 12;
+    v2 = p2;
+    v3 = p6;
+    v4 = dctSqrt1d2 * (p1 - p7) + 2048 >> 12;
+    v7 = dctSqrt1d2 * (p1 + p7) + 2048 >> 12;
+    v5 = p3;
+    v6 = p5;
+    v0 = (v0 + v1 + 1 >> 1) + 4112;
+    v1 = v0 - v1;
+    t = v2 * dctSin6 + v3 * dctCos6 + 2048 >> 12;
+    v2 = v2 * dctCos6 - v3 * dctSin6 + 2048 >> 12;
+    v3 = t;
+    v4 = v4 + v6 + 1 >> 1;
+    v6 = v4 - v6;
+    v7 = v7 + v5 + 1 >> 1;
+    v5 = v7 - v5;
+    v0 = v0 + v3 + 1 >> 1;
+    v3 = v0 - v3;
+    v1 = v1 + v2 + 1 >> 1;
+    v2 = v1 - v2;
+    t = v4 * dctSin3 + v7 * dctCos3 + 2048 >> 12;
+    v4 = v4 * dctCos3 - v7 * dctSin3 + 2048 >> 12;
+    v7 = t;
+    t = v5 * dctSin1 + v6 * dctCos1 + 2048 >> 12;
+    v5 = v5 * dctCos1 - v6 * dctSin1 + 2048 >> 12;
+    v6 = t;
+    p0 = v0 + v7;
+    p7 = v0 - v7;
+    p1 = v1 + v6;
+    p6 = v1 - v6;
+    p2 = v2 + v5;
+    p5 = v2 - v5;
+    p3 = v3 + v4;
+    p4 = v3 - v4;
+    if (p0 < 16) {
+      p0 = 0;
+    } else if (p0 >= 4080) {
+      p0 = 255;
+    } else {
+      p0 >>= 4;
+    }
+    if (p1 < 16) {
+      p1 = 0;
+    } else if (p1 >= 4080) {
+      p1 = 255;
+    } else {
+      p1 >>= 4;
+    }
+    if (p2 < 16) {
+      p2 = 0;
+    } else if (p2 >= 4080) {
+      p2 = 255;
+    } else {
+      p2 >>= 4;
+    }
+    if (p3 < 16) {
+      p3 = 0;
+    } else if (p3 >= 4080) {
+      p3 = 255;
+    } else {
+      p3 >>= 4;
+    }
+    if (p4 < 16) {
+      p4 = 0;
+    } else if (p4 >= 4080) {
+      p4 = 255;
+    } else {
+      p4 >>= 4;
+    }
+    if (p5 < 16) {
+      p5 = 0;
+    } else if (p5 >= 4080) {
+      p5 = 255;
+    } else {
+      p5 >>= 4;
+    }
+    if (p6 < 16) {
+      p6 = 0;
+    } else if (p6 >= 4080) {
+      p6 = 255;
+    } else {
+      p6 >>= 4;
+    }
+    if (p7 < 16) {
+      p7 = 0;
+    } else if (p7 >= 4080) {
+      p7 = 255;
+    } else {
+      p7 >>= 4;
+    }
+    blockData[blockBufferOffset + col] = p0;
+    blockData[blockBufferOffset + col + 8] = p1;
+    blockData[blockBufferOffset + col + 16] = p2;
+    blockData[blockBufferOffset + col + 24] = p3;
+    blockData[blockBufferOffset + col + 32] = p4;
+    blockData[blockBufferOffset + col + 40] = p5;
+    blockData[blockBufferOffset + col + 48] = p6;
+    blockData[blockBufferOffset + col + 56] = p7;
+  }
+}
+function buildComponentData(frame, component) {
+  const blocksPerLine = component.blocksPerLine;
+  const blocksPerColumn = component.blocksPerColumn;
+  const computationBuffer = new Int16Array(64);
+  for (let blockRow = 0; blockRow < blocksPerColumn; blockRow++) {
+    for (let blockCol = 0; blockCol < blocksPerLine; blockCol++) {
+      const offset = getBlockBufferOffset(component, blockRow, blockCol);
+      quantizeAndInverse(component, offset, computationBuffer);
+    }
+  }
+  return component.blockData;
+}
+function findNextFileMarker(data, view, currentPos, startPos = currentPos) {
+  const maxPos = data.length - 1;
+  let newPos = startPos < currentPos ? startPos : currentPos;
+  if (currentPos >= maxPos) {
+    return null;
+  }
+  const currentMarker = view.getUint16(currentPos);
+  if (currentMarker >= 0xffc0 && currentMarker <= 0xfffe) {
+    return {
+      invalid: null,
+      marker: currentMarker,
+      offset: currentPos
+    };
+  }
+  let newMarker = view.getUint16(newPos);
+  while (!(newMarker >= 0xffc0 && newMarker <= 0xfffe)) {
+    if (++newPos >= maxPos) {
+      return null;
+    }
+    newMarker = view.getUint16(newPos);
+  }
+  return {
+    invalid: currentMarker.toString(16),
+    marker: newMarker,
+    offset: newPos
+  };
+}
+function prepareComponents(frame) {
+  const mcusPerLine = Math.ceil(frame.samplesPerLine / 8 / frame.maxH);
+  const mcusPerColumn = Math.ceil(frame.scanLines / 8 / frame.maxV);
+  for (const component of frame.components) {
+    const blocksPerLine = Math.ceil(Math.ceil(frame.samplesPerLine / 8) * component.h / frame.maxH);
+    const blocksPerColumn = Math.ceil(Math.ceil(frame.scanLines / 8) * component.v / frame.maxV);
+    const blocksPerLineForMcu = mcusPerLine * component.h;
+    const blocksPerColumnForMcu = mcusPerColumn * component.v;
+    const blocksBufferSize = 64 * blocksPerColumnForMcu * (blocksPerLineForMcu + 1);
+    component.blockData = new Int16Array(blocksBufferSize);
+    component.blocksPerLine = blocksPerLine;
+    component.blocksPerColumn = blocksPerColumn;
+  }
+  frame.mcusPerLine = mcusPerLine;
+  frame.mcusPerColumn = mcusPerColumn;
+}
+function readDataBlock(data, view, offset) {
+  const length = view.getUint16(offset);
+  offset += 2;
+  let endOffset = offset + length - 2;
+  const fileMarker = findNextFileMarker(data, view, endOffset, offset);
+  if (fileMarker?.invalid) {
+    warn("readDataBlock - incorrect length, current marker is: " + fileMarker.invalid);
+    endOffset = fileMarker.offset;
+  }
+  const array = data.subarray(offset, endOffset);
+  return {
+    appData: array,
+    oldOffset: offset,
+    newOffset: offset + array.length
+  };
+}
+function skipData(data, view, offset) {
+  const length = view.getUint16(offset);
+  offset += 2;
+  const endOffset = offset + length - 2;
+  const fileMarker = findNextFileMarker(data, view, endOffset, offset);
+  return fileMarker?.invalid ? fileMarker.offset : endOffset;
+}
+class JpegImage {
+  constructor(options) {
+    this._colorTransform = options?.colorTransform ?? -1;
+  }
+  static canUseImageDecoder(data, colorTransform = -1) {
+    const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+    const info = {
+      width: 0,
+      height: 0,
+      exifStart: 0,
+      exifEnd: 0
+    };
+    let offset = 0;
+    let numComponents = null;
+    let fileMarker = view.getUint16(offset);
+    offset += 2;
+    if (fileMarker !== 0xffd8) {
+      throw new JpegError("SOI not found");
+    }
+    fileMarker = view.getUint16(offset);
+    offset += 2;
+    markerLoop: while (fileMarker !== 0xffd9) {
+      switch (fileMarker) {
+        case 0xffe1:
+          const {
+            appData,
+            oldOffset,
+            newOffset
+          } = readDataBlock(data, view, offset);
+          offset = newOffset;
+          if (appData[0] === 0x45 && appData[1] === 0x78 && appData[2] === 0x69 && appData[3] === 0x66 && appData[4] === 0 && appData[5] === 0) {
+            if (info.exifStart) {
+              throw new JpegError("Duplicate EXIF-blocks found.");
+            }
+            info.exifStart = oldOffset + 6;
+            info.exifEnd = newOffset;
+          }
+          fileMarker = view.getUint16(offset);
+          offset += 2;
+          continue;
+        case 0xffc0:
+        case 0xffc1:
+        case 0xffc2:
+          info.height = view.getUint16(offset + (2 + 1));
+          info.width = view.getUint16(offset + (2 + 1 + 2));
+          numComponents = data[offset + (2 + 1 + 2 + 2)];
+          break markerLoop;
+        case 0xffff:
+          if (data[offset] !== 0xff) {
+            offset--;
+          }
+          break;
+      }
+      offset = skipData(data, view, offset);
+      fileMarker = view.getUint16(offset);
+      offset += 2;
+    }
+    if (numComponents === 4) {
+      return null;
+    }
+    if (numComponents === 3 && colorTransform === 0) {
+      return null;
+    }
+    return info;
+  }
+  parse(data, {
+    dnlScanLines = null
+  } = {}) {
+    const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+    const maxOffset = data.length - 1;
+    let offset = 0;
+    let jfif = null;
+    let adobe = null;
+    let frame, resetInterval;
+    let numSOSMarkers = 0;
+    const quantizationTables = [];
+    const huffmanTablesAC = [],
+      huffmanTablesDC = [];
+    let fileMarker = view.getUint16(offset);
+    offset += 2;
+    if (fileMarker !== 0xffd8) {
+      throw new JpegError("SOI not found");
+    }
+    fileMarker = view.getUint16(offset);
+    offset += 2;
+    markerLoop: while (fileMarker !== 0xffd9) {
+      let i, j, l;
+      switch (fileMarker) {
+        case 0xffe0:
+        case 0xffe1:
+        case 0xffe2:
+        case 0xffe3:
+        case 0xffe4:
+        case 0xffe5:
+        case 0xffe6:
+        case 0xffe7:
+        case 0xffe8:
+        case 0xffe9:
+        case 0xffea:
+        case 0xffeb:
+        case 0xffec:
+        case 0xffed:
+        case 0xffee:
+        case 0xffef:
+        case 0xfffe:
+          const {
+            appData,
+            newOffset
+          } = readDataBlock(data, view, offset);
+          offset = newOffset;
+          if (fileMarker === 0xffe0) {
+            if (appData[0] === 0x4a && appData[1] === 0x46 && appData[2] === 0x49 && appData[3] === 0x46 && appData[4] === 0) {
+              jfif = {
+                version: {
+                  major: appData[5],
+                  minor: appData[6]
+                },
+                densityUnits: appData[7],
+                xDensity: appData[8] << 8 | appData[9],
+                yDensity: appData[10] << 8 | appData[11],
+                thumbWidth: appData[12],
+                thumbHeight: appData[13],
+                thumbData: appData.subarray(14, 14 + 3 * appData[12] * appData[13])
+              };
+            }
+          }
+          if (fileMarker === 0xffee) {
+            if (appData[0] === 0x41 && appData[1] === 0x64 && appData[2] === 0x6f && appData[3] === 0x62 && appData[4] === 0x65) {
+              adobe = {
+                version: appData[5] << 8 | appData[6],
+                flags0: appData[7] << 8 | appData[8],
+                flags1: appData[9] << 8 | appData[10],
+                transformCode: appData[11]
+              };
+            }
+          }
+          break;
+        case 0xffdb:
+          const quantizationTablesLength = view.getUint16(offset);
+          offset += 2;
+          const quantizationTablesEnd = quantizationTablesLength + offset - 2;
+          let z;
+          while (offset < quantizationTablesEnd) {
+            const quantizationTableSpec = data[offset++];
+            const tableData = new Uint16Array(64);
+            if (quantizationTableSpec >> 4 === 0) {
+              for (j = 0; j < 64; j++) {
+                z = dctZigZag[j];
+                tableData[z] = data[offset++];
+              }
+            } else if (quantizationTableSpec >> 4 === 1) {
+              for (j = 0; j < 64; j++) {
+                z = dctZigZag[j];
+                tableData[z] = view.getUint16(offset);
+                offset += 2;
+              }
+            } else {
+              throw new JpegError("DQT - invalid table spec");
+            }
+            quantizationTables[quantizationTableSpec & 15] = tableData;
+          }
+          break;
+        case 0xffc0:
+        case 0xffc1:
+        case 0xffc2:
+          if (frame) {
+            throw new JpegError("Only single frame JPEGs supported");
+          }
+          offset += 2;
+          frame = {};
+          frame.extended = fileMarker === 0xffc1;
+          frame.progressive = fileMarker === 0xffc2;
+          frame.precision = data[offset++];
+          const sofScanLines = view.getUint16(offset);
+          offset += 2;
+          frame.scanLines = dnlScanLines || sofScanLines;
+          frame.samplesPerLine = view.getUint16(offset);
+          offset += 2;
+          frame.components = [];
+          frame.componentIds = {};
+          const componentsCount = data[offset++];
+          let maxH = 0,
+            maxV = 0;
+          for (i = 0; i < componentsCount; i++) {
+            const componentId = data[offset];
+            const h = data[offset + 1] >> 4;
+            const v = data[offset + 1] & 15;
+            if (maxH < h) {
+              maxH = h;
+            }
+            if (maxV < v) {
+              maxV = v;
+            }
+            const qId = data[offset + 2];
+            l = frame.components.push({
+              h,
+              v,
+              quantizationId: qId,
+              quantizationTable: null
+            });
+            frame.componentIds[componentId] = l - 1;
+            offset += 3;
+          }
+          frame.maxH = maxH;
+          frame.maxV = maxV;
+          prepareComponents(frame);
+          break;
+        case 0xffc4:
+          const huffmanLength = view.getUint16(offset);
+          offset += 2;
+          for (i = 2; i < huffmanLength;) {
+            const huffmanTableSpec = data[offset++];
+            const codeLengths = new Uint8Array(16);
+            let codeLengthSum = 0;
+            for (j = 0; j < 16; j++, offset++) {
+              codeLengthSum += codeLengths[j] = data[offset];
+            }
+            const huffmanValues = new Uint8Array(codeLengthSum);
+            for (j = 0; j < codeLengthSum; j++, offset++) {
+              huffmanValues[j] = data[offset];
+            }
+            i += 17 + codeLengthSum;
+            (huffmanTableSpec >> 4 === 0 ? huffmanTablesDC : huffmanTablesAC)[huffmanTableSpec & 15] = buildHuffmanTable(codeLengths, huffmanValues);
+          }
+          break;
+        case 0xffdd:
+          offset += 2;
+          resetInterval = view.getUint16(offset);
+          offset += 2;
+          break;
+        case 0xffda:
+          const parseDNLMarker = ++numSOSMarkers === 1 && !dnlScanLines;
+          offset += 2;
+          const selectorsCount = data[offset++],
+            components = [];
+          for (i = 0; i < selectorsCount; i++) {
+            const index = data[offset++];
+            const componentIndex = frame.componentIds[index];
+            const component = frame.components[componentIndex];
+            component.index = index;
+            const tableSpec = data[offset++];
+            component.huffmanTableDC = huffmanTablesDC[tableSpec >> 4];
+            component.huffmanTableAC = huffmanTablesAC[tableSpec & 15];
+            components.push(component);
+          }
+          const spectralStart = data[offset++],
+            spectralEnd = data[offset++],
+            successiveApproximation = data[offset++];
+          try {
+            const processed = decodeScan(data, view, offset, frame, components, resetInterval, spectralStart, spectralEnd, successiveApproximation >> 4, successiveApproximation & 15, parseDNLMarker);
+            offset += processed;
+          } catch (ex) {
+            if (ex instanceof DNLMarkerError) {
+              warn(`${ex.message} -- attempting to re-parse the JPEG image.`);
+              return this.parse(data, {
+                dnlScanLines: ex.scanLines
+              });
+            } else if (ex instanceof EOIMarkerError) {
+              warn(`${ex.message} -- ignoring the rest of the image data.`);
+              break markerLoop;
+            }
+            throw ex;
+          }
+          break;
+        case 0xffdc:
+          offset += 4;
+          break;
+        case 0xffff:
+          if (data[offset] !== 0xff) {
+            offset--;
+          }
+          break;
+        default:
+          const nextFileMarker = findNextFileMarker(data, view, offset - 2, offset - 3);
+          if (nextFileMarker?.invalid) {
+            warn("JpegImage.parse - unexpected data, current marker is: " + nextFileMarker.invalid);
+            offset = nextFileMarker.offset;
+            break;
+          }
+          if (!nextFileMarker || offset >= maxOffset) {
+            warn("JpegImage.parse - reached the end of the image data " + "without finding an EOI marker (0xFFD9).");
+            break markerLoop;
+          }
+          throw new JpegError("JpegImage.parse - unknown marker: " + fileMarker.toString(16));
+      }
+      if (offset < maxOffset) {
+        fileMarker = view.getUint16(offset);
+        offset += 2;
+      } else {
+        fileMarker = 0;
+      }
+    }
+    if (!frame) {
+      throw new JpegError("JpegImage.parse - no frame data found.");
+    }
+    this.width = frame.samplesPerLine;
+    this.height = frame.scanLines;
+    this.jfif = jfif;
+    this.adobe = adobe;
+    this.components = [];
+    for (const component of frame.components) {
+      const quantizationTable = quantizationTables[component.quantizationId];
+      if (quantizationTable) {
+        component.quantizationTable = quantizationTable;
+      }
+      this.components.push({
+        index: component.index,
+        output: buildComponentData(frame, component),
+        scaleX: component.h / frame.maxH,
+        scaleY: component.v / frame.maxV,
+        blocksPerLine: component.blocksPerLine,
+        blocksPerColumn: component.blocksPerColumn
+      });
+    }
+    this.numComponents = this.components.length;
+    return undefined;
+  }
+  #getLinearizedBlockData(width, height) {
+    const scaleX = this.width / width,
+      scaleY = this.height / height;
+    let component, componentScaleX, componentScaleY, blocksPerScanline;
+    let x, y, i, j;
+    let offset = 0;
+    const numComponents = this.components.length;
+    const dataLength = width * height * numComponents;
+    const data = new Uint8ClampedArray(dataLength);
+    const xScaleBlockOffset = new Uint32Array(width);
+    const mask3LSB = 0xfffffff8;
+    let lastComponentScaleX;
+    for (i = 0; i < numComponents; i++) {
+      component = this.components[i];
+      componentScaleX = component.scaleX * scaleX;
+      componentScaleY = component.scaleY * scaleY;
+      offset = i;
+      const output = component.output;
+      blocksPerScanline = component.blocksPerLine + 1 << 3;
+      if (componentScaleX !== lastComponentScaleX) {
+        for (x = 0; x < width; x++) {
+          j = 0 | x * componentScaleX;
+          xScaleBlockOffset[x] = (j & mask3LSB) << 3 | j & 7;
+        }
+        lastComponentScaleX = componentScaleX;
+      }
+      for (y = 0; y < height; y++) {
+        j = 0 | y * componentScaleY;
+        const index = blocksPerScanline * (j & mask3LSB) | (j & 7) << 3;
+        for (x = 0; x < width; x++) {
+          data[offset] = output[index + xScaleBlockOffset[x]];
+          offset += numComponents;
+        }
+      }
+    }
+    return data;
+  }
+  get _isColorConversionNeeded() {
+    if (this.adobe) {
+      return !!this.adobe.transformCode;
+    }
+    if (this.numComponents === 3) {
+      if (this._colorTransform === 0) {
+        return false;
+      } else if (this.components[0].index === 0x52 && this.components[1].index === 0x47 && this.components[2].index === 0x42) {
+        return false;
+      }
+      return true;
+    }
+    if (this._colorTransform === 1) {
+      return true;
+    }
+    return false;
+  }
+  _convertYccToRgb(data) {
+    let Y, Cb, Cr;
+    for (let i = 0, ii = data.length; i < ii; i += 3) {
+      Y = data[i];
+      Cb = data[i + 1];
+      Cr = data[i + 2];
+      data[i] = Y - 179.456 + 1.402 * Cr;
+      data[i + 1] = Y + 135.459 - 0.344 * Cb - 0.714 * Cr;
+      data[i + 2] = Y - 226.816 + 1.772 * Cb;
+    }
+    return data;
+  }
+  _convertYccToRgba(data, out) {
+    for (let i = 0, j = 0, ii = data.length; i < ii; i += 3, j += 4) {
+      const Y = data[i];
+      const Cb = data[i + 1];
+      const Cr = data[i + 2];
+      out[j] = Y - 179.456 + 1.402 * Cr;
+      out[j + 1] = Y + 135.459 - 0.344 * Cb - 0.714 * Cr;
+      out[j + 2] = Y - 226.816 + 1.772 * Cb;
+      out[j + 3] = 255;
+    }
+    return out;
+  }
+  _convertYcckToRgb(data) {
+    this._convertYcckToCmyk(data);
+    return this._convertCmykToRgb(data);
+  }
+  _convertYcckToRgba(data) {
+    this._convertYcckToCmyk(data);
+    return this._convertCmykToRgba(data);
+  }
+  _convertYcckToCmyk(data) {
+    let Y, Cb, Cr;
+    for (let i = 0, ii = data.length; i < ii; i += 4) {
+      Y = data[i];
+      Cb = data[i + 1];
+      Cr = data[i + 2];
+      data[i] = 434.456 - Y - 1.402 * Cr;
+      data[i + 1] = 119.541 - Y + 0.344 * Cb + 0.714 * Cr;
+      data[i + 2] = 481.816 - Y - 1.772 * Cb;
+    }
+    return data;
+  }
+  _convertCmykToRgb(data) {
+    const count = data.length / 4;
+    ColorSpaceUtils.cmyk.getRgbBuffer(data, 0, count, data, 0, 8, 0);
+    return data.subarray(0, count * 3);
+  }
+  _convertCmykToRgba(data) {
+    ColorSpaceUtils.cmyk.getRgbBuffer(data, 0, data.length / 4, data, 0, 8, 1);
+    if (ColorSpaceUtils.cmyk instanceof DeviceCmykCS) {
+      for (let i = 3, ii = data.length; i < ii; i += 4) {
+        data[i] = 255;
+      }
+    }
+    return data;
+  }
+  getData({
+    width,
+    height,
+    forceRGBA = false,
+    forceRGB = false
+  }) {
+    if (this.numComponents > 4) {
+      throw new JpegError("Unsupported color mode");
+    }
+    const data = this.#getLinearizedBlockData(width, height);
+    if (this.numComponents === 1 && (forceRGBA || forceRGB)) {
+      const len = data.length * (forceRGBA ? 4 : 3);
+      const rgbaData = new Uint8ClampedArray(len);
+      if (forceRGBA) {
+        grayToRGBA(data, new Uint32Array(rgbaData.buffer));
+      } else {
+        let offset = 0;
+        for (const grayColor of data) {
+          rgbaData[offset++] = grayColor;
+          rgbaData[offset++] = grayColor;
+          rgbaData[offset++] = grayColor;
+        }
+      }
+      return rgbaData;
+    } else if (this.numComponents === 3 && this._isColorConversionNeeded) {
+      if (forceRGBA) {
+        const rgbaData = new Uint8ClampedArray(data.length / 3 * 4);
+        return this._convertYccToRgba(data, rgbaData);
+      }
+      return this._convertYccToRgb(data);
+    } else if (this.numComponents === 4) {
+      if (this._isColorConversionNeeded) {
+        if (forceRGBA) {
+          return this._convertYcckToRgba(data);
+        }
+        return forceRGB ? this._convertYcckToRgb(data) : this._convertYcckToCmyk(data);
+      } else if (forceRGBA) {
+        return this._convertCmykToRgba(data);
+      } else if (forceRGB) {
+        return this._convertCmykToRgb(data);
+      }
+    }
+    return data;
+  }
+}
+
+;// ./src/core/jpeg_stream.js
+
+
+
+
+
+class JpegStream extends DecodeStream {
+  static #isImageDecoderSupported = FeatureTest.isImageDecoderSupported;
+  constructor(stream, maybeLength, params) {
+    super(maybeLength);
+    this.stream = stream;
+    this.dict = stream.dict;
+    this.maybeLength = maybeLength;
+    this.params = params;
+  }
+  static get canUseImageDecoder() {
+    return shadow(this, "canUseImageDecoder", this.#isImageDecoderSupported ? ImageDecoder.isTypeSupported("image/jpeg") : Promise.resolve(false));
+  }
+  static setOptions({
+    isImageDecoderSupported = false
+  }) {
+    this.#isImageDecoderSupported = isImageDecoderSupported;
+  }
+  get bytes() {
+    return shadow(this, "bytes", this.stream.getBytes(this.maybeLength));
+  }
+  ensureBuffer(requested) {}
+  readBlock() {
+    this.decodeImage();
+  }
+  get jpegOptions() {
+    const jpegOptions = {
+      colorTransform: undefined
+    };
+    if (this.params instanceof Dict) {
+      const colorTransform = this.params.get("ColorTransform");
+      if (Number.isInteger(colorTransform)) {
+        jpegOptions.colorTransform = colorTransform;
+      }
+    }
+    return shadow(this, "jpegOptions", jpegOptions);
+  }
+  #skipUselessBytes(data) {
+    for (let i = 0, ii = data.length - 1; i < ii; i++) {
+      if (data[i] === 0xff && data[i + 1] === 0xd8) {
+        if (i > 0) {
+          data = data.subarray(i);
+        }
+        break;
+      }
+    }
+    return data;
+  }
+  decodeImage(bytes) {
+    if (this.eof) {
+      return this.buffer;
+    }
+    bytes = this.#skipUselessBytes(bytes || this.bytes);
+    const jpegImage = new JpegImage(this.jpegOptions);
+    jpegImage.parse(bytes);
+    const data = jpegImage.getData({
+      width: this.drawWidth,
+      height: this.drawHeight,
+      forceRGBA: this.forceRGBA,
+      forceRGB: this.forceRGB
+    });
+    this.buffer = data;
+    this.bufferLength = data.length;
+    this.eof = true;
+    return this.buffer;
+  }
+  get canAsyncDecodeImageFromBuffer() {
+    return this.stream.isAsync;
+  }
+  async getTransferableImage(width, height) {
+    if (!(await JpegStream.canUseImageDecoder)) {
+      return null;
+    }
+    const jpegOptions = this.jpegOptions;
+    let decoder;
+    try {
+      const bytes = this.canAsyncDecodeImageFromBuffer && (await this.stream.asyncGetBytes()) || this.bytes;
+      if (!bytes) {
+        return null;
+      }
+      let data = this.#skipUselessBytes(bytes);
+      const useImageDecoder = JpegImage.canUseImageDecoder(data, jpegOptions.colorTransform);
+      if (!useImageDecoder) {
+        return null;
+      }
+      const {
+        width: frameWidth,
+        height: frameHeight
+      } = useImageDecoder;
+      const reducePower = ImageResizer.getReducePower(frameWidth, frameHeight);
+      if ((frameWidth !== width || frameHeight !== height) && (reducePower || !frameHeight)) {
+        return null;
+      }
+      if (useImageDecoder.exifStart) {
+        data = data.slice();
+        data.fill(0x00, useImageDecoder.exifStart, useImageDecoder.exifEnd);
+      }
+      const init = {
+        data,
+        type: "image/jpeg",
+        preferAnimation: false
+      };
+      if (reducePower) {
+        const factor = 2 ** reducePower;
+        init.desiredWidth = Math.ceil(frameWidth / factor);
+        init.desiredHeight = Math.ceil(frameHeight / factor);
+      }
+      decoder = new ImageDecoder(init);
+      return (await decoder.decode()).image;
+    } catch (reason) {
+      warn(`getTransferableImage - failed: "${reason}".`);
+      return null;
+    } finally {
+      decoder?.close();
+    }
+  }
+  get isImageStream() {
+    return true;
+  }
+}
+
 ;// ./external/openjpeg/openjpeg.js
 async function OpenJPEG(moduleArg = {}) {
   var Module = moduleArg;
@@ -11523,9 +11147,6 @@ async function createBuiltInCMap(name, fetchBuiltInCMap) {
   }
   if (!BUILT_IN_CMAPS.has(name)) {
     throw new Error("Unknown CMap name: " + name);
-  }
-  if (!fetchBuiltInCMap) {
-    throw new Error("Built-in CMap parameters are not provided.");
   }
   const {
     cMapData,
@@ -57224,256 +56845,6 @@ function calculateMD5(data, offset, length) {
   return new Uint8Array([h0, h0 >> 8, h0 >> 16, h0 >>> 24, h1, h1 >> 8, h1 >> 16, h1 >>> 24, h2, h2 >> 8, h2 >> 16, h2 >>> 24, h3, h3 >> 8, h3 >> 16, h3 >>> 24]);
 }
 
-;// ./src/core/dataset_reader.js
-
-
-
-function decodeString(str) {
-  try {
-    return stringToUTF8String(str);
-  } catch (ex) {
-    warn(`UTF-8 decoding failed: "${ex}".`);
-    return str;
-  }
-}
-class DatasetXMLParser extends SimpleXMLParser {
-  node = null;
-  onEndElement(name) {
-    const node = super.onEndElement(name);
-    if (node && name === "xfa:datasets") {
-      this.node = node;
-      throw new Error("Aborting DatasetXMLParser.");
-    }
-  }
-}
-class DatasetReader {
-  constructor(data) {
-    if (data.datasets) {
-      this.node = new SimpleXMLParser({
-        hasAttributes: true
-      }).parseFromString(data.datasets).documentElement;
-    } else {
-      const parser = new DatasetXMLParser({
-        hasAttributes: true
-      });
-      try {
-        parser.parseFromString(data["xdp:xdp"]);
-      } catch {}
-      this.node = parser.node;
-    }
-  }
-  getValue(path) {
-    if (!this.node || !path) {
-      return "";
-    }
-    const node = this.node.searchNode(parseXFAPath(path), 0);
-    if (!node) {
-      return "";
-    }
-    const first = node.firstChild;
-    return first?.nodeName === "value" ? node.children.map(child => decodeString(child.textContent)) : decodeString(node.textContent);
-  }
-}
-
-;// ./src/core/intersector.js
-class SingleIntersector {
-  #annotation;
-  minX = Infinity;
-  minY = Infinity;
-  maxX = -Infinity;
-  maxY = -Infinity;
-  #quadPoints = null;
-  #text = [];
-  #textExtraCharIds = [];
-  #extraChars = [];
-  #extraCharIds = [];
-  #lastExtraCharId = -1;
-  #lastIntersectingQuadIndex = -1;
-  #canTakeExtraChars = false;
-  constructor(annotation) {
-    this.#annotation = annotation;
-    const quadPoints = annotation.data.quadPoints;
-    if (!quadPoints) {
-      [this.minX, this.minY, this.maxX, this.maxY] = annotation.data.rect;
-      return;
-    }
-    for (let i = 0, ii = quadPoints.length; i < ii; i += 8) {
-      this.minX = Math.min(this.minX, quadPoints[i]);
-      this.maxX = Math.max(this.maxX, quadPoints[i + 2]);
-      this.minY = Math.min(this.minY, quadPoints[i + 5]);
-      this.maxY = Math.max(this.maxY, quadPoints[i + 1]);
-    }
-    if (quadPoints.length > 8) {
-      this.#quadPoints = quadPoints;
-    }
-  }
-  #intersects(x, y) {
-    if (this.minX >= x || this.maxX <= x || this.minY >= y || this.maxY <= y) {
-      return false;
-    }
-    const quadPoints = this.#quadPoints;
-    if (!quadPoints) {
-      return true;
-    }
-    if (this.#lastIntersectingQuadIndex >= 0) {
-      const i = this.#lastIntersectingQuadIndex;
-      if (!(quadPoints[i] >= x || quadPoints[i + 2] <= x || quadPoints[i + 5] >= y || quadPoints[i + 1] <= y)) {
-        return true;
-      }
-      this.#lastIntersectingQuadIndex = -1;
-    }
-    for (let i = 0, ii = quadPoints.length; i < ii; i += 8) {
-      if (!(quadPoints[i] >= x || quadPoints[i + 2] <= x || quadPoints[i + 5] >= y || quadPoints[i + 1] <= y)) {
-        this.#lastIntersectingQuadIndex = i;
-        return true;
-      }
-    }
-    return false;
-  }
-  addGlyph(x, y, glyph) {
-    if (!this.#intersects(x, y)) {
-      this.disableExtraChars();
-      return false;
-    }
-    if (this.#extraChars.length > 0) {
-      for (let i = 0, ii = this.#extraChars.length; i < ii; i++) {
-        this.#text.push(this.#extraChars[i]);
-        this.#textExtraCharIds.push(this.#extraCharIds[i]);
-      }
-      this.#extraChars.length = 0;
-      this.#extraCharIds.length = 0;
-    }
-    this.#text.push(glyph);
-    this.#textExtraCharIds.push(-1);
-    this.#canTakeExtraChars = true;
-    return true;
-  }
-  addExtraChar(char, id) {
-    if (this.#canTakeExtraChars) {
-      this.#extraChars.push(char);
-      this.#extraCharIds.push(id);
-      this.#lastExtraCharId = id;
-    }
-  }
-  removeExtraChar(id) {
-    if (id > this.#lastExtraCharId) {
-      return;
-    }
-    const index = this.#extraCharIds.lastIndexOf(id);
-    if (index >= 0) {
-      this.#extraChars.splice(index, 1);
-      this.#extraCharIds.splice(index, 1);
-      return;
-    }
-    const ids = this.#textExtraCharIds;
-    for (let i = ids.length - 1; i >= 0; i--) {
-      const textId = ids[i];
-      if (textId === id) {
-        this.#text.splice(i, 1);
-        ids.splice(i, 1);
-        return;
-      }
-      if (textId >= 0 && textId < id) {
-        return;
-      }
-    }
-  }
-  disableExtraChars() {
-    if (!this.#canTakeExtraChars) {
-      return;
-    }
-    this.#canTakeExtraChars = false;
-    this.#extraChars.length = 0;
-    this.#extraCharIds.length = 0;
-  }
-  setText() {
-    this.#annotation.data.overlaidText = this.#text.join("");
-  }
-}
-const STEPS = 64;
-class Intersector {
-  #intersectors = [];
-  #grid = [];
-  #extraCharId = 0;
-  #minX;
-  #maxX;
-  #minY;
-  #maxY;
-  #invXRatio;
-  #invYRatio;
-  constructor(annotations) {
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-    const intersectors = this.#intersectors;
-    for (const annotation of annotations) {
-      if (!annotation.data.quadPoints && !annotation.data.rect) {
-        continue;
-      }
-      const intersector = new SingleIntersector(annotation);
-      intersectors.push(intersector);
-      minX = Math.min(minX, intersector.minX);
-      minY = Math.min(minY, intersector.minY);
-      maxX = Math.max(maxX, intersector.maxX);
-      maxY = Math.max(maxY, intersector.maxY);
-    }
-    this.#minX = minX;
-    this.#minY = minY;
-    this.#maxX = maxX;
-    this.#maxY = maxY;
-    this.#invXRatio = (STEPS - 1) / (maxX - minX);
-    this.#invYRatio = (STEPS - 1) / (maxY - minY);
-    for (const intersector of intersectors) {
-      const iMin = this.#getGridIndex(intersector.minX, intersector.minY);
-      const iMax = this.#getGridIndex(intersector.maxX, intersector.maxY);
-      const w = (iMax - iMin) % STEPS;
-      const h = Math.floor((iMax - iMin) / STEPS);
-      for (let i = iMin; i <= iMin + h * STEPS; i += STEPS) {
-        for (let j = 0; j <= w; j++) {
-          (this.#grid[i + j] ??= []).push(intersector);
-        }
-      }
-    }
-  }
-  #getGridIndex(x, y) {
-    const i = Math.floor((x - this.#minX) * this.#invXRatio);
-    const j = Math.floor((y - this.#minY) * this.#invYRatio);
-    return i + j * STEPS;
-  }
-  addGlyph(transform, width, height, glyph) {
-    const x = transform[4] + width / 2;
-    const y = transform[5] + height / 2;
-    if (x < this.#minX || y < this.#minY || x > this.#maxX || y > this.#maxY) {
-      return;
-    }
-    const intersectors = this.#grid[this.#getGridIndex(x, y)];
-    if (!intersectors) {
-      return;
-    }
-    for (const intersector of intersectors) {
-      intersector.addGlyph(x, y, glyph);
-    }
-  }
-  addExtraChar(char) {
-    const id = this.#extraCharId++;
-    for (const intersector of this.#intersectors) {
-      intersector.addExtraChar(char, id);
-    }
-    return id;
-  }
-  removeExtraChar(id) {
-    for (const intersector of this.#intersectors) {
-      intersector.removeExtraChar(id);
-    }
-  }
-  setText() {
-    for (const intersector of this.#intersectors) {
-      intersector.setText();
-    }
-  }
-}
-
 ;// ./src/core/writer.js
 
 
@@ -57933,6 +57304,7 @@ async function incrementalUpdate({
 
 
 
+
 const INTERACTIVE_ANNOTATION_TYPES = new Set(["3D", "FileAttachment", "Link", "Movie", "RichMedia", "Screen", "Sound"]);
 class PageAnnotationFlattener {
   #annotationStorage;
@@ -57943,6 +57315,7 @@ class PageAnnotationFlattener {
   #getResources;
   #intent;
   #page;
+  #structTree;
   #task;
   constructor({
     page,
@@ -57950,6 +57323,7 @@ class PageAnnotationFlattener {
     changes,
     flattenForms,
     intent,
+    structTree,
     getResources
   }) {
     this.#page = page;
@@ -57958,6 +57332,7 @@ class PageAnnotationFlattener {
     this.#changesXref = new ChangesXRefWrapper(changes, page.xref);
     this.#flattenForms = flattenForms;
     this.#intent = intent;
+    this.#structTree = structTree;
     this.#getResources = getResources;
   }
   async #fetch(obj) {
@@ -57974,6 +57349,7 @@ class PageAnnotationFlattener {
     const annotationStorage = this.#annotationStorage;
     const flattenForms = this.#flattenForms;
     const intent = this.#intent;
+    const structTree = this.#structTree;
     const {
       xref
     } = page;
@@ -57982,7 +57358,8 @@ class PageAnnotationFlattener {
       return {
         hadWidgets: hasWidgets,
         hasWidgets,
-        removed: null
+        removed: null,
+        tags: null
       };
     }
     const pageDict = changes.get(page.ref)?.data || page.pageDict.clone();
@@ -57991,7 +57368,8 @@ class PageAnnotationFlattener {
       return {
         hadWidgets: false,
         hasWidgets: false,
-        removed: null
+        removed: null,
+        tags: null
       };
     }
     const parsedAnnotations = new RefMap();
@@ -58006,6 +57384,7 @@ class PageAnnotationFlattener {
     const kept = [];
     const removed = new RefSet();
     const removedPopups = new RefSet();
+    const tags = [];
     const interactive = [];
     let hasWidgets = false,
       hadWidgets = false;
@@ -58058,7 +57437,8 @@ class PageAnnotationFlattener {
         if (appearance && annotation instanceof Ref) {
           flattened.push({
             appearance,
-            oc: dict.getRaw("OC")
+            oc: dict.getRaw("OC"),
+            tag: null
           });
           interactive.push({
             annotation,
@@ -58080,17 +57460,24 @@ class PageAnnotationFlattener {
         });
         continue;
       }
+      let tag = null;
       if (annotation instanceof Ref) {
         removed.put(annotation);
         const popup = dict.getRaw("Popup");
         if (popup instanceof Ref) {
           removedPopups.put(popup);
         }
+        tag = structTree?.getTag(dict) ?? null;
+        if (tag) {
+          tag.annotation = annotation;
+          tags.push(tag);
+        }
       }
       if (appearance) {
         flattened.push({
           appearance,
-          oc: dict.getRaw("OC")
+          oc: dict.getRaw("OC"),
+          tag
         });
       }
     }
@@ -58110,14 +57497,16 @@ class PageAnnotationFlattener {
       return {
         hadWidgets,
         hasWidgets,
-        removed: null
+        removed: null,
+        tags: null
       };
     }
     if (flattened.length > 0 && !(await this.#drawFlattenedAppearances(pageDict, flattened))) {
       return {
         hadWidgets,
         hasWidgets: hadWidgets,
-        removed: null
+        removed: null,
+        tags: null
       };
     }
     pageDict.set("Annots", newAnnotations);
@@ -58149,7 +57538,8 @@ class PageAnnotationFlattener {
     return {
       hadWidgets,
       hasWidgets,
-      removed
+      removed,
+      tags
     };
   }
   async #drawFlattenedAppearances(pageDict, flattened) {
@@ -58157,6 +57547,7 @@ class PageAnnotationFlattener {
       xref
     } = this.#page;
     const changes = this.#changes;
+    const structTree = this.#structTree;
     let contentStream, unbalanced, resources;
     try {
       contentStream = await this.#page.getContentStream();
@@ -58170,7 +57561,8 @@ class PageAnnotationFlattener {
       saves,
       unmatchedRestores,
       markedContent,
-      inText
+      inText,
+      lastMCID
     } = unbalanced;
     let contents;
     if (unmatchedRestores > 0) {
@@ -58226,18 +57618,27 @@ class PageAnnotationFlattener {
       return name;
     };
     const buffer = [];
+    let mcid = structTree?.getNextMCID(pageDict, lastMCID);
     for (const {
       appearance,
-      oc
+      oc,
+      tag
     } of flattened) {
       const transform = appearance.transform.map(numberToPDFString).join(" ");
       const name = addResource("XObject", "FlatAnnot", appearance.ref);
       const ocName = oc ? addResource("Properties", "FlatOC", oc) : null;
+      if (tag?.type) {
+        tag.mcid = mcid++;
+        buffer.push(`/${escapePDFName(tag.type)} <</MCID ${tag.mcid}>> BDC`);
+      }
       if (ocName) {
         buffer.push(`/OC /${ocName} BDC`);
       }
       buffer.push(`q ${transform} cm /${name} Do Q`);
       if (ocName) {
+        buffer.push("EMC");
+      }
+      if (tag?.type) {
         buffer.push("EMC");
       }
     }
@@ -58363,7 +57764,8 @@ function getUnbalancedOperators(stream, xref) {
     saves: 0,
     unmatchedRestores: 0,
     markedContent: 0,
-    inText: false
+    inText: false,
+    lastMCID: -1
   };
   const preprocessor = new EvaluatorPreprocessor(stream, xref);
   const operation = {
@@ -58392,8 +57794,17 @@ function getUnbalancedOperators(stream, xref) {
       case OPS.endText:
         result.inText = false;
         break;
-      case OPS.beginMarkedContent:
       case OPS.beginMarkedContentProps:
+        {
+          const props = operation.args[1];
+          const mcid = props instanceof Dict ? props.get("MCID") : null;
+          if (Number.isInteger(mcid) && mcid > result.lastMCID) {
+            result.lastMCID = mcid;
+          }
+          result.markedContent++;
+          break;
+        }
+      case OPS.beginMarkedContent:
         result.markedContent++;
         break;
       case OPS.endMarkedContent:
@@ -58469,6 +57880,7 @@ function isSelfContained(obj) {
 }
 async function finalizeFlattening({
   results,
+  structTree,
   manager,
   acroForm,
   acroFormRef,
@@ -58486,6 +57898,20 @@ async function finalizeFlattening({
       return null;
     }
   };
+  if (structTree) {
+    for (const {
+      pageRef,
+      tags
+    } of results) {
+      if (tags?.length > 0 && pageRef instanceof Ref) {
+        structTree.update({
+          pageRef,
+          tags
+        });
+      }
+    }
+    structTree.save();
+  }
   const removed = new RefSet();
   for (const result of results) {
     for (const ref of result.removed ?? []) {
@@ -58660,6 +58086,847 @@ function pruneChanges({
   for (const ref of changes.keys()) {
     if (isNew(ref) && !used.has(ref)) {
       changes.remove(ref);
+    }
+  }
+}
+class StructTreeFlattener {
+  #changes;
+  #changesXref;
+  #entries = null;
+  #isModified = false;
+  #numberTree = null;
+  #parentTree = null;
+  #parentTreeRef = null;
+  #root;
+  #rootRef;
+  #xref;
+  constructor({
+    changes,
+    root,
+    rootRef,
+    xref
+  }) {
+    this.#changes = changes;
+    this.#changesXref = new ChangesXRefWrapper(changes, xref);
+    this.#root = root;
+    this.#rootRef = rootRef;
+    this.#xref = xref;
+    const parentTreeRef = root.getRaw("ParentTree");
+    const parentTree = this.#fetch(parentTreeRef);
+    if (!(parentTree instanceof Dict)) {
+      return;
+    }
+    const numberTree = new NumberTree(parentTreeRef, this.#changesXref);
+    try {
+      this.#entries = numberTree.getAll(true);
+    } catch (ex) {
+      warn(`StructTreeFlattener: cannot read the parent tree: "${ex}".`);
+      this.#numberTree = numberTree;
+      return;
+    }
+    for (const key of this.#entries.keys()) {
+      if (!Number.isInteger(key)) {
+        this.#entries.delete(key);
+      }
+    }
+    this.#parentTree = parentTree;
+    this.#parentTreeRef = parentTreeRef;
+  }
+  static create({
+    catalogRef,
+    changes,
+    xref
+  }) {
+    try {
+      const changesXref = new ChangesXRefWrapper(changes, xref);
+      const rootRef = changesXref.fetchIfRef(catalogRef)?.getRaw("StructTreeRoot");
+      const root = changesXref.fetchIfRef(rootRef);
+      return rootRef instanceof Ref && root instanceof Dict ? new StructTreeFlattener({
+        changes,
+        root,
+        rootRef,
+        xref
+      }) : null;
+    } catch (ex) {
+      warn(`StructTreeFlattener: "${ex}".`);
+      return null;
+    }
+  }
+  #fetch(obj) {
+    return this.#changesXref.fetchIfRef(obj);
+  }
+  getTag(annotationDict) {
+    try {
+      const structParent = annotationDict.get("StructParent");
+      if (!Number.isInteger(structParent)) {
+        return null;
+      }
+      const ref = this.#entries ? this.#entries.get(structParent) : this.#numberTree?.getRaw(structParent);
+      const element = this.#fetch(ref);
+      if (!(ref instanceof Ref) || !(element instanceof Dict)) {
+        return null;
+      }
+      const type = element.get("S");
+      return {
+        ref,
+        structParent,
+        type: this.#entries && type instanceof Name ? type.name : null
+      };
+    } catch (ex) {
+      warn(`StructTreeFlattener.getTag: "${ex}".`);
+      return null;
+    }
+  }
+  getNextMCID(pageDict, lastMCID) {
+    const parents = this.#fetch(this.#entries?.get(pageDict.get("StructParents")));
+    return Math.max(lastMCID + 1, Array.isArray(parents) ? parents.length : 0);
+  }
+  update({
+    pageRef,
+    tags
+  }) {
+    const xref = this.#xref;
+    let parents = null;
+    for (const {
+      annotation,
+      mcid,
+      ref,
+      structParent
+    } of tags) {
+      try {
+        let mcr = null;
+        if (this.#entries && Number.isInteger(mcid)) {
+          mcr = new Dict(xref);
+          mcr.set("Type", Name.get("MCR"));
+          mcr.set("Pg", pageRef);
+          mcr.set("MCID", mcid);
+          parents ??= this.#getParents(pageRef);
+          while (parents.length < mcid) {
+            parents.push(null);
+          }
+          parents[mcid] = ref;
+        }
+        this.#replaceObjectReference(ref, annotation, mcr);
+        if (this.#entries?.delete(structParent)) {
+          this.#isModified = true;
+        }
+      } catch (ex) {
+        warn(`StructTreeFlattener.update: "${ex}".`);
+      }
+    }
+  }
+  #getParents(pageRef) {
+    const pageDict = this.#changes.get(pageRef).data;
+    let key = pageDict.get("StructParents");
+    let parents = this.#fetch(this.#entries.get(key));
+    if (Number.isInteger(key) && Array.isArray(parents)) {
+      parents = parents.slice();
+    } else {
+      key = this.#root.get("ParentTreeNextKey");
+      if (!Number.isInteger(key) || key < 0) {
+        key = 0;
+      }
+      for (const entryKey of this.#entries.keys()) {
+        key = Math.max(key, entryKey + 1);
+      }
+      this.#root = this.#root.clone();
+      this.#root.set("ParentTreeNextKey", key + 1);
+      pageDict.set("StructParents", key);
+      parents = [];
+    }
+    this.#entries.set(key, parents);
+    this.#isModified = true;
+    return parents;
+  }
+  #replaceObjectReference(ref, annotation, replacement) {
+    const element = this.#fetch(ref);
+    if (!(element instanceof Dict)) {
+      return;
+    }
+    const rawKids = element.getRaw("K");
+    const kids = this.#fetch(rawKids);
+    const newKids = [];
+    let found = false;
+    for (const kid of Array.isArray(kids) ? kids : [rawKids]) {
+      let obj;
+      try {
+        obj = this.#fetch(kid);
+      } catch (ex) {
+        warn(`StructTreeFlattener: cannot read a structure kid: "${ex}".`);
+      }
+      const objRef = obj instanceof Dict && isName(obj.get("Type"), "OBJR") ? obj.getRaw("Obj") : null;
+      if (objRef instanceof Ref && annotation instanceof Ref && isRefsEqual(objRef, annotation)) {
+        found = true;
+        if (replacement) {
+          newKids.push(replacement);
+        }
+        continue;
+      }
+      newKids.push(kid);
+    }
+    if (found) {
+      const newElement = element.clone();
+      newElement.set("K", newKids);
+      this.#changes.put(ref, {
+        data: newElement
+      });
+    }
+  }
+  save() {
+    if (!this.#isModified) {
+      return;
+    }
+    const xref = this.#xref;
+    const nums = [];
+    for (const key of [...this.#entries.keys()].sort((a, b) => a - b)) {
+      nums.push(key, this.#entries.get(key));
+    }
+    const parentTree = this.#parentTree.clone();
+    parentTree.delete("Kids");
+    parentTree.delete("Limits");
+    parentTree.set("Nums", nums);
+    let parentTreeRef = this.#parentTreeRef;
+    if (!(parentTreeRef instanceof Ref)) {
+      parentTreeRef = xref.getNewTemporaryRef();
+      this.#root = this.#root.clone();
+      this.#root.set("ParentTree", parentTreeRef);
+    }
+    this.#changes.put(parentTreeRef, {
+      data: parentTree
+    });
+    this.#changes.put(this.#rootRef, {
+      data: this.#root
+    });
+  }
+}
+
+;// ./src/core/chunked_stream.js
+
+
+
+
+class ChunkedStream extends Stream {
+  progressiveDataLength = 0;
+  _lastSuccessfulEnsureByteChunk = -1;
+  _loadedChunks = new Set();
+  constructor(length, chunkSize, manager) {
+    super(new Uint8Array(length), 0, length, null);
+    this.chunkSize = chunkSize;
+    this.numChunks = Math.ceil(length / chunkSize);
+    this.manager = manager;
+  }
+  getMissingChunks() {
+    const chunks = [];
+    for (let chunk = 0, n = this.numChunks; chunk < n; ++chunk) {
+      if (!this._loadedChunks.has(chunk)) {
+        chunks.push(chunk);
+      }
+    }
+    return chunks;
+  }
+  get numChunksLoaded() {
+    return this._loadedChunks.size;
+  }
+  get isDataLoaded() {
+    return this.numChunksLoaded === this.numChunks;
+  }
+  onReceiveData(begin, chunk) {
+    const chunkSize = this.chunkSize;
+    if (begin % chunkSize !== 0) {
+      throw new Error(`Bad begin offset: ${begin}`);
+    }
+    const end = begin + chunk.byteLength;
+    if (end % chunkSize !== 0 && end !== this.bytes.length) {
+      throw new Error(`Bad end offset: ${end}`);
+    }
+    this.bytes.set(new Uint8Array(chunk), begin);
+    const beginChunk = Math.floor(begin / chunkSize);
+    const endChunk = Math.floor((end - 1) / chunkSize) + 1;
+    for (let curChunk = beginChunk; curChunk < endChunk; ++curChunk) {
+      this._loadedChunks.add(curChunk);
+    }
+  }
+  onReceiveProgressiveData(data) {
+    let position = this.progressiveDataLength;
+    const beginChunk = Math.floor(position / this.chunkSize);
+    this.bytes.set(new Uint8Array(data), position);
+    position += data.byteLength;
+    this.progressiveDataLength = position;
+    const endChunk = position >= this.end ? this.numChunks : Math.floor(position / this.chunkSize);
+    for (let curChunk = beginChunk; curChunk < endChunk; ++curChunk) {
+      this._loadedChunks.add(curChunk);
+    }
+  }
+  ensureByte(pos) {
+    if (pos < this.progressiveDataLength) {
+      return;
+    }
+    const chunk = Math.floor(pos / this.chunkSize);
+    if (chunk > this.numChunks || chunk === this._lastSuccessfulEnsureByteChunk) {
+      return;
+    }
+    if (!this._loadedChunks.has(chunk)) {
+      throw new MissingDataException(pos, pos + 1);
+    }
+    this._lastSuccessfulEnsureByteChunk = chunk;
+  }
+  ensureRange(begin, end) {
+    if (begin >= end || end <= this.progressiveDataLength) {
+      return;
+    }
+    const beginChunk = Math.floor(begin / this.chunkSize);
+    if (beginChunk > this.numChunks) {
+      return;
+    }
+    const endChunk = Math.min(Math.floor((end - 1) / this.chunkSize) + 1, this.numChunks);
+    for (let chunk = beginChunk; chunk < endChunk; ++chunk) {
+      if (!this._loadedChunks.has(chunk)) {
+        throw new MissingDataException(begin, end);
+      }
+    }
+  }
+  nextEmptyChunk(beginChunk) {
+    const numChunks = this.numChunks;
+    for (let i = 0; i < numChunks; ++i) {
+      const chunk = (beginChunk + i) % numChunks;
+      if (!this._loadedChunks.has(chunk)) {
+        return chunk;
+      }
+    }
+    return null;
+  }
+  hasChunk(chunk) {
+    return this._loadedChunks.has(chunk);
+  }
+  getByte() {
+    const pos = this.pos;
+    if (pos >= this.end) {
+      return -1;
+    }
+    if (pos >= this.progressiveDataLength) {
+      this.ensureByte(pos);
+    }
+    return this.bytes[this.pos++];
+  }
+  getBytes(length) {
+    const pos = this.pos;
+    const endPos = !length ? this.end : Math.min(pos + length, this.end);
+    if (endPos > this.progressiveDataLength) {
+      this.ensureRange(pos, endPos);
+    }
+    this.pos = endPos;
+    return this.bytes.subarray(pos, endPos);
+  }
+  getByteRange(begin, end) {
+    if (begin < 0) {
+      begin = 0;
+    }
+    if (end > this.end) {
+      end = this.end;
+    }
+    if (end > this.progressiveDataLength) {
+      this.ensureRange(begin, end);
+    }
+    return this.bytes.subarray(begin, end);
+  }
+  makeSubStream(start, length, dict = null) {
+    if (length) {
+      if (start + length > this.progressiveDataLength) {
+        this.ensureRange(start, start + length);
+      }
+    } else if (start >= this.progressiveDataLength) {
+      this.ensureByte(start);
+    }
+    function ChunkedStreamSubstream() {}
+    ChunkedStreamSubstream.prototype = Object.create(this);
+    ChunkedStreamSubstream.prototype.getMissingChunks = function () {
+      const chunkSize = this.chunkSize;
+      const beginChunk = Math.floor(this.start / chunkSize);
+      const endChunk = Math.floor((this.end - 1) / chunkSize) + 1;
+      const missingChunks = [];
+      for (let chunk = beginChunk; chunk < endChunk; ++chunk) {
+        if (!this._loadedChunks.has(chunk)) {
+          missingChunks.push(chunk);
+        }
+      }
+      return missingChunks;
+    };
+    Object.defineProperty(ChunkedStreamSubstream.prototype, "isDataLoaded", {
+      get() {
+        return this.numChunksLoaded === this.numChunks || this.getMissingChunks().length === 0;
+      },
+      configurable: true
+    });
+    const subStream = new ChunkedStreamSubstream();
+    subStream.pos = subStream.start = start;
+    subStream.end = start + length || this.end;
+    subStream.dict = dict;
+    return subStream;
+  }
+  getBaseStreams() {
+    return [this];
+  }
+}
+class ChunkedStreamManager {
+  #abortReason = null;
+  #requestId = 0;
+  #chunksNeededByRequest = new Map();
+  #loadedStreamCapability = createPromiseCapability();
+  _promisesByRequest = new Map();
+  _requestsByChunk = new Map();
+  constructor(pdfStream, args) {
+    this.length = args.length;
+    this.chunkSize = args.rangeChunkSize;
+    this.stream = new ChunkedStream(this.length, this.chunkSize, this);
+    this.pdfStream = pdfStream;
+    this.disableAutoFetch = args.disableAutoFetch;
+    this.msgHandler = args.msgHandler;
+  }
+  async sendRequest(begin, end) {
+    const rangeReader = this.pdfStream.getRangeReader(begin, end);
+    let chunks = [];
+    while (true) {
+      const {
+        value,
+        done
+      } = await rangeReader.read();
+      if (this.#abortReason) {
+        chunks = null;
+        return;
+      }
+      if (done) {
+        break;
+      }
+      chunks.push(value);
+    }
+    if (chunks.length === 0 && this.disableAutoFetch) {
+      return;
+    }
+    const data = arrayBuffersToBytes(chunks);
+    chunks = null;
+    this.onReceiveData({
+      chunk: data.buffer,
+      begin
+    });
+  }
+  requestAllChunks(noFetch = false) {
+    if (!noFetch && !this.#abortReason) {
+      const missingChunks = this.stream.getMissingChunks();
+      this.#requestChunks(missingChunks);
+    }
+    return this.#loadedStreamCapability.promise;
+  }
+  #requestChunks(chunks) {
+    if (this.#abortReason) {
+      return Promise.reject(this.#abortReason);
+    }
+    const chunksNeeded = new Set();
+    for (const chunk of chunks) {
+      if (!this.stream.hasChunk(chunk)) {
+        chunksNeeded.add(chunk);
+      }
+    }
+    if (chunksNeeded.size === 0) {
+      return Promise.resolve();
+    }
+    const requestId = this.#requestId++;
+    this.#chunksNeededByRequest.set(requestId, chunksNeeded);
+    const capability = createPromiseCapability();
+    this._promisesByRequest.set(requestId, capability);
+    const chunksToRequest = [];
+    for (const chunk of chunksNeeded) {
+      const requestIds = this._requestsByChunk.getOrInsertComputed(chunk, () => {
+        chunksToRequest.push(chunk);
+        return [];
+      });
+      requestIds.push(requestId);
+    }
+    if (chunksToRequest.length > 0) {
+      const groupedChunksToRequest = this.groupChunks(chunksToRequest);
+      for (const groupedChunk of groupedChunksToRequest) {
+        const begin = groupedChunk.beginChunk * this.chunkSize;
+        const end = Math.min(groupedChunk.endChunk * this.chunkSize, this.length);
+        this.sendRequest(begin, end).catch(capability.reject);
+      }
+    }
+    return capability.promise;
+  }
+  getStream() {
+    return this.stream;
+  }
+  requestRange(begin, end) {
+    end = Math.min(end, this.length);
+    const beginChunk = this.getBeginChunk(begin);
+    const endChunk = this.getEndChunk(end);
+    const chunks = [];
+    for (let chunk = beginChunk; chunk < endChunk; ++chunk) {
+      chunks.push(chunk);
+    }
+    return this.#requestChunks(chunks);
+  }
+  requestRanges(ranges = []) {
+    const chunksToRequest = [];
+    for (const range of ranges) {
+      const beginChunk = this.getBeginChunk(range.begin);
+      const endChunk = this.getEndChunk(range.end);
+      for (let chunk = beginChunk; chunk < endChunk; ++chunk) {
+        if (!chunksToRequest.includes(chunk)) {
+          chunksToRequest.push(chunk);
+        }
+      }
+    }
+    chunksToRequest.sort((a, b) => a - b);
+    return this.#requestChunks(chunksToRequest);
+  }
+  groupChunks(chunks) {
+    const groupedChunks = [];
+    let beginChunk = -1;
+    let prevChunk = -1;
+    for (let i = 0, ii = chunks.length; i < ii; ++i) {
+      const chunk = chunks[i];
+      if (beginChunk < 0) {
+        beginChunk = chunk;
+      }
+      if (prevChunk >= 0 && prevChunk + 1 !== chunk) {
+        groupedChunks.push({
+          beginChunk,
+          endChunk: prevChunk + 1
+        });
+        beginChunk = chunk;
+      }
+      if (i + 1 === chunks.length) {
+        groupedChunks.push({
+          beginChunk,
+          endChunk: chunk + 1
+        });
+      }
+      prevChunk = chunk;
+    }
+    return groupedChunks;
+  }
+  onReceiveData(args) {
+    const {
+      chunkSize,
+      length,
+      stream
+    } = this;
+    const chunk = args.chunk;
+    const isProgressive = args.begin === undefined;
+    const begin = isProgressive ? stream.progressiveDataLength : args.begin;
+    const end = begin + chunk.byteLength;
+    const beginChunk = Math.floor(begin / chunkSize);
+    const endChunk = end < length ? Math.floor(end / chunkSize) : Math.ceil(end / chunkSize);
+    if (isProgressive) {
+      stream.onReceiveProgressiveData(chunk);
+    } else {
+      stream.onReceiveData(begin, chunk);
+    }
+    if (stream.isDataLoaded) {
+      this.#loadedStreamCapability.resolve(stream);
+    }
+    const loadedRequests = [];
+    for (let curChunk = beginChunk; curChunk < endChunk; ++curChunk) {
+      const requestIds = this._requestsByChunk.get(curChunk);
+      if (!requestIds) {
+        continue;
+      }
+      this._requestsByChunk.delete(curChunk);
+      for (const requestId of requestIds) {
+        const chunksNeeded = this.#chunksNeededByRequest.get(requestId);
+        chunksNeeded.delete(curChunk);
+        if (chunksNeeded.size > 0) {
+          continue;
+        }
+        loadedRequests.push(requestId);
+      }
+    }
+    if (!this.disableAutoFetch && !this._requestsByChunk.size && !this.#abortReason) {
+      let nextEmptyChunk;
+      if (stream.numChunksLoaded === 1) {
+        const lastChunk = stream.numChunks - 1;
+        if (!stream.hasChunk(lastChunk)) {
+          nextEmptyChunk = lastChunk;
+        }
+      } else {
+        nextEmptyChunk = stream.nextEmptyChunk(endChunk);
+      }
+      if (Number.isInteger(nextEmptyChunk)) {
+        this.#requestChunks([nextEmptyChunk]);
+      }
+    }
+    for (const requestId of loadedRequests) {
+      const capability = this._promisesByRequest.get(requestId);
+      this._promisesByRequest.delete(requestId);
+      capability.resolve();
+    }
+    this.msgHandler.send("DocProgress", {
+      loaded: MathClamp(stream.numChunksLoaded * chunkSize, stream.progressiveDataLength, length),
+      total: length
+    });
+  }
+  getBeginChunk(begin) {
+    return Math.floor(begin / this.chunkSize);
+  }
+  getEndChunk(end) {
+    return Math.floor((end - 1) / this.chunkSize) + 1;
+  }
+  abort(reason) {
+    assert(reason instanceof Error, "abort must have a valid reason");
+    this.#abortReason = reason;
+    this.pdfStream?.cancelAllRequests(reason);
+    for (const capability of this._promisesByRequest.values()) {
+      capability.reject(reason);
+    }
+    this.#loadedStreamCapability.reject(reason);
+  }
+}
+
+;// ./src/core/dataset_reader.js
+
+
+
+function decodeString(str) {
+  try {
+    return stringToUTF8String(str);
+  } catch (ex) {
+    warn(`UTF-8 decoding failed: "${ex}".`);
+    return str;
+  }
+}
+class DatasetXMLParser extends SimpleXMLParser {
+  node = null;
+  onEndElement(name) {
+    const node = super.onEndElement(name);
+    if (node && name === "xfa:datasets") {
+      this.node = node;
+      throw new Error("Aborting DatasetXMLParser.");
+    }
+  }
+}
+class DatasetReader {
+  constructor(data) {
+    if (data.datasets) {
+      this.node = new SimpleXMLParser({
+        hasAttributes: true
+      }).parseFromString(data.datasets).documentElement;
+    } else {
+      const parser = new DatasetXMLParser({
+        hasAttributes: true
+      });
+      try {
+        parser.parseFromString(data["xdp:xdp"]);
+      } catch {}
+      this.node = parser.node;
+    }
+  }
+  getValue(path) {
+    if (!this.node || !path) {
+      return "";
+    }
+    const node = this.node.searchNode(parseXFAPath(path), 0);
+    if (!node) {
+      return "";
+    }
+    const first = node.firstChild;
+    return first?.nodeName === "value" ? node.children.map(child => decodeString(child.textContent)) : decodeString(node.textContent);
+  }
+}
+
+;// ./src/core/intersector.js
+class SingleIntersector {
+  #annotation;
+  minX = Infinity;
+  minY = Infinity;
+  maxX = -Infinity;
+  maxY = -Infinity;
+  #quadPoints = null;
+  #text = [];
+  #textExtraCharIds = [];
+  #extraChars = [];
+  #extraCharIds = [];
+  #lastExtraCharId = -1;
+  #lastIntersectingQuadIndex = -1;
+  #canTakeExtraChars = false;
+  constructor(annotation) {
+    this.#annotation = annotation;
+    const quadPoints = annotation.data.quadPoints;
+    if (!quadPoints) {
+      [this.minX, this.minY, this.maxX, this.maxY] = annotation.data.rect;
+      return;
+    }
+    for (let i = 0, ii = quadPoints.length; i < ii; i += 8) {
+      this.minX = Math.min(this.minX, quadPoints[i]);
+      this.maxX = Math.max(this.maxX, quadPoints[i + 2]);
+      this.minY = Math.min(this.minY, quadPoints[i + 5]);
+      this.maxY = Math.max(this.maxY, quadPoints[i + 1]);
+    }
+    if (quadPoints.length > 8) {
+      this.#quadPoints = quadPoints;
+    }
+  }
+  #intersects(x, y) {
+    if (this.minX >= x || this.maxX <= x || this.minY >= y || this.maxY <= y) {
+      return false;
+    }
+    const quadPoints = this.#quadPoints;
+    if (!quadPoints) {
+      return true;
+    }
+    if (this.#lastIntersectingQuadIndex >= 0) {
+      const i = this.#lastIntersectingQuadIndex;
+      if (!(quadPoints[i] >= x || quadPoints[i + 2] <= x || quadPoints[i + 5] >= y || quadPoints[i + 1] <= y)) {
+        return true;
+      }
+      this.#lastIntersectingQuadIndex = -1;
+    }
+    for (let i = 0, ii = quadPoints.length; i < ii; i += 8) {
+      if (!(quadPoints[i] >= x || quadPoints[i + 2] <= x || quadPoints[i + 5] >= y || quadPoints[i + 1] <= y)) {
+        this.#lastIntersectingQuadIndex = i;
+        return true;
+      }
+    }
+    return false;
+  }
+  addGlyph(x, y, glyph) {
+    if (!this.#intersects(x, y)) {
+      this.disableExtraChars();
+      return false;
+    }
+    if (this.#extraChars.length > 0) {
+      for (let i = 0, ii = this.#extraChars.length; i < ii; i++) {
+        this.#text.push(this.#extraChars[i]);
+        this.#textExtraCharIds.push(this.#extraCharIds[i]);
+      }
+      this.#extraChars.length = 0;
+      this.#extraCharIds.length = 0;
+    }
+    this.#text.push(glyph);
+    this.#textExtraCharIds.push(-1);
+    this.#canTakeExtraChars = true;
+    return true;
+  }
+  addExtraChar(char, id) {
+    if (this.#canTakeExtraChars) {
+      this.#extraChars.push(char);
+      this.#extraCharIds.push(id);
+      this.#lastExtraCharId = id;
+    }
+  }
+  removeExtraChar(id) {
+    if (id > this.#lastExtraCharId) {
+      return;
+    }
+    const index = this.#extraCharIds.lastIndexOf(id);
+    if (index >= 0) {
+      this.#extraChars.splice(index, 1);
+      this.#extraCharIds.splice(index, 1);
+      return;
+    }
+    const ids = this.#textExtraCharIds;
+    for (let i = ids.length - 1; i >= 0; i--) {
+      const textId = ids[i];
+      if (textId === id) {
+        this.#text.splice(i, 1);
+        ids.splice(i, 1);
+        return;
+      }
+      if (textId >= 0 && textId < id) {
+        return;
+      }
+    }
+  }
+  disableExtraChars() {
+    if (!this.#canTakeExtraChars) {
+      return;
+    }
+    this.#canTakeExtraChars = false;
+    this.#extraChars.length = 0;
+    this.#extraCharIds.length = 0;
+  }
+  setText() {
+    this.#annotation.data.overlaidText = this.#text.join("");
+  }
+}
+const STEPS = 64;
+class Intersector {
+  #intersectors = [];
+  #grid = [];
+  #extraCharId = 0;
+  #minX;
+  #maxX;
+  #minY;
+  #maxY;
+  #invXRatio;
+  #invYRatio;
+  constructor(annotations) {
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    const intersectors = this.#intersectors;
+    for (const annotation of annotations) {
+      if (!annotation.data.quadPoints && !annotation.data.rect) {
+        continue;
+      }
+      const intersector = new SingleIntersector(annotation);
+      intersectors.push(intersector);
+      minX = Math.min(minX, intersector.minX);
+      minY = Math.min(minY, intersector.minY);
+      maxX = Math.max(maxX, intersector.maxX);
+      maxY = Math.max(maxY, intersector.maxY);
+    }
+    this.#minX = minX;
+    this.#minY = minY;
+    this.#maxX = maxX;
+    this.#maxY = maxY;
+    this.#invXRatio = (STEPS - 1) / (maxX - minX);
+    this.#invYRatio = (STEPS - 1) / (maxY - minY);
+    for (const intersector of intersectors) {
+      const iMin = this.#getGridIndex(intersector.minX, intersector.minY);
+      const iMax = this.#getGridIndex(intersector.maxX, intersector.maxY);
+      const w = (iMax - iMin) % STEPS;
+      const h = Math.floor((iMax - iMin) / STEPS);
+      for (let i = iMin; i <= iMin + h * STEPS; i += STEPS) {
+        for (let j = 0; j <= w; j++) {
+          (this.#grid[i + j] ??= []).push(intersector);
+        }
+      }
+    }
+  }
+  #getGridIndex(x, y) {
+    const i = Math.floor((x - this.#minX) * this.#invXRatio);
+    const j = Math.floor((y - this.#minY) * this.#invYRatio);
+    return i + j * STEPS;
+  }
+  addGlyph(transform, width, height, glyph) {
+    const x = transform[4] + width / 2;
+    const y = transform[5] + height / 2;
+    if (x < this.#minX || y < this.#minY || x > this.#maxX || y > this.#maxY) {
+      return;
+    }
+    const intersectors = this.#grid[this.#getGridIndex(x, y)];
+    if (!intersectors) {
+      return;
+    }
+    for (const intersector of intersectors) {
+      intersector.addGlyph(x, y, glyph);
+    }
+  }
+  addExtraChar(char) {
+    const id = this.#extraCharId++;
+    for (const intersector of this.#intersectors) {
+      intersector.addExtraChar(char, id);
+    }
+    return id;
+  }
+  removeExtraChar(id) {
+    for (const intersector of this.#intersectors) {
+      intersector.removeExtraChar(id);
+    }
+  }
+  setText() {
+    for (const intersector of this.#intersectors) {
+      intersector.setText();
     }
   }
 }
@@ -63073,6 +63340,7 @@ class PDFEditor {
   isSingleFile = false;
   #newAnnotationsParams = null;
   #primaryDocument = null;
+  #primaryRefMappings = [];
   #resourceStreamCache = new Map();
   currentDocument = null;
   oldPages = [];
@@ -63704,6 +63972,9 @@ class PDFEditor {
       }
       const documentData = new DocumentData(document);
       allDocumentData.push(documentData);
+      if (document === primaryDocument) {
+        this.#primaryRefMappings.push(documentData.oldRefMapping);
+      }
       promises.push(this.#collectDocumentData(documentData));
       let pageIndex = 0;
       for (const i of filteredPageIndices) {
@@ -65367,14 +65638,33 @@ class PDFEditor {
     }
     return infoMap;
   }
+  #getSingleDocumentData() {
+    return this.isSingleFile ? this.oldPages.find(p => !!p).documentData : null;
+  }
+  get password() {
+    return this.#getSingleDocumentData()?.document.pdfManager.password ?? null;
+  }
+  getCopiedAnnotationStorage(annotationStorage) {
+    const storage = new Map();
+    for (const [key, value] of annotationStorage ?? []) {
+      const ref = Ref.fromString(key);
+      if (!ref) {
+        continue;
+      }
+      for (const oldRefMapping of this.#primaryRefMappings) {
+        const newRef = oldRefMapping.get(ref);
+        if (newRef) {
+          storage.set(newRef.toString(), value);
+        }
+      }
+    }
+    return storage.size > 0 ? storage : null;
+  }
   async #makeEncrypt() {
-    if (!this.isSingleFile) {
+    const documentData = this.#getSingleDocumentData();
+    if (!documentData) {
       return [null, null, null];
     }
-    const firstRealPage = this.oldPages.find(p => !!p);
-    const {
-      documentData
-    } = firstRealPage;
     const {
       document: {
         xref: {
@@ -66052,7 +66342,9 @@ class WorkerMessageHandler {
     });
     handler.on("ExtractPages", async function ({
       pageInfos,
-      annotationStorage
+      annotationStorage,
+      flatten,
+      intent
     }) {
       if (!pageInfos) {
         warn("extractPages: nothing to extract.");
@@ -66129,7 +66421,18 @@ class WorkerMessageHandler {
         const pdfEditor = new PDFEditor();
         task = new WorkerTask(`ExtractPages: ${pageInfos.length} page(s)`);
         startWorkerTask(task);
-        return await pdfEditor.extractPages(pageInfos, annotationStorage, pdfManager.pdfDocument, handler, task);
+        const data = await pdfEditor.extractPages(pageInfos, annotationStorage, pdfManager.pdfDocument, handler, task);
+        if (!data || !flatten) {
+          return data;
+        }
+        return await flattenData({
+          data,
+          password: pdfEditor.password,
+          annotationStorage: pdfEditor.getCopiedAnnotationStorage(annotationStorage),
+          flatten,
+          intent,
+          task
+        });
       } catch (reason) {
         warn(`extractPages: "${reason}".`);
         return null;
@@ -66140,6 +66443,55 @@ class WorkerMessageHandler {
         managers?.forEach(manager => manager.terminate(new AbortException("ExtractPages was finished.")));
       }
     });
+    let savedDocumentId = 0;
+    async function flattenData({
+      data,
+      password,
+      annotationStorage,
+      flatten,
+      intent,
+      task
+    }) {
+      const managers = [];
+      const load = async source => {
+        const manager = new LocalPdfManager({
+          source,
+          docId: `${docId}_saved_${savedDocumentId++}`,
+          handler,
+          password,
+          evaluatorOptions: {
+            ...pdfManager.evaluatorOptions
+          }
+        });
+        managers.push(manager);
+        await manager.requestLoadedStream();
+        await manager.initDocument(false);
+        return manager;
+      };
+      try {
+        let manager = await load(data);
+        const flattenedData = await saveDocument(manager, {
+          isPureXfa: false,
+          numPages: await manager.ensureDoc("numPages"),
+          annotationStorage,
+          supportsPrintToPDF: false,
+          filename: null,
+          flatten,
+          intent
+        });
+        if (flattenedData === data) {
+          return data;
+        }
+        manager = await load(flattenedData);
+        return await new PDFEditor().extractPages([{
+          document: manager.pdfDocument
+        }], null, manager.pdfDocument, handler, task);
+      } finally {
+        for (const manager of managers) {
+          manager.terminate(new AbortException("ExtractPages was finished."));
+        }
+      }
+    }
     async function flattenDocument({
       manager,
       numPages,
@@ -66152,16 +66504,26 @@ class WorkerMessageHandler {
       flattenForms,
       intent
     }) {
+      const structTree = StructTreeFlattener.create({
+        catalogRef,
+        changes,
+        xref
+      });
       const promises = [];
       for (let pageIndex = 0; pageIndex < numPages; pageIndex++) {
         promises.push(runPageTask(manager, pageIndex, "Flatten", async (page, task) => {
           try {
-            return await page.flattenAnnotations(handler, task, {
+            const result = await page.flattenAnnotations(handler, task, {
               annotationStorage,
               changes,
               flattenForms,
-              intent
+              intent,
+              structTree
             });
+            return {
+              ...result,
+              pageRef: page.ref
+            };
           } catch (reason) {
             warn(`flattenDocument - ignoring page ${pageIndex}: "${reason}".`);
             return {
@@ -66174,6 +66536,7 @@ class WorkerMessageHandler {
       const results = await Promise.all(promises);
       return finalizeFlattening({
         results,
+        structTree,
         manager,
         acroForm,
         acroFormRef,

@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = e573c76
+ * pdfjsBuild = d82ed35
  */
 
 ;// ./src/shared/util.js
@@ -2086,7 +2086,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "dd8d4de3-707e-40bd-a7a7-c6ff2799b993";
+const INTERNAL_EVT = "0bfa3644-155f-47af-acd0-23154d3bb7bb";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -16584,8 +16584,8 @@ class PDFDocumentProxy {
   saveDocument(params) {
     return this._transport.saveDocument(params);
   }
-  extractPages(pageInfos, copyLevels = null) {
-    return this._transport.extractPages(pageInfos, copyLevels);
+  extractPages(pageInfos, copyLevels = null, options = {}) {
+    return this._transport.extractPages(pageInfos, copyLevels, options);
   }
   getDownloadInfo() {
     return this._transport.downloadInfoCapability.promise;
@@ -17608,9 +17608,14 @@ class WorkerTransport {
       this.annotationStorage.resetModified();
     });
   }
-  extractPages(pageInfos, copyLevels = null) {
+  extractPages(pageInfos, copyLevels = null, {
+    flatten = false,
+    intent = "print"
+  } = {}) {
     const params = {
-      pageInfos
+      pageInfos,
+      flatten,
+      intent: this.#getFlattenIntent(intent)
     };
     let transfer;
     const ImageBitmapCtor = globalThis.ImageBitmap;
@@ -18102,7 +18107,7 @@ class InternalRenderTask {
   }
 }
 const version = "7.0.0";
-const build = "e573c76";
+const build = "d82ed35";
 
 ;// ./src/display/editor/color_picker.js
 
@@ -18532,6 +18537,17 @@ class DOMSVGFactory extends BaseSVGFactory {
 const annotation_layer_DEFAULT_FONT_SIZE = 9;
 const GetElementsByNameSet = new WeakSet();
 const TIMEZONE_OFFSET = new Date().getTimezoneOffset() * 60 * 1000;
+const STATIC_SANDBOX_PROPERTIES = new Set(["bgColor", "borderColor", "charLimit", "clear", "editable", "fgColor", "fillColor", "formattedValue", "indices", "insert", "items", "multipleSelection", "print", "readonly", "remove", "required", "selRange", "strokeColor", "textColor", "userName", "value"]);
+const SAFE_NAMED_ACTIONS = new Set(["FirstPage", "Find", "GoBack", "GoForward", "GoToPage", "LastPage", "NextPage", "PrevPage"]);
+let isScriptFocusing = false;
+let scriptFocusedElement = null;
+function getUserEventInfo(event) {
+  return {
+    originalEvent: event,
+    scripted: isScriptFocusing,
+    scriptFocused: event.target === scriptFocusedElement
+  };
+}
 class AnnotationElementFactory {
   static create(parameters) {
     const subtype = parameters.data.annotationType;
@@ -18964,9 +18980,30 @@ class AnnotationElement {
         });
       },
       focus: event => {
-        setTimeout(() => event.target.focus({
-          preventScroll: false
-        }), 0);
+        setTimeout(() => {
+          const {
+            target
+          } = event;
+          isScriptFocusing = true;
+          try {
+            target.focus({
+              preventScroll: false
+            });
+          } finally {
+            isScriptFocusing = false;
+          }
+          this._notifyLayoutChange();
+          if (target.ownerDocument.activeElement === target && scriptFocusedElement !== target) {
+            scriptFocusedElement = target;
+            target.addEventListener("blur", () => {
+              if (scriptFocusedElement === target) {
+                scriptFocusedElement = null;
+              }
+            }, {
+              once: true
+            });
+          }
+        }, 0);
       },
       userName: event => {
         event.target.title = event.detail.userName;
@@ -19004,11 +19041,43 @@ class AnnotationElement {
       }
     });
   }
+  _dispatchDOMEventInSandbox(detail, event) {
+    this.linkService.eventBus?.dispatch("dispatcheventinsandbox", {
+      source: this,
+      detail,
+      ...getUserEventInfo(event)
+    });
+  }
+  _isUserActivation(event) {
+    const {
+      eventBus
+    } = this.linkService;
+    if (!this.enableScripting || !eventBus) {
+      return true;
+    }
+    const request = {
+      source: this,
+      ...getUserEventInfo(event),
+      allowed: false
+    };
+    eventBus.dispatch("useractivationrequest", request);
+    return request.allowed;
+  }
+  _notifyLayoutChange() {
+    this.linkService.eventBus?.dispatch("sandboxlayoutchange", {
+      source: this
+    });
+  }
   _dispatchEventFromSandbox(actions, jsEvent) {
     const commonActions = this._commonActions;
     for (const name of Object.keys(jsEvent.detail)) {
       const action = actions[name] || commonActions[name];
-      action?.(jsEvent);
+      if (action) {
+        action(jsEvent);
+        if (!STATIC_SANDBOX_PROPERTIES.has(name)) {
+          this._notifyLayoutChange();
+        }
+      }
     }
   }
   _setDefaultPropertiesFromJS(element) {
@@ -19021,15 +19090,13 @@ class AnnotationElement {
     }
     const commonActions = this._commonActions;
     for (const [actionName, detail] of Object.entries(storedData)) {
-      const action = commonActions[actionName];
-      if (action) {
-        const eventProxy = {
+      if (commonActions[actionName]) {
+        this._dispatchEventFromSandbox(commonActions, {
           detail: {
             [actionName]: detail
           },
           target: element
-        };
-        action(eventProxy);
+        });
         delete storedData[actionName];
       }
     }
@@ -19317,6 +19384,13 @@ class LinkAnnotationElement extends AnnotationElement {
     let isBound = false;
     if (data.url) {
       linkService.addLinkAttributes(link, data.url, data.newWindow);
+      for (const type of ["click", "auxclick"]) {
+        link.addEventListener(type, event => {
+          if (!this._isUserActivation(event)) {
+            event.preventDefault();
+          }
+        });
+      }
       isBound = true;
     } else if (data.action) {
       this._bindNamedAction(link, data.action, data.overlaidText);
@@ -19370,8 +19444,10 @@ class LinkAnnotationElement extends AnnotationElement {
   }
   _bindNamedAction(link, action, overlaidText = "") {
     link.href = this.linkService.getAnchorUrl("");
-    link.onclick = () => {
-      this.linkService.executeNamedAction(action);
+    link.onclick = event => {
+      if (SAFE_NAMED_ACTIONS.has(action) || this._isUserActivation(event)) {
+        this.linkService.executeNamedAction(action);
+      }
       return false;
     };
     if (overlaidText) {
@@ -19392,8 +19468,10 @@ class LinkAnnotationElement extends AnnotationElement {
         this.downloadManager?.openOrDownloadData(content, attachment.filename, dest);
       }
     };
-    link.onclick = () => {
-      openAttachment();
+    link.onclick = event => {
+      if (this._isUserActivation(event)) {
+        openAttachment();
+      }
       return false;
     };
     this.#setInternalLink();
@@ -19421,14 +19499,11 @@ class LinkAnnotationElement extends AnnotationElement {
       if (!jsName) {
         continue;
       }
-      link[jsName] = () => {
-        this.linkService.eventBus?.dispatch("dispatcheventinsandbox", {
-          source: this,
-          detail: {
-            id,
-            name
-          }
-        });
+      link[jsName] = event => {
+        this._dispatchDOMEventInSandbox({
+          id,
+          name
+        }, event);
         return false;
       };
     }
@@ -19451,8 +19526,8 @@ class LinkAnnotationElement extends AnnotationElement {
       }
       return;
     }
-    link.onclick = () => {
-      otherClickAction?.();
+    link.onclick = event => {
+      otherClickAction?.(event);
       const {
         fields: resetFormFields,
         refs: resetFormRefs,
@@ -19589,16 +19664,13 @@ class WidgetAnnotationElement extends AnnotationElement {
   _setEventListener(element, elementData, baseName, eventName, valueGetter) {
     if (baseName.includes("mouse")) {
       element.addEventListener(baseName, event => {
-        this.linkService.eventBus?.dispatch("dispatcheventinsandbox", {
-          source: this,
-          detail: {
-            id: this.data.id,
-            name: eventName,
-            value: valueGetter(event),
-            shift: event.shiftKey,
-            modifier: this._getKeyModifier(event)
-          }
-        });
+        this._dispatchDOMEventInSandbox({
+          id: this.data.id,
+          name: eventName,
+          value: valueGetter(event),
+          shift: event.shiftKey,
+          modifier: this._getKeyModifier(event)
+        }, event);
       });
     } else {
       element.addEventListener(baseName, event => {
@@ -19616,14 +19688,11 @@ class WidgetAnnotationElement extends AnnotationElement {
         if (!valueGetter) {
           return;
         }
-        this.linkService.eventBus?.dispatch("dispatcheventinsandbox", {
-          source: this,
-          detail: {
-            id: this.data.id,
-            name: eventName,
-            value: valueGetter(event)
-          }
-        });
+        this._dispatchDOMEventInSandbox({
+          id: this.data.id,
+          name: eventName,
+          value: valueGetter(event)
+        }, event);
       });
     }
   }
@@ -19909,18 +19978,15 @@ class TextWidgetAnnotationElement extends WidgetAnnotationElement {
           }
           elementData.lastCommittedValue = value;
           elementData.userValue = value;
-          this.linkService.eventBus?.dispatch("dispatcheventinsandbox", {
-            source: this,
-            detail: {
-              id,
-              name: "Keystroke",
-              value,
-              willCommit: true,
-              commitKey,
-              selStart: event.target.selectionStart,
-              selEnd: event.target.selectionEnd
-            }
-          });
+          this._dispatchDOMEventInSandbox({
+            id,
+            name: "Keystroke",
+            value,
+            willCommit: true,
+            commitKey,
+            selStart: event.target.selectionStart,
+            selEnd: event.target.selectionEnd
+          }, event);
         });
         const _blurListener = blurListener;
         blurListener = null;
@@ -19952,18 +20018,15 @@ class TextWidgetAnnotationElement extends WidgetAnnotationElement {
           }
           elementData.userValue = value;
           if (elementData.lastCommittedValue !== value) {
-            this.linkService.eventBus?.dispatch("dispatcheventinsandbox", {
-              source: this,
-              detail: {
-                id,
-                name: "Keystroke",
-                value,
-                willCommit: true,
-                commitKey: elementData.commitKey,
-                selStart: event.target.selectionStart,
-                selEnd: event.target.selectionEnd
-              }
-            });
+            this._dispatchDOMEventInSandbox({
+              id,
+              name: "Keystroke",
+              value,
+              willCommit: true,
+              commitKey: elementData.commitKey,
+              selStart: event.target.selectionStart,
+              selEnd: event.target.selectionEnd
+            }, event);
           }
           _blurListener(event);
         });
@@ -20013,18 +20076,15 @@ class TextWidgetAnnotationElement extends WidgetAnnotationElement {
                 break;
             }
             event.preventDefault();
-            this.linkService.eventBus?.dispatch("dispatcheventinsandbox", {
-              source: this,
-              detail: {
-                id,
-                name: "Keystroke",
-                value,
-                change: data || "",
-                willCommit: false,
-                selStart,
-                selEnd
-              }
-            });
+            this._dispatchDOMEventInSandbox({
+              id,
+              name: "Keystroke",
+              value,
+              change: data || "",
+              willCommit: false,
+              selStart,
+              selEnd
+            }, event);
           });
         }
         this._setEventListeners(element, elementData, [["focus", "Focus"], ["blur", "Blur"], ["mousedown", "Mouse Down"], ["mouseenter", "Mouse Enter"], ["mouseleave", "Mouse Exit"], ["mouseup", "Mouse Up"]], event => event.target.value);
@@ -20444,19 +20504,16 @@ class ChoiceWidgetAnnotationElement extends WidgetAnnotationElement {
           value: exportValue
         });
         event.preventDefault();
-        this.linkService.eventBus?.dispatch("dispatcheventinsandbox", {
-          source: this,
-          detail: {
-            id,
-            name: "Keystroke",
-            value: selectedValues,
-            change,
-            changeEx: exportValue,
-            willCommit: false,
-            commitKey: 1,
-            keyDown: false
-          }
-        });
+        this._dispatchDOMEventInSandbox({
+          id,
+          name: "Keystroke",
+          value: selectedValues,
+          change,
+          changeEx: exportValue,
+          willCommit: false,
+          commitKey: 1,
+          keyDown: false
+        }, event);
       });
       this._setEventListeners(selectElement, null, [["focus", "Focus"], ["blur", "Blur"], ["mousedown", "Mouse Down"], ["mouseenter", "Mouse Enter"], ["mouseleave", "Mouse Exit"], ["mouseup", "Mouse Up"], ["input", "Action"], ["input", "Validate"]], event => event.target.value);
     } else {
@@ -21611,7 +21668,7 @@ class FileAttachmentAnnotationElement extends AnnotationElement {
     } = FeatureTest.platform;
     container.addEventListener("keydown", evt => {
       if (evt.key === "Enter" && (isMac ? evt.metaKey : evt.ctrlKey)) {
-        this.#download();
+        this.#download(evt);
       }
     });
     if (!data.popupRef && this.hasPopupData) {
@@ -21629,7 +21686,10 @@ class FileAttachmentAnnotationElement extends AnnotationElement {
   addHighlightArea() {
     this.container.classList.add("highlightArea");
   }
-  async #download() {
+  async #download(event) {
+    if (!this._isUserActivation(event)) {
+      return;
+    }
     const {
       fileId,
       filename,
