@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = 34d902e
+ * pdfjsBuild = d60bc74
  */
 
 ;// ./src/shared/util.js
@@ -8751,6 +8751,12 @@ async function JBig2(moduleArg = {}) {
 /* harmony default export */ const jbig2 = (JBig2);
 ;// ./src/core/wasm_loader.js
 
+
+
+async function decodeBrotli(data) {
+  const stream = new BrotliStream(new Stream(data), data.length);
+  return (await stream.asyncGetBytes()) ?? stream.getBytes();
+}
 class WasmLoader {
   static #modules = new Map();
   static async fetch(context, kind, filename) {
@@ -8758,13 +8764,14 @@ class WasmLoader {
       handler,
       options
     } = context;
-    if (options.useWorkerFetch) {
-      return (await this.#workerFetch(options[kind], filename)).bytes();
+    if (!options.useWorkerFetch) {
+      return handler.sendWithPromise("FetchBinaryData", {
+        kind,
+        filename
+      });
     }
-    return handler.sendWithPromise("FetchBinaryData", {
-      kind,
-      filename
-    });
+    const response = await this.#workerFetch(options[kind], filename);
+    return response.bytes();
   }
   static async #workerFetch(baseUrl, filename) {
     const url = `${baseUrl}${filename}`,
@@ -8802,14 +8809,24 @@ class WasmLoader {
     this.#modules.set(filename, promise);
     return promise;
   }
-  static async #importFallback(wasmUrl, filename) {
-    if (isNodeJS && !/^[a-z][a-z0-9\-+.]+:/i.test(wasmUrl)) {
-      wasmUrl = process.getBuiltinModule("url").pathToFileURL(wasmUrl).href;
+  static async #importFallback(context, wasmUrl, filename) {
+    let source;
+    const data = await this.fetch(context, "wasmUrl", `${filename}.br`);
+    source = await decodeBrotli(data);
+    const blob = await new Response(source, {
+      headers: {
+        "Content-Type": "text/javascript"
+      }
+    }).blob();
+    const url = URL.createObjectURL(blob);
+    try {
+      return await import(
+      /*webpackIgnore: true*/
+      /*@vite-ignore*/
+      url);
+    } finally {
+      URL.revokeObjectURL(url);
     }
-    return import(
-    /*webpackIgnore: true*/
-    /*@vite-ignore*/
-    `${wasmUrl}${filename}`);
   }
   static async load(context, filename, noWasmFilename, init) {
     const {
@@ -8829,7 +8846,7 @@ class WasmLoader {
       try {
         const {
           default: instantiate
-        } = await this.#importFallback(wasmUrl, noWasmFilename);
+        } = await this.#importFallback(context, wasmUrl, noWasmFilename);
         init(instantiate);
         return true;
       } catch (ex) {
@@ -34169,7 +34186,6 @@ class PDFImage {
 
 
 
-
 const DefaultPartialEvaluatorOptions = Object.freeze({
   disableFontFace: false,
   ignoreErrors: false,
@@ -34426,8 +34442,7 @@ class PartialEvaluator {
       }
     }, "cMapUrl", `${name}${cMapPacked ? ".bcmap.br" : ""}`);
     if (cMapPacked) {
-      const stream = new BrotliStream(new Stream(cMapData), cMapData.length);
-      cMapData = (await stream.asyncGetBytes()) ?? stream.getBytes();
+      cMapData = await decodeBrotli(cMapData);
     }
     return {
       cMapData,
