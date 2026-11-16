@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = bb1539a
+ * pdfjsBuild = 3dc920d
  */
 
 ;// ./src/shared/util.js
@@ -2086,7 +2086,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "59ad3720-0e8c-49ca-8f0d-13e9920f1a31";
+const INTERNAL_EVT = "b134d622-db63-431a-ba91-a57bb093691f";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -11600,9 +11600,6 @@ class CanvasGraphics {
     unreachable("Should not call beginImageData");
   }
   paintFormXObjectBegin(opIdx, matrix, bbox) {
-    if (!this.contentVisible) {
-      return;
-    }
     this.save(opIdx);
     this.baseTransformStack.push(this.baseTransform);
     if (matrix) {
@@ -11620,9 +11617,6 @@ class CanvasGraphics {
     }
   }
   paintFormXObjectEnd(opIdx) {
-    if (!this.contentVisible) {
-      return;
-    }
     this.restore(opIdx);
     this.baseTransform = this.baseTransformStack.pop();
   }
@@ -18107,7 +18101,7 @@ class InternalRenderTask {
   }
 }
 const version = "7.0.0";
-const build = "bb1539a";
+const build = "3dc920d";
 
 ;// ./src/display/editor/color_picker.js
 
