@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = 3dc920d
+ * pdfjsBuild = 60aefc5
  */
 
 ;// ./src/shared/util.js
@@ -34918,7 +34918,7 @@ class PartialEvaluator {
     const preprocessor = new EvaluatorPreprocessor(stream, xref, stateManager);
     const timeSlotManager = new TimeSlotManager();
     let markedContentLevel = 0;
-    function closePendingRestoreOPS(argument) {
+    function closePendingRestoreOPS() {
       for (let i = 0, ii = preprocessor.savedStatesDepth; i < ii; i++) {
         operatorList.addOp(OPS.restore, []);
       }
@@ -34944,12 +34944,20 @@ class PartialEvaluator {
       let stop, cs, name, isValidName;
       while (!(stop = timeSlotManager.check())) {
         operation.args = null;
+        const savedStatesDepth = preprocessor.savedStatesDepth;
         if (!preprocessor.read(operation)) {
           break;
         }
-        let args = operation.args;
-        let fn = operation.fn;
+        let {
+          args,
+          fn
+        } = operation;
         switch (fn | 0) {
+          case OPS.restore:
+            if (savedStatesDepth === 0) {
+              continue;
+            }
+            break;
           case OPS.paintXObject:
             isValidName = args[0] instanceof Name;
             name = args[0].name;
