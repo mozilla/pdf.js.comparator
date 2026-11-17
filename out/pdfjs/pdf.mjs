@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = 60aefc5
+ * pdfjsBuild = 74b5f3e
  */
 
 ;// ./src/shared/util.js
@@ -2086,7 +2086,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "acef1904-129a-4a36-b062-30652e630d1e";
+const INTERNAL_EVT = "50d92f16-cffe-4f22-9581-5906d4ba0dfb";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -11687,9 +11687,8 @@ class CanvasGraphics {
     }
     groupCtx.translate(-offsetX, -offsetY);
     groupCtx.transform(...currentTransform);
-    const needsBackdropCopy = !group.isolated && !group.smask && group.needsIsolation;
-    const replaceBackdrop = needsBackdropCopy && !inSMaskMode && savedKnockoutLevel === 0 && !group.knockout && !group.isGray && group.hasSoftMask && currentCtx.globalAlpha === 1 && currentCtx.globalCompositeOperation === "source-over" && this.current.transferMaps === "none" && !this.current.transferMapsFallback;
-    if (needsBackdropCopy && (inSMaskMode || replaceBackdrop)) {
+    const copyBackdrop = !group.isolated && !group.smask && group.needsIsolation && (inSMaskMode || savedKnockoutLevel === 0 && !group.knockout && !group.isGray && currentCtx.globalCompositeOperation === "source-over" && this.current.transferMaps === "none" && !this.current.transferMapsFallback);
+    if (copyBackdrop) {
       groupCtx.save();
       groupCtx.setTransform(1, 0, 0, 1, 0, 0);
       groupCtx.drawImage(currentCtx.canvas, -offsetX, -offsetY);
@@ -11733,7 +11732,7 @@ class CanvasGraphics {
       offsetX,
       offsetY,
       hasInnerBackdrop,
-      replaceBackdrop,
+      replaceBackdrop: copyBackdrop && !inSMaskMode,
       knockoutMaskEntry,
       knockoutTempEntry: null,
       knockoutBackdropEntry: null
@@ -11827,10 +11826,21 @@ class CanvasGraphics {
         }
       } else {
         if (groupMeta.replaceBackdrop) {
+          const {
+            width,
+            height
+          } = groupCtx.canvas;
           const clip = new Path2D();
-          clip.rect(0, 0, groupCtx.canvas.width, groupCtx.canvas.height);
+          clip.rect(0, 0, width, height);
           this.ctx.clip(clip);
-          this.ctx.globalCompositeOperation = "copy";
+          if (this.ctx.globalAlpha === 1) {
+            this.ctx.globalCompositeOperation = "copy";
+          } else {
+            this.ctx.globalCompositeOperation = "destination-out";
+            this.ctx.fillStyle = "#000";
+            this.ctx.fillRect(0, 0, width, height);
+            this.ctx.globalCompositeOperation = "lighter";
+          }
         }
         this.ctx.drawImage(groupCtx.canvas, 0, 0);
       }
@@ -18101,7 +18111,7 @@ class InternalRenderTask {
   }
 }
 const version = "7.0.0";
-const build = "60aefc5";
+const build = "74b5f3e";
 
 ;// ./src/display/editor/color_picker.js
 
