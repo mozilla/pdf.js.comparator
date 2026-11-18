@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = 041259d
+ * pdfjsBuild = fc0822a
  */
 
 ;// ./src/shared/util.js
@@ -18789,6 +18789,127 @@ function isKnownFontName(name) {
   return !!(getStdFontMap()[fontName] || getNonStdFontMap()[fontName] || getSerifFonts()[fontName] || getSymbolsFonts()[fontName]);
 }
 
+;// ./src/core/opentype_file_builder.js
+
+const OTF_HEADER_SIZE = 12;
+const OTF_TABLE_ENTRY_SIZE = 16;
+function computeOpenTypeChecksum(view, start = 0, end = view.byteLength) {
+  let checksum = 0;
+  let offset = start;
+  for (; offset + 4 <= end; offset += 4) {
+    checksum = checksum + view.getUint32(offset) >>> 0;
+  }
+  for (let shift = 24; offset < end; offset++, shift -= 8) {
+    checksum += view.getUint8(offset) << shift;
+  }
+  return checksum >>> 0;
+}
+class OpenTypeFileBuilder {
+  #tables = new Map();
+  constructor(sfnt) {
+    this.sfnt = sfnt;
+  }
+  static getSearchParams(entriesCount, entrySize) {
+    let maxPower2 = 1,
+      log2 = 0;
+    while ((maxPower2 ^ entriesCount) > maxPower2) {
+      maxPower2 <<= 1;
+      log2++;
+    }
+    const searchRange = maxPower2 * entrySize;
+    return {
+      range: searchRange,
+      entry: log2,
+      rangeShift: entrySize * entriesCount - searchRange
+    };
+  }
+  toArray() {
+    let sfnt = this.sfnt;
+    const tables = this.#tables;
+    const tablesNames = [...tables.keys()].sort();
+    const numTables = tablesNames.length;
+    let offset = OTF_HEADER_SIZE + numTables * OTF_TABLE_ENTRY_SIZE;
+    const tableOffsets = [offset];
+    for (let i = 0; i < numTables; i++) {
+      const table = tables.get(tablesNames[i]);
+      const paddedLength = (table.length + 3 & ~3) >>> 0;
+      offset += paddedLength;
+      tableOffsets.push(offset);
+    }
+    const file = new Uint8Array(offset),
+      view = new DataView(file.buffer);
+    for (let i = 0; i < numTables; i++) {
+      const table = tables.get(tablesNames[i]);
+      file.set(table, tableOffsets[i]);
+    }
+    if (sfnt === "true") {
+      sfnt = "\x00\x01\x00\x00";
+    }
+    file.set(stringToBytes(sfnt), 0);
+    view.setInt16(4, numTables);
+    const searchParams = OpenTypeFileBuilder.getSearchParams(numTables, 16);
+    view.setInt16(6, searchParams.range);
+    view.setInt16(8, searchParams.entry);
+    view.setInt16(10, searchParams.rangeShift);
+    offset = OTF_HEADER_SIZE;
+    for (let i = 0; i < numTables; i++) {
+      const tableName = tablesNames[i];
+      file.set(stringToBytes(tableName), offset);
+      view.setInt32(offset + 4, computeOpenTypeChecksum(view, tableOffsets[i], tableOffsets[i + 1]));
+      view.setInt32(offset + 8, tableOffsets[i]);
+      view.setInt32(offset + 12, tables.get(tableName).length);
+      offset += OTF_TABLE_ENTRY_SIZE;
+    }
+    this.#tables.clear();
+    return file;
+  }
+  addTable(tag, data) {
+    if (this.#tables.has(tag)) {
+      throw new Error(`Table ${tag} already exists`);
+    }
+    this.#tables.set(tag, data);
+  }
+}
+
+;// ./src/core/tricky_fonts.js
+
+const TRICKY_FONT_NAMES = ["cpop", "DFGirl-W6-WIN-BF", "DFGothic-EB", "DFGyoSho-Lt", "DFHei", "DFHSGothic-W5", "DFHSMincho-W3", "DFHSMincho-W7", "DFKaiSho-SB", "DFKaiShu", "DFKai-SB", "DFMing", "DLC", "HuaTianKaiTi?", "HuaTianSongTi?", "Ming(for ISO10646)", "MingLiU", "MingMedium", "PMingLiU", "MingLi43"];
+const TRICKY_FONT_TABLES = [["MingLiU", 0x05bcf058, 0x2e4, 0x28233bf1, 0x87c4, 0xa344a1ea, 0x1e1], ["MingLiU", 0x05bcf058, 0x2e4, 0x28233bf1, 0x87c4, 0xa344a1eb, 0x1e1], ["DFGothic-EB", 0x12c3ebb2, 0x350, 0xb680ee64, 0x87a7, 0xce939563, 0x758], ["DFGyoSho-Lt", 0x11e5ead4, 0x350, 0xce5956e9, 0xbc85, 0x8272f416, 0x45], ["DFHei-Md-HK-BF", 0x1257eb46, 0x350, 0xf699d160, 0x715f, 0xd222f568, 0x3bc], ["DFHSGothic-W5", 0x1262eb4e, 0x350, 0xe86a5d64, 0x7940, 0x7850f729, 0x5ff], ["DFHSMincho-W3", 0x122deb0a, 0x350, 0x3d16328a, 0x859b, 0xa93fc33b, 0x2cb], ["DFHSMincho-W7", 0x125feb26, 0x350, 0xa5acc982, 0x7ee1, 0x90999196, 0x41f], ["DFKai-SB", 0x11e5ead4, 0x350, 0x5a30ca3b, 0x9063, 0x13a42602, 0x7e], ["DFKaiShu", 0x11e5ead4, 0x350, 0xa6e78c01, 0x8998, 0x13a42602, 0x7e], ["DFKaiShu-Md-HK-BF", 0x11e5ead4, 0x360, 0x9db282b2, 0xc06e, 0x53e6d7ca, 0x82], ["DFMing-Bd-HK-BF", 0x1243eb18, 0x350, 0xba0a8c30, 0x74ad, 0xf3d83409, 0x37b], ["DLCLiShu", 0x07dcf546, 0x308, 0x40fe7c90, 0x8e2a, 0x608174b5, 0x7a], ["DLCHayBold", 0xeb891238, 0x308, 0xd2e4dcd4, 0x676f, 0x8ea5f293, 0x3b8], ["HuaTianKaiTi?", 0xfffbfffc, 0x8, 0x9c9e48b8, 0xbea2, 0x70020112, 0x8], ["HuaTianSongTi?", 0xfffbfffc, 0x8, 0x0a5a0483, 0x17c39, 0x70020112, 0x8], ["MingLi43", 0x00170003, 0x60, 0xdbb4306e, 0x58aa, 0xd643482a, 0x35], ["DFHei-Bd-WIN-HK-BF", 0x1269eb58, 0x350, 0x5cd5957a, 0x6a4e, 0xf758323a, 0x380], ["DFMing-Md-WIN-HK-BF", 0x122feb0b, 0x350, 0x7f10919a, 0x70a9, 0x7cd7e7b7, 0x25c]];
+function getTrickyFontName(name) {
+  if (!name) {
+    return null;
+  }
+  const family = name.replace(/^[A-Z]{6}\+/, "");
+  const match = TRICKY_FONT_NAMES.find(candidate => family.includes(candidate));
+  if (!match) {
+    return null;
+  }
+  return /^[\x20-\x7e]+$/.test(family) ? family : match;
+}
+function getTrickyFontNameFromTables(tables) {
+  const cvt = tables["cvt "],
+    {
+      fpgm,
+      prep
+    } = tables;
+  if (!cvt || !fpgm || !prep) {
+    return null;
+  }
+  let checksums = null;
+  for (const [name, cvtChecksum, cvtLength, fpgmChecksum, fpgmLength, prepChecksum, prepLength] of TRICKY_FONT_TABLES) {
+    if (cvtLength !== cvt.length || fpgmLength !== fpgm.length || prepLength !== prep.length) {
+      continue;
+    }
+    checksums ??= [cvt, fpgm, prep].map(({
+      view
+    }) => computeOpenTypeChecksum(view));
+    if (cvtChecksum === checksums[0] && fpgmChecksum === checksums[1] && prepChecksum === checksums[2]) {
+      return name;
+    }
+  }
+  return null;
+}
+
 ;// ./src/core/to_unicode_map.js
 
 
@@ -23030,82 +23151,6 @@ const getFontBasicMetrics = getLookupTableFactory(function (t) {
   };
 });
 
-;// ./src/core/opentype_file_builder.js
-
-const OTF_HEADER_SIZE = 12;
-const OTF_TABLE_ENTRY_SIZE = 16;
-class OpenTypeFileBuilder {
-  #tables = new Map();
-  constructor(sfnt) {
-    this.sfnt = sfnt;
-  }
-  static getSearchParams(entriesCount, entrySize) {
-    let maxPower2 = 1,
-      log2 = 0;
-    while ((maxPower2 ^ entriesCount) > maxPower2) {
-      maxPower2 <<= 1;
-      log2++;
-    }
-    const searchRange = maxPower2 * entrySize;
-    return {
-      range: searchRange,
-      entry: log2,
-      rangeShift: entrySize * entriesCount - searchRange
-    };
-  }
-  toArray() {
-    let sfnt = this.sfnt;
-    const tables = this.#tables;
-    const tablesNames = [...tables.keys()].sort();
-    const numTables = tablesNames.length;
-    let offset = OTF_HEADER_SIZE + numTables * OTF_TABLE_ENTRY_SIZE;
-    const tableOffsets = [offset];
-    for (let i = 0; i < numTables; i++) {
-      const table = tables.get(tablesNames[i]);
-      const paddedLength = (table.length + 3 & ~3) >>> 0;
-      offset += paddedLength;
-      tableOffsets.push(offset);
-    }
-    const file = new Uint8Array(offset),
-      view = new DataView(file.buffer);
-    for (let i = 0; i < numTables; i++) {
-      const table = tables.get(tablesNames[i]);
-      file.set(table, tableOffsets[i]);
-    }
-    if (sfnt === "true") {
-      sfnt = "\x00\x01\x00\x00";
-    }
-    file.set(stringToBytes(sfnt), 0);
-    view.setInt16(4, numTables);
-    const searchParams = OpenTypeFileBuilder.getSearchParams(numTables, 16);
-    view.setInt16(6, searchParams.range);
-    view.setInt16(8, searchParams.entry);
-    view.setInt16(10, searchParams.rangeShift);
-    offset = OTF_HEADER_SIZE;
-    for (let i = 0; i < numTables; i++) {
-      const tableName = tablesNames[i];
-      file.set(stringToBytes(tableName), offset);
-      let checksum = 0;
-      for (let j = tableOffsets[i], jj = tableOffsets[i + 1]; j < jj; j += 4) {
-        const quad = view.getUint32(j);
-        checksum = checksum + quad >>> 0;
-      }
-      view.setInt32(offset + 4, checksum);
-      view.setInt32(offset + 8, tableOffsets[i]);
-      view.setInt32(offset + 12, tables.get(tableName).length);
-      offset += OTF_TABLE_ENTRY_SIZE;
-    }
-    this.#tables.clear();
-    return file;
-  }
-  addTable(tag, data) {
-    if (this.#tables.has(tag)) {
-      throw new Error(`Table ${tag} already exists`);
-    }
-    this.#tables.set(tag, data);
-  }
-}
-
 ;// ./src/core/glyf.js
 
 const ARG_1_AND_2_ARE_WORDS = 1 << 0;
@@ -24321,6 +24366,7 @@ class Type1Font {
 }
 
 ;// ./src/core/fonts.js
+
 
 
 
@@ -26502,6 +26548,7 @@ class Font {
     }
     tables.maxp.data[4] = numGlyphsOut >> 8;
     tables.maxp.data[5] = numGlyphsOut & 255;
+    const trickyNameFromTables = getTrickyFontNameFromTables(tables);
     const hintsValid = sanitizeTTPrograms(tables.fpgm, tables.prep, tables["cvt "], maxFunctionDefs);
     if (!hintsValid) {
       delete tables.fpgm;
@@ -26680,19 +26727,25 @@ class Font {
         };
       }
     }
-    if (!tables.name) {
-      tables.name = {
-        tag: "name",
-        data: createNameTable(this.name)
-      };
-    } else {
-      const [namePrototype, nameRecords] = readNameTable(tables.name);
-      tables.name.data = createNameTable(name, namePrototype);
-      this.psName = namePrototype[0][6] || null;
+    const [namePrototype, nameRecords] = tables.name ? readNameTable(tables.name) : [[[], []], null];
+    const [macNames, windowsNames] = namePrototype;
+    if ((tables.fpgm || tables.prep) && !getTrickyFontName(macNames[1])) {
+      const familyName = getTrickyFontName(windowsNames[1]) ?? getTrickyFontName(name) ?? trickyNameFromTables;
+      if (familyName) {
+        macNames[1] = familyName;
+      }
+    }
+    const nameData = createNameTable(name, namePrototype);
+    if (tables.name) {
+      this.psName = macNames[6] || null;
       if (!properties.composite) {
         adjustTrueTypeToUnicode(properties, this.isSymbolicFont, nameRecords);
       }
     }
+    tables.name = {
+      tag: "name",
+      data: nameData
+    };
     const builder = new OpenTypeFileBuilder(header.version);
     for (const tableTag in tables) {
       builder.addTable(tableTag, tables[tableTag].data);

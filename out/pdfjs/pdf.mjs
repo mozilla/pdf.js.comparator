@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = 041259d
+ * pdfjsBuild = fc0822a
  */
 
 ;// ./src/shared/util.js
@@ -2086,7 +2086,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "39e74195-e448-4c98-92f7-af21b7c57c78";
+const INTERNAL_EVT = "b7c20c43-c9c4-49eb-9fad-57ef02959764";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -2677,7 +2677,7 @@ class AnnotationEditorUIManager {
       checker: arrowChecker
     }]]));
   }
-  constructor(container, viewer, viewerAlert, altTextManager, commentManager, signatureManager, eventBus, pdfDocument, pageColors, highlightColors, enableHighlightFloatingButton, enableUpdatedAddImage, enableNewAltTextWhenAddingImage, mlManager, editorUndoBar, supportsPinchToZoom, keepToolbarInPage) {
+  constructor(container, viewer, viewerAlert, altTextManager, commentManager, signatureManager, eventBus, pdfDocument, pageColors, highlightColors, enableHighlightFloatingButton, enableUpdatedAddImage, enableNewAltTextWhenAddingImage, mlManager, editorUndoBar, supportsPinchToZoom, keepToolbarInPage, useButtonRoleForUnselectedSignatures) {
     const signal = this._signal = this.#abortController.signal;
     this.#container = container;
     this.#viewer = viewer;
@@ -2732,6 +2732,7 @@ class AnnotationEditorUIManager {
     this._editorUndoBar = editorUndoBar || null;
     this._supportsPinchToZoom = supportsPinchToZoom !== false;
     this._keepToolbarInPage = keepToolbarInPage === true;
+    this._useButtonRoleForUnselectedSignatures = useButtonRoleForUnselectedSignatures === true;
     commentManager?.setSidebarUiManager(this);
   }
   destroy() {
@@ -18111,7 +18112,7 @@ class InternalRenderTask {
   }
 }
 const version = "7.0.0";
-const build = "041259d";
+const build = "fc0822a";
 
 ;// ./src/display/editor/color_picker.js
 
@@ -26884,6 +26885,7 @@ class SignatureEditor extends DrawingEditor {
       baseY = this.y;
     }
     super.render();
+    this.#updateRoleForSelection();
     if (this._drawId === null) {
       if (this.#signatureData) {
         const {
@@ -26928,6 +26930,19 @@ class SignatureEditor extends DrawingEditor {
       this._moveAfterPaste(baseX, baseY);
     }
     return this.div;
+  }
+  select() {
+    super.select();
+    this.#updateRoleForSelection();
+  }
+  unselect() {
+    super.unselect();
+    this.#updateRoleForSelection();
+  }
+  #updateRoleForSelection() {
+    if (this._uiManager._useButtonRoleForUnselectedSignatures) {
+      this.div?.setAttribute("role", this.isSelected ? "application" : "button");
+    }
   }
   setUuid(uuid) {
     this.#signatureUUID = uuid;
