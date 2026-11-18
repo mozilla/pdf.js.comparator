@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = 74b5f3e
+ * pdfjsBuild = 041259d
  */
 
 ;// ./src/shared/util.js
@@ -25960,7 +25960,8 @@ class Font {
       const droppedGlyphs = pruneCompositeGlyphCycles(oldGlyfData, locaEntries, numGlyphs);
       const missingGlyphs = new Uint8Array(numGlyphs);
       const newOffsets = new Uint32Array(numGlyphsOut + 1);
-      let writeOffset = 0;
+      let writeOffset = 0,
+        isLong = isGlyphLocationsLong;
       for (i = 0; i < numGlyphs; i++) {
         const glyphProfile = droppedGlyphs.has(i) ? {
           length: 0,
@@ -25974,6 +25975,7 @@ class Font {
           maxSizeOfInstructions = glyphProfile.sizeOfInstructions;
         }
         writeOffset += newLength;
+        isLong ||= (newLength & 1) !== 0;
         newOffsets[i + 1] = writeOffset;
       }
       if (writeOffset === 0) {
@@ -25993,20 +25995,27 @@ class Font {
       } else {
         glyf.data = newGlyfData.subarray(0, writeOffset);
       }
-      const isLong = isGlyphLocationsLong || newOffsets.some(offset => offset > 0x1fffe || offset & 1);
+      isLong ||= newOffsets[numGlyphsOut] > 0x1fffe;
       head.data[50] = 0;
       head.data[51] = isLong ? 1 : 0;
-      const locaBuilder = new DataBuilder({
-        exactLength: (isLong ? 4 : 2) * newOffsets.length
-      });
-      for (const offset of newOffsets) {
-        if (isLong) {
-          locaBuilder.setInt32(offset);
-        } else {
-          locaBuilder.setInt16(offset / 2);
+      const numOffsets = newOffsets.length;
+      const newLocaData = new Uint8Array((isLong ? 4 : 2) * numOffsets);
+      if (isLong) {
+        for (i = 0, j = 0; i < numOffsets; i++, j += 4) {
+          const offset = newOffsets[i];
+          newLocaData[j] = offset >>> 24;
+          newLocaData[j + 1] = offset >> 16;
+          newLocaData[j + 2] = offset >> 8;
+          newLocaData[j + 3] = offset;
+        }
+      } else {
+        for (i = 0, j = 0; i < numOffsets; i++, j += 2) {
+          const offset = newOffsets[i];
+          newLocaData[j] = offset >> 9;
+          newLocaData[j + 1] = offset >> 1;
         }
       }
-      loca.data = locaBuilder.data;
+      loca.data = newLocaData;
       return {
         missingGlyphs,
         maxSizeOfInstructions
