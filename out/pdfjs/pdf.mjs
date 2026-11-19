@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = 22d5507
+ * pdfjsBuild = 81b2255
  */
 
 ;// ./src/shared/util.js
@@ -879,51 +879,6 @@ function getCurrentTransformInverse(ctx) {
     f
   } = ctx.getTransform().invertSelf();
   return [a, b, c, d, e, f];
-}
-class OutputScale {
-  constructor() {
-    const {
-      pixelRatio
-    } = OutputScale;
-    this.sx = pixelRatio;
-    this.sy = pixelRatio;
-  }
-  get scaled() {
-    return this.sx !== 1 || this.sy !== 1;
-  }
-  get symmetric() {
-    return this.sx === this.sy;
-  }
-  limitCanvas(width, height, maxPixels, maxDim, capAreaFactor = -1) {
-    let maxAreaScale = Infinity,
-      maxWidthScale = Infinity,
-      maxHeightScale = Infinity;
-    maxPixels = OutputScale.capPixels(maxPixels, capAreaFactor);
-    if (maxPixels > 0) {
-      maxAreaScale = Math.sqrt(maxPixels / (width * height));
-    }
-    if (maxDim > 0) {
-      maxWidthScale = maxDim / width;
-      maxHeightScale = maxDim / height;
-    }
-    const maxScale = Math.min(maxAreaScale, maxWidthScale, maxHeightScale);
-    if (this.sx > maxScale || this.sy > maxScale) {
-      this.sx = maxScale;
-      this.sy = maxScale;
-      return true;
-    }
-    return false;
-  }
-  static get pixelRatio() {
-    return globalThis.devicePixelRatio || 1;
-  }
-  static capPixels(maxPixels, capAreaFactor) {
-    if (capAreaFactor >= 0) {
-      const winPixels = Math.ceil(window.screen.availWidth * window.screen.availHeight * this.pixelRatio ** 2 * (1 + capAreaFactor / 100));
-      return maxPixels > 0 ? Math.min(maxPixels, winPixels) : winPixels;
-    }
-    return maxPixels;
-  }
 }
 function applyOpacity(color, opacity) {
   opacity = MathClamp(opacity ?? 1, 0, 1);
@@ -2086,7 +2041,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "72008d7f-04df-4043-a021-671fb8fc9b1f";
+const INTERNAL_EVT = "9c0b2d03-531b-4ede-8b21-d4ae950eb3b3";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -4801,6 +4756,53 @@ class Comment {
     this.#editor = null;
     this.#commentWasFromKeyBoard = false;
     this.#deleted = false;
+  }
+}
+
+;// ./src/display/output_scale.js
+class OutputScale {
+  constructor() {
+    const {
+      pixelRatio
+    } = OutputScale;
+    this.sx = pixelRatio;
+    this.sy = pixelRatio;
+  }
+  get scaled() {
+    return this.sx !== 1 || this.sy !== 1;
+  }
+  get symmetric() {
+    return this.sx === this.sy;
+  }
+  limitCanvas(width, height, maxPixels, maxDim, capAreaFactor = -1) {
+    let maxAreaScale = Infinity,
+      maxWidthScale = Infinity,
+      maxHeightScale = Infinity;
+    maxPixels = OutputScale.capPixels(maxPixels, capAreaFactor);
+    if (maxPixels > 0) {
+      maxAreaScale = Math.sqrt(maxPixels / (width * height));
+    }
+    if (maxDim > 0) {
+      maxWidthScale = maxDim / width;
+      maxHeightScale = maxDim / height;
+    }
+    const maxScale = Math.min(maxAreaScale, maxWidthScale, maxHeightScale);
+    if (this.sx > maxScale || this.sy > maxScale) {
+      this.sx = maxScale;
+      this.sy = maxScale;
+      return true;
+    }
+    return false;
+  }
+  static get pixelRatio() {
+    return globalThis.devicePixelRatio || 1;
+  }
+  static capPixels(maxPixels, capAreaFactor) {
+    if (capAreaFactor >= 0) {
+      const winPixels = Math.ceil(window.screen.availWidth * window.screen.availHeight * this.pixelRatio ** 2 * (1 + capAreaFactor / 100));
+      return maxPixels > 0 ? Math.min(maxPixels, winPixels) : winPixels;
+    }
+    return maxPixels;
   }
 }
 
@@ -9910,7 +9912,7 @@ class CanvasGraphics {
   constructor(canvasCtx, commonObjs, objs, canvasFactory, filterFactory, {
     optionalContentConfig,
     markedContentStack = null,
-    pixelRatio = OutputScale.pixelRatio
+    pixelRatio
   }, annotationCanvasMap, pageColors, dependencyTracker, imagesTracker) {
     this.ctx = canvasCtx;
     this.current = new CanvasExtraState(this.ctx.canvas.width, this.ctx.canvas.height);
@@ -16334,6 +16336,7 @@ class TextLayer {
 
 
 
+
 const RENDERING_CANCELLED_TIMEOUT = 100;
 function getDocument(src = {}) {
   const task = new PDFDocumentLoadingTask();
@@ -18094,7 +18097,8 @@ class InternalRenderTask {
       this.#dependencyTracker = dependencyTracker;
       this.#imagesTracker = imagesTracker;
       this.gfx = new CanvasGraphics(canvasContext, this.commonObjs, this.objs, this.canvasFactory, this.filterFactory, {
-        optionalContentConfig
+        optionalContentConfig,
+        pixelRatio: OutputScale.pixelRatio
       }, this.annotationCanvasMap, this.pageColors, dependencyTracker, imagesTracker);
       this.gfx.beginDrawing({
         transform,
@@ -18196,7 +18200,7 @@ class InternalRenderTask {
   }
 }
 const version = "7.0.0";
-const build = "22d5507";
+const build = "81b2255";
 
 ;// ./src/display/editor/color_picker.js
 
@@ -27247,6 +27251,7 @@ class SignatureEditor extends DrawingEditor {
 
 
 
+
 class StampEditor extends AnnotationEditor {
   #bitmap = null;
   #bitmapId = null;
@@ -29353,6 +29358,7 @@ class TextLayerImages {
 }
 
 ;// ./src/pdf.js
+
 
 
 
