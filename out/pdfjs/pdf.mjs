@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = 36e19fa
+ * pdfjsBuild = 22d5507
  */
 
 ;// ./src/shared/util.js
@@ -2086,7 +2086,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "4f222e7e-14db-4995-bf70-51131914a9af";
+const INTERNAL_EVT = "72008d7f-04df-4043-a021-671fb8fc9b1f";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -12817,6 +12817,15 @@ class FontLoader {
     this.#nativeFontFaces.delete(nativeFontFace);
     this._document.fonts.delete(nativeFontFace);
   }
+  static async loadBinaryFontFace(fontSet, fontFace) {
+    fontSet.add(fontFace);
+    try {
+      await fontFace.loaded;
+    } catch (reason) {
+      fontSet.delete(fontFace);
+      throw reason;
+    }
+  }
   insertRule(rule) {
     const styleSheet = this.#getStyleSheet();
     styleSheet.insertRule(rule, styleSheet.cssRules.length);
@@ -12897,12 +12906,12 @@ class FontLoader {
     if (!fontFace) {
       return;
     }
-    this.addNativeFontFace(fontFace);
+    this.#nativeFontFaces.add(fontFace);
     try {
-      await fontFace.loaded;
+      await FontLoader.loadBinaryFontFace(this._document.fonts, fontFace);
     } catch (ex) {
       warn(`Failed to load font '${fontFace.family}': '${ex}'.`);
-      this.removeNativeFontFace(fontFace);
+      this.#nativeFontFaces.delete(fontFace);
       if (!font.missingFile) {
         font.disableFontFace = true;
         throw ex;
@@ -15874,6 +15883,7 @@ class RendererWorker {
 
 
 
+
 const MAX_TEXT_DIVS_TO_RENDER = 100000;
 const DEFAULT_FONT_SIZE = 30;
 class TextLayer {
@@ -15881,9 +15891,11 @@ class TextLayer {
   #container = null;
   #disableProcessItems = false;
   #fontInspectorEnabled = !!globalThis.FontInspector?.enabled;
+  #fonts = new Map();
   #imagesHandler = null;
   #lang = null;
   #layoutTextParams = null;
+  #ownerDocument;
   #pageHeight = 0;
   #pageWidth = 0;
   #pixelRatio = OutputScale.pixelRatio;
@@ -15896,9 +15908,9 @@ class TextLayer {
   #textContentSource = null;
   #textDivs = [];
   #transform = null;
-  static #ascentCache = new Map();
   static #canvasContexts = new Map();
   static #canvasCtxFonts = new WeakMap();
+  static #fontCache = new WeakMap();
   static #minFontSize = null;
   static #pendingTextLayers = new Set();
   constructor({
@@ -15920,6 +15932,7 @@ class TextLayer {
       throw new Error('No "textContentSource" parameter specified.');
     }
     this.#container = this.#rootContainer = container;
+    this.#ownerDocument = container.ownerDocument || globalThis.document;
     this.#imagesHandler = images;
     this.#scale = viewport.scale * this.#pixelRatio;
     this.#rotation = viewport.rotation;
@@ -15953,28 +15966,39 @@ class TextLayer {
     } = FeatureTest.platform;
     return shadow(this, "fontFamilyMap", new Map([["sans-serif", `${isWindows && isFirefox ? "Calibri, " : ""}sans-serif`], ["monospace", `${isWindows && isFirefox ? "Lucida Console, " : ""}monospace`]]));
   }
-  render() {
+  async render() {
     if (this.#imagesHandler) {
       this.#container.append(this.#imagesHandler.render());
     }
-    const pump = () => {
-      this.#reader.read().then(({
-        value,
-        done
-      }) => {
+    this.#reader = this.#textContentSource.getReader();
+    TextLayer.#pendingTextLayers.add(this);
+    try {
+      while (this.#reader) {
+        const {
+          value,
+          done
+        } = await this.#reader.read();
+        if (!this.#reader) {
+          break;
+        }
         if (done) {
           this.#capability.resolve();
-          return;
+          break;
         }
         this.#lang ??= value.lang;
         Object.assign(this.#styleCache, value.styles);
+        const fontsPromise = this.#loadFonts(value.styles);
+        if (fontsPromise) {
+          await Promise.race([fontsPromise, this.#capability.promise]);
+          if (!this.#reader) {
+            break;
+          }
+        }
         this.#processItems(value.items);
-        pump();
-      }, this.#capability.reject);
-    };
-    this.#reader = this.#textContentSource.getReader();
-    TextLayer.#pendingTextLayers.add(this);
-    pump();
+      }
+    } catch (reason) {
+      this.#capability.reject(reason);
+    }
     return this.#capability.promise;
   }
   update({
@@ -15998,6 +16022,49 @@ class TextLayer {
     this.#reader?.cancel(abortEx).catch(noopFn);
     this.#reader = null;
     this.#capability.reject(abortEx);
+    const fontSet = this.#ownerDocument.fonts;
+    const fontCache = TextLayer.#fontCache.get(fontSet);
+    for (const [name, font] of this.#fonts) {
+      if (--font.count === 0) {
+        fontSet.delete(font.fontFace);
+        fontCache.delete(name);
+      }
+    }
+    this.#fonts.clear();
+  }
+  #loadFonts(styles) {
+    const fontSet = this.#ownerDocument.fonts;
+    if (!fontSet || typeof FontFace === "undefined") {
+      return null;
+    }
+    const promises = [];
+    let fontCache;
+    for (const {
+      textLayerFont
+    } of Object.values(styles)) {
+      if (!textLayerFont || this.#fonts.has(textLayerFont.name)) {
+        continue;
+      }
+      fontCache ??= TextLayer.#fontCache.getOrInsertComputed(fontSet, makeMap);
+      const {
+        name,
+        data
+      } = textLayerFont;
+      const font = fontCache.getOrInsertComputed(name, () => {
+        const fontFace = new FontFace(name, data);
+        return {
+          fontFace,
+          count: 0,
+          promise: FontLoader.loadBinaryFontFace(fontSet, fontFace).catch(reason => {
+            warn(`Cannot load the text layer font "${name}": "${reason}".`);
+          })
+        };
+      });
+      this.#fonts.set(name, font);
+      font.count++;
+      promises.push(font.promise);
+    }
+    return promises.length ? Promise.all(promises) : null;
   }
   get textDivs() {
     return this.#textDivs;
@@ -16009,7 +16076,7 @@ class TextLayer {
     if (this.#disableProcessItems) {
       return;
     }
-    this.#layoutTextParams.ctx ??= TextLayer.#getCtx(this.#lang);
+    this.#layoutTextParams.ctx ??= TextLayer.#getCtx(this.#ownerDocument, this.#lang);
     const textDivs = this.#textDivs,
       textContentItemsStr = this.#textContentItemsStr;
     for (const item of items) {
@@ -16021,7 +16088,7 @@ class TextLayer {
       if (item.str === undefined) {
         if (item.type === "beginMarkedContentProps" || item.type === "beginMarkedContent") {
           const parent = this.#container;
-          this.#container = document.createElement("span");
+          this.#container = this.#ownerDocument.createElement("span");
           this.#container.classList.add("markedContent");
           if (item.id) {
             this.#container.setAttribute("id", item.id);
@@ -16040,7 +16107,7 @@ class TextLayer {
     }
   }
   #appendText(geom) {
-    const textDiv = document.createElement("span");
+    const textDiv = this.#ownerDocument.createElement("span");
     const textDivProperties = {
       angle: 0,
       canvasWidth: 0,
@@ -16057,8 +16124,16 @@ class TextLayer {
     }
     let fontFamily = this.#fontInspectorEnabled && style.fontSubstitution || style.fontFamily;
     fontFamily = TextLayer.fontFamilyMap.get(fontFamily) || fontFamily;
+    let ascent;
+    const {
+      textLayerFont
+    } = style;
+    if (textLayerFont && this.#fonts.get(textLayerFont.name)?.fontFace.status === "loaded") {
+      fontFamily = `"${textLayerFont.name}", ${fontFamily}`;
+      ascent = textLayerFont.ascent;
+    }
     const fontHeight = Math.hypot(tx[2], tx[3]);
-    const fontAscent = fontHeight * TextLayer.#getAscent(fontFamily, style, this.#lang);
+    const fontAscent = fontHeight * (ascent ?? TextLayer.#getAscent(fontFamily, style, this.#layoutTextParams.ctx));
     let left, top;
     if (angle === 0) {
       left = tx[4];
@@ -16103,7 +16178,7 @@ class TextLayer {
       this.#container.append(textDiv);
     }
     if (textDivProperties.hasEOL) {
-      const br = document.createElement("br");
+      const br = this.#ownerDocument.createElement("br");
       br.setAttribute("role", "presentation");
       this.#container.append(br);
     }
@@ -16143,29 +16218,32 @@ class TextLayer {
     if (this.#pendingTextLayers.size > 0) {
       return;
     }
-    this.#ascentCache.clear();
-    for (const {
-      canvas
-    } of this.#canvasContexts.values()) {
-      canvas.remove();
+    for (const contexts of this.#canvasContexts.values()) {
+      for (const {
+        canvas
+      } of contexts.values()) {
+        canvas.remove();
+      }
     }
     this.#canvasContexts.clear();
   }
-  static #getCtx(lang = null) {
-    let ctx = this.#canvasContexts.get(lang ||= "");
+  static #getCtx(ownerDocument, lang = null) {
+    const contexts = this.#canvasContexts.getOrInsertComputed(ownerDocument, makeMap);
+    let ctx = contexts.get(lang ||= "");
     if (!ctx) {
-      const canvas = document.createElement("canvas");
+      const canvas = ownerDocument.createElement("canvas");
       canvas.style.cssText = "position:absolute;top:0;left:0;width:0;height:0;display:none;" + "letter-spacing:normal;word-spacing:normal";
       canvas.lang = lang;
-      document.body.append(canvas);
+      ownerDocument.body.append(canvas);
       ctx = canvas.getContext("2d", {
         alpha: false,
         willReadFrequently: true
       });
-      this.#canvasContexts.set(lang, ctx);
+      contexts.set(lang, ctx);
       this.#canvasCtxFonts.set(ctx, {
         size: 0,
-        family: ""
+        family: "",
+        ascents: new Map()
       });
     }
     return ctx;
@@ -16198,12 +16276,14 @@ class TextLayer {
     this.#minFontSize = div.getBoundingClientRect().height;
     div.remove();
   }
-  static #getAscent(fontFamily, style, lang) {
-    const cachedAscent = this.#ascentCache.get(fontFamily);
+  static #getAscent(fontFamily, style, ctx) {
+    const {
+      ascents
+    } = this.#canvasCtxFonts.get(ctx);
+    const cachedAscent = ascents.get(fontFamily);
     if (cachedAscent) {
       return cachedAscent;
     }
-    const ctx = this.#getCtx(lang);
     this.#ensureCtxFont(ctx, DEFAULT_FONT_SIZE, fontFamily);
     const metrics = ctx.measureText("");
     const ascent = metrics.fontBoundingBoxAscent;
@@ -16221,7 +16301,7 @@ class TextLayer {
         ratio = 1 + style.descent;
       }
     }
-    this.#ascentCache.set(fontFamily, ratio);
+    ascents.set(fontFamily, ratio);
     return ratio;
   }
 }
@@ -16866,15 +16946,19 @@ class PDFPageProxy {
     return intentState.opListReadCapability.promise;
   }
   streamTextContent({
-    includeMarkedContent = false,
-    disableNormalization = false
+    includeMarkedContent,
+    disableNormalization,
+    includeTextLayerFonts,
+    debugTextLayerFonts
   } = {}) {
     const TEXT_CONTENT_CHUNK_SIZE = 100;
     return this._transport.messageHandler.sendWithStream("GetTextContent", {
       pageId: this.#pagesMapper.getPageId(this._pageIndex + 1) - 1,
       pageIndex: this._pageIndex,
       includeMarkedContent: includeMarkedContent === true,
-      disableNormalization: disableNormalization === true
+      disableNormalization: disableNormalization === true,
+      includeTextLayerFonts: includeTextLayerFonts === true,
+      debugTextLayerFonts: debugTextLayerFonts === true
     }, {
       highWaterMark: TEXT_CONTENT_CHUNK_SIZE,
       size: textContent => textContent.items.length
@@ -18112,7 +18196,7 @@ class InternalRenderTask {
   }
 }
 const version = "7.0.0";
-const build = "36e19fa";
+const build = "22d5507";
 
 ;// ./src/display/editor/color_picker.js
 
