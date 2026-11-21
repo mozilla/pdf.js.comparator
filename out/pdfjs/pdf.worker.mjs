@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = 57dead1
+ * pdfjsBuild = bfbade6
  */
 /******/ var __webpack_modules__ = ({
 
@@ -3190,7 +3190,7 @@ class ButtonWidgetAnnotation extends WidgetAnnotation {
   }
   async getOperatorList(evaluator, task, intent, annotationStorage) {
     if (this.data.pushButton) {
-      return super.getOperatorList(evaluator, task, intent, false, annotationStorage);
+      return super.getOperatorList(evaluator, task, intent, annotationStorage);
     }
     if (intent & util.RenderingIntentFlag.DISPLAY && intent & util.RenderingIntentFlag.ANNOTATIONS_FORMS && (this.data.checkBox || this.data.radioButton)) {
       const setCanvasName = (operatorList, name) => {
