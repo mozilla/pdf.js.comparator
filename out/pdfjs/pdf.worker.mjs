@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = 62466e5
+ * pdfjsBuild = 57dead1
  */
 /******/ var __webpack_modules__ = ({
 
@@ -14732,14 +14732,15 @@ class PDFDocument {
     if (!acroForm) {
       return;
     }
-    const resources = await acroForm.getAsync("DR");
-    if (!(resources instanceof primitives.Dict)) {
-      return;
+    let resources = await acroForm.getAsync("DR");
+    if (resources instanceof primitives.Dict) {
+      await object_loader.ObjectLoader.load(resources, ["Font"], this.xref);
+    } else {
+      resources = primitives.Dict.empty;
     }
-    await object_loader.ObjectLoader.load(resources, ["Font"], this.xref);
-    const fontRes = resources.get("Font");
+    let fontRes = resources.get("Font");
     if (!(fontRes instanceof primitives.Dict)) {
-      return;
+      fontRes = primitives.Dict.empty;
     }
     const options = Object.assign(Object.create(null), this.pdfManager.evaluatorOptions, {
       useSystemFonts: false
