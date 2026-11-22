@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = 541d197
+ * pdfjsBuild = d874053
  */
 /******/ var __webpack_modules__ = ({
 
@@ -31,38 +31,26 @@
 __webpack_require__.r(__webpack_exports__);
 async function JBig2(moduleArg = {}) {
   var Module = moduleArg;
-  var ENVIRONMENT_IS_WEB = true;
-  var ENVIRONMENT_IS_WORKER = false;
-  var programArgs = [];
-  var thisProgram = "./this.program";
   var quit_ = (status, toThrow) => {
     throw toThrow;
   };
   var _scriptName = import.meta.url;
   var scriptDirectory = "";
-  var readAsync, readBinary;
-  if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
-    try {
-      scriptDirectory = new URL(".", _scriptName).href;
-    } catch {}
-    readAsync = async url => {
-      var response = await fetch(url, {
-        credentials: "same-origin"
-      });
-      if (response.ok) {
-        return response.arrayBuffer();
-      }
-      throw new Error(response.status + " : " + response.url);
-    };
-  } else {}
-  var out = console.log.bind(console);
+  var readAsync;
+  try {
+    scriptDirectory = new URL(".", _scriptName).href;
+  } catch {}
+  readAsync = async url => {
+    var response = await fetch(url, {
+      credentials: "same-origin"
+    });
+    if (response.ok) return response.arrayBuffer();
+    throw new Error(response.status + " : " + response.url);
+  };
+  console.log.bind(console);
   var err = console.error.bind(console);
-  var wasmBinary;
   var ABORT = false;
   var EXITSTATUS;
-  class EmscriptenEH {}
-  class EmscriptenSjLj extends EmscriptenEH {}
-  var runtimeInitialized = false;
   function getMemoryBuffer() {
     return wasmMemory.buffer;
   }
@@ -75,19 +63,19 @@ async function JBig2(moduleArg = {}) {
   function preRun() {
     var preRun = Module["preRun"];
     if (preRun) {
-      if (typeof preRun == "function") preRun = [preRun];
+      if (typeof preRun === "function") preRun = [preRun];
       onPreRuns.push(...preRun);
     }
     callRuntimeCallbacks(onPreRuns);
   }
   function initRuntime() {
-    runtimeInitialized = true;
+    0;
     wasmExports["j"]();
   }
   function postRun() {
     var postRun = Module["postRun"];
     if (postRun) {
-      if (typeof postRun == "function") postRun = [postRun];
+      if (typeof postRun === "function") postRun = [postRun];
       onPostRuns.push(...postRun);
     }
     callRuntimeCallbacks(onPostRuns);
@@ -98,8 +86,7 @@ async function JBig2(moduleArg = {}) {
     err(what);
     ABORT = true;
     what += ". Build with -sASSERTIONS for more info.";
-    var e = new WebAssembly.RuntimeError(what);
-    throw e;
+    throw new WebAssembly.RuntimeError(what);
   }
   var wasmBinaryFile;
   function getWasmImports() {
@@ -108,7 +95,147 @@ async function JBig2(moduleArg = {}) {
     };
     return imports;
   }
-  async function createWasm() {
+  class ExitStatus {
+    name = "ExitStatus";
+    constructor(status) {
+      this.message = `Program terminated with exit(${status})`;
+      this.status = status;
+    }
+  }
+  var HEAP8;
+  var callRuntimeCallbacks = callbacks => {
+    while (callbacks.length > 0) callbacks.shift()(Module);
+  };
+  var onPostRuns = [];
+  var onPreRuns = [];
+  var noExitRuntime = true;
+  var runtimeKeepaliveCounter = 0;
+  var handleException = e => {
+    if (e instanceof ExitStatus || e == "unwind") return EXITSTATUS;
+    quit_(0, e);
+  };
+  var keepRuntimeAlive = () => noExitRuntime || runtimeKeepaliveCounter > 0;
+  var _proc_exit = code => {
+    EXITSTATUS = code;
+    if (!keepRuntimeAlive()) {
+      Module["onExit"]?.(code);
+      ABORT = true;
+    }
+    quit_(0, new ExitStatus(code));
+  };
+  var maybeExit = () => {
+    if (!keepRuntimeAlive()) try {
+      _exit(EXITSTATUS);
+    } catch (e) {
+      handleException(e);
+    }
+  };
+  var callUserCallback = (func, ...args) => {
+    if (ABORT) return;
+    try {
+      return func(...args);
+    } catch (e) {
+      handleException(e);
+    } finally {
+      maybeExit();
+    }
+  };
+  var timers = {};
+  var _emscripten_get_now = () => performance.now();
+  var HEAPU8;
+  var alignMemory = (size, alignment) => Math.ceil(size / alignment) * alignment;
+  var getHeapMax = () => 2147483648;
+  var growMemory = size => {
+    var oldHeapSize = wasmMemory.buffer.byteLength;
+    var pages = (size - oldHeapSize + 65535) / 65536 | 0;
+    try {
+      wasmMemory.grow(pages);
+      updateMemoryViews();
+      return 1;
+    } catch (e) {}
+  };
+  var _exit = status => {
+    EXITSTATUS = status;
+    _proc_exit(status);
+  };
+  if (Module["noExitRuntime"]) noExitRuntime = Module["noExitRuntime"];
+  if (Module["print"]) Module["print"];
+  if (Module["printErr"]) err = Module["printErr"];
+  if (Module["arguments"]) Module["arguments"];
+  if (Module["thisProgram"]) Module["thisProgram"];
+  var preInit = Module["preInit"];
+  if (preInit) {
+    if (typeof preInit === "function") Module["preInit"] = preInit = [preInit];
+    while (preInit.length > 0) preInit.shift()();
+  }
+  Module["writeArrayToMemory"] = (array, buffer) => {
+    HEAP8.set(array, buffer);
+  };
+  var __emscripten_timeout, wasmMemory;
+  function assignWasmExports(wasmExports) {
+    Module["_malloc"] = wasmExports["k"];
+    Module["_free"] = wasmExports["l"];
+    Module["_jbig2_decode"] = wasmExports["m"];
+    Module["_ccitt_decode"] = wasmExports["n"];
+    __emscripten_timeout = wasmExports["o"];
+    wasmMemory = wasmExports["i"];
+    wasmExports["__indirect_function_table"];
+  }
+  var wasmImports = {
+    e: () => abort(""),
+    d: () => {
+      noExitRuntime = false;
+      runtimeKeepaliveCounter = 0;
+    },
+    a: (which, timeout_ms) => {
+      if (timers[which]) {
+        clearTimeout(timers[which].id);
+        delete timers[which];
+      }
+      if (!timeout_ms) return 0;
+      var id = setTimeout(() => {
+        delete timers[which];
+        callUserCallback(__emscripten_timeout, which, _emscripten_get_now());
+      }, timeout_ms);
+      timers[which] = {
+        id,
+        timeout_ms
+      };
+      return 0;
+    },
+    g: function (size) {
+      Module.imageData = new Uint8Array(size);
+    },
+    b: requestedSize => {
+      var oldSize = HEAPU8.length;
+      requestedSize >>>= 0;
+      var maxHeapSize = getHeapMax();
+      if (requestedSize > maxHeapSize) return false;
+      for (var cutDown = 1; cutDown <= 4; cutDown *= 2) {
+        var overGrownHeapSize = oldSize * (1 + .2 / cutDown);
+        overGrownHeapSize = Math.min(overGrownHeapSize, requestedSize + 100663296);
+        var newSize = Math.min(maxHeapSize, alignMemory(Math.max(requestedSize, overGrownHeapSize), 65536));
+        var replacement = growMemory(newSize);
+        if (replacement) return true;
+      }
+      return false;
+    },
+    c: _proc_exit,
+    h: function (array_ptr, pitch8, pitch32, height) {
+      if (pitch32 === pitch8) {
+        Module.imageData = new Uint8ClampedArray(HEAPU8.subarray(array_ptr, array_ptr + pitch32 * height));
+        return;
+      }
+      const destSize = pitch8 * height;
+      const imageData = Module.imageData = new Uint8ClampedArray(destSize);
+      for (let srcStart = array_ptr, destStart = 0; destStart < destSize; srcStart += pitch32, destStart += pitch8) imageData.set(HEAPU8.subarray(srcStart, srcStart + pitch8), destStart);
+    },
+    f: function (line_ptr, pitch8, offset) {
+      Module.imageData.set(HEAPU8.subarray(line_ptr, line_ptr + pitch8), offset);
+    }
+  };
+  var wasmExports;
+  wasmExports = await async function () {
     function receiveInstance(instance) {
       wasmExports = instance.exports;
       assignWasmExports(wasmExports);
@@ -120,172 +247,8 @@ async function JBig2(moduleArg = {}) {
     return new Promise(resolve => {
       instantiateWasm(info, inst => resolve(receiveInstance(inst)));
     });
-  }
-  class ExitStatus {
-    name = "ExitStatus";
-    constructor(status) {
-      this.message = `Program terminated with exit(${status})`;
-      this.status = status;
-    }
-  }
-  var HEAP8;
-  var callRuntimeCallbacks = callbacks => {
-    while (callbacks.length > 0) {
-      callbacks.shift()(Module);
-    }
-  };
-  var onPostRuns = [];
-  var onPreRuns = [];
-  var noExitRuntime = true;
-  var __abort_js = () => abort("");
-  var runtimeKeepaliveCounter = 0;
-  var __emscripten_runtime_keepalive_clear = () => {
-    noExitRuntime = false;
-    runtimeKeepaliveCounter = 0;
-  };
-  var timers = {};
-  var handleException = e => {
-    if (e instanceof ExitStatus || e == "unwind") {
-      return EXITSTATUS;
-    }
-    quit_(1, e);
-  };
-  var keepRuntimeAlive = () => noExitRuntime || runtimeKeepaliveCounter > 0;
-  var _proc_exit = code => {
-    EXITSTATUS = code;
-    if (!keepRuntimeAlive()) {
-      Module["onExit"]?.(code);
-      ABORT = true;
-    }
-    quit_(code, new ExitStatus(code));
-  };
-  var exitJS = (status, implicit) => {
-    EXITSTATUS = status;
-    _proc_exit(status);
-  };
-  var _exit = exitJS;
-  var maybeExit = () => {
-    if (!keepRuntimeAlive()) {
-      try {
-        _exit(EXITSTATUS);
-      } catch (e) {
-        handleException(e);
-      }
-    }
-  };
-  var callUserCallback = func => {
-    if (ABORT) {
-      return;
-    }
-    try {
-      return func();
-    } catch (e) {
-      handleException(e);
-    } finally {
-      maybeExit();
-    }
-  };
-  var _emscripten_get_now = () => performance.now();
-  var __setitimer_js = (which, timeout_ms) => {
-    if (timers[which]) {
-      clearTimeout(timers[which].id);
-      delete timers[which];
-    }
-    if (!timeout_ms) return 0;
-    var id = setTimeout(() => {
-      delete timers[which];
-      callUserCallback(() => __emscripten_timeout(which, _emscripten_get_now()));
-    }, timeout_ms);
-    timers[which] = {
-      id,
-      timeout_ms
-    };
-    return 0;
-  };
-  function _createImageData(size) {
-    Module.imageData = new Uint8Array(size);
-  }
-  var getHeapMax = () => 2147483648;
-  var alignMemory = (size, alignment) => Math.ceil(size / alignment) * alignment;
-  var growMemory = size => {
-    var oldHeapSize = wasmMemory.buffer.byteLength;
-    var pages = (size - oldHeapSize + 65535) / 65536 | 0;
-    try {
-      wasmMemory.grow(pages);
-      updateMemoryViews();
-      return 1;
-    } catch (e) {}
-  };
-  var HEAPU8;
-  var _emscripten_resize_heap = requestedSize => {
-    var oldSize = HEAPU8.length;
-    requestedSize >>>= 0;
-    var maxHeapSize = getHeapMax();
-    if (requestedSize > maxHeapSize) {
-      return false;
-    }
-    for (var cutDown = 1; cutDown <= 4; cutDown *= 2) {
-      var overGrownHeapSize = oldSize * (1 + .2 / cutDown);
-      overGrownHeapSize = Math.min(overGrownHeapSize, requestedSize + 100663296);
-      var newSize = Math.min(maxHeapSize, alignMemory(Math.max(requestedSize, overGrownHeapSize), 65536));
-      var replacement = growMemory(newSize);
-      if (replacement) {
-        return true;
-      }
-    }
-    return false;
-  };
-  function _setImageData(array_ptr, pitch8, pitch32, height) {
-    if (pitch32 === pitch8) {
-      Module.imageData = new Uint8ClampedArray(HEAPU8.subarray(array_ptr, array_ptr + pitch32 * height));
-      return;
-    }
-    const destSize = pitch8 * height;
-    const imageData = Module.imageData = new Uint8ClampedArray(destSize);
-    for (let srcStart = array_ptr, destStart = 0; destStart < destSize; srcStart += pitch32, destStart += pitch8) {
-      imageData.set(HEAPU8.subarray(srcStart, srcStart + pitch8), destStart);
-    }
-  }
-  function _setLineData(line_ptr, pitch8, offset) {
-    Module.imageData.set(HEAPU8.subarray(line_ptr, line_ptr + pitch8), offset);
-  }
-  var writeArrayToMemory = (array, buffer) => {
-    HEAP8.set(array, buffer);
-  };
-  if (Module["noExitRuntime"]) noExitRuntime = Module["noExitRuntime"];
-  if (Module["print"]) out = Module["print"];
-  if (Module["printErr"]) err = Module["printErr"];
-  if (Module["arguments"]) programArgs = Module["arguments"];
-  if (Module["thisProgram"]) thisProgram = Module["thisProgram"];
-  var preInit = Module["preInit"];
-  if (preInit) {
-    if (typeof preInit == "function") Module["preInit"] = preInit = [preInit];
-    while (preInit.length > 0) {
-      preInit.shift()();
-    }
-  }
-  Module["writeArrayToMemory"] = writeArrayToMemory;
-  var _malloc, _free, _jbig2_decode, _ccitt_decode, __emscripten_timeout, memory, __indirect_function_table, wasmMemory;
-  function assignWasmExports(wasmExports) {
-    _malloc = Module["_malloc"] = wasmExports["k"];
-    _free = Module["_free"] = wasmExports["l"];
-    _jbig2_decode = Module["_jbig2_decode"] = wasmExports["m"];
-    _ccitt_decode = Module["_ccitt_decode"] = wasmExports["n"];
-    __emscripten_timeout = wasmExports["o"];
-    memory = wasmMemory = wasmExports["i"];
-    __indirect_function_table = wasmExports["__indirect_function_table"];
-  }
-  var wasmImports = {
-    e: __abort_js,
-    d: __emscripten_runtime_keepalive_clear,
-    a: __setitimer_js,
-    g: _createImageData,
-    b: _emscripten_resize_heap,
-    c: _proc_exit,
-    h: _setImageData,
-    f: _setLineData
-  };
-  async function run() {
+  }();
+  await async function () {
     preRun();
     var setStatus = Module["setStatus"];
     if (setStatus) {
@@ -297,10 +260,7 @@ async function JBig2(moduleArg = {}) {
     initRuntime();
     Module["onRuntimeInitialized"]?.();
     postRun();
-  }
-  var wasmExports;
-  wasmExports = await createWasm();
-  await run();
+  }();
   return Module;
 }
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (JBig2);
@@ -317,34 +277,22 @@ async function JBig2(moduleArg = {}) {
 __webpack_require__.r(__webpack_exports__);
 async function OpenJPEG(moduleArg = {}) {
   var Module = moduleArg;
-  var ENVIRONMENT_IS_WEB = true;
-  var ENVIRONMENT_IS_WORKER = false;
-  var programArgs = [];
-  var thisProgram = "./this.program";
   var _scriptName = import.meta.url;
   var scriptDirectory = "";
-  var readAsync, readBinary;
-  if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
-    try {
-      scriptDirectory = new URL(".", _scriptName).href;
-    } catch {}
-    readAsync = async url => {
-      var response = await fetch(url, {
-        credentials: "same-origin"
-      });
-      if (response.ok) {
-        return response.arrayBuffer();
-      }
-      throw new Error(response.status + " : " + response.url);
-    };
-  } else {}
+  var readAsync;
+  try {
+    scriptDirectory = new URL(".", _scriptName).href;
+  } catch {}
+  readAsync = async url => {
+    var response = await fetch(url, {
+      credentials: "same-origin"
+    });
+    if (response.ok) return response.arrayBuffer();
+    throw new Error(response.status + " : " + response.url);
+  };
   var out = console.log.bind(console);
   var err = console.error.bind(console);
-  var wasmBinary;
   var ABORT = false;
-  class EmscriptenEH {}
-  class EmscriptenSjLj extends EmscriptenEH {}
-  var runtimeInitialized = false;
   function getMemoryBuffer() {
     return wasmMemory.buffer;
   }
@@ -359,19 +307,19 @@ async function OpenJPEG(moduleArg = {}) {
   function preRun() {
     var preRun = Module["preRun"];
     if (preRun) {
-      if (typeof preRun == "function") preRun = [preRun];
+      if (typeof preRun === "function") preRun = [preRun];
       onPreRuns.push(...preRun);
     }
     callRuntimeCallbacks(onPreRuns);
   }
   function initRuntime() {
-    runtimeInitialized = true;
+    0;
     wasmExports["j"]();
   }
   function postRun() {
     var postRun = Module["postRun"];
     if (postRun) {
-      if (typeof postRun == "function") postRun = [postRun];
+      if (typeof postRun === "function") postRun = [postRun];
       onPostRuns.push(...postRun);
     }
     callRuntimeCallbacks(onPostRuns);
@@ -383,46 +331,16 @@ async function OpenJPEG(moduleArg = {}) {
     };
     return imports;
   }
-  async function createWasm() {
-    function receiveInstance(instance) {
-      wasmExports = instance.exports;
-      assignWasmExports(wasmExports);
-      updateMemoryViews();
-      return wasmExports;
-    }
-    var info = getWasmImports();
-    var instantiateWasm = Module["instantiateWasm"];
-    return new Promise(resolve => {
-      instantiateWasm(info, inst => resolve(receiveInstance(inst)));
-    });
-  }
-  class ExitStatus {
-    name = "ExitStatus";
-    constructor(status) {
-      this.message = `Program terminated with exit(${status})`;
-      this.status = status;
-    }
-  }
   var HEAP8;
   var callRuntimeCallbacks = callbacks => {
-    while (callbacks.length > 0) {
-      callbacks.shift()(Module);
-    }
+    while (callbacks.length > 0) callbacks.shift()(Module);
   };
   var onPostRuns = [];
   var onPreRuns = [];
-  var noExitRuntime = true;
   var HEAP32;
-  function _copy_component(comp_ptr, index, nb_comps, nb_pixels) {
-    comp_ptr >>= 2;
-    const imageData = Module.imageData;
-    const comp = HEAP32.subarray(comp_ptr, comp_ptr + nb_pixels);
-    for (let i = 0, j = index; i < nb_pixels; i++, j += nb_comps) {
-      imageData[j] = comp[i];
-    }
-  }
-  var getHeapMax = () => 2147483648;
+  var HEAPU8;
   var alignMemory = (size, alignment) => Math.ceil(size / alignment) * alignment;
+  var getHeapMax = () => 2147483648;
   var growMemory = size => {
     var oldHeapSize = wasmMemory.buffer.byteLength;
     var pages = (size - oldHeapSize + 65535) / 65536 | 0;
@@ -432,33 +350,8 @@ async function OpenJPEG(moduleArg = {}) {
       return 1;
     } catch (e) {}
   };
-  var HEAPU8;
-  var _emscripten_resize_heap = requestedSize => {
-    var oldSize = HEAPU8.length;
-    requestedSize >>>= 0;
-    var maxHeapSize = getHeapMax();
-    if (requestedSize > maxHeapSize) {
-      return false;
-    }
-    for (var cutDown = 1; cutDown <= 4; cutDown *= 2) {
-      var overGrownHeapSize = oldSize * (1 + .2 / cutDown);
-      overGrownHeapSize = Math.min(overGrownHeapSize, requestedSize + 100663296);
-      var newSize = Math.min(maxHeapSize, alignMemory(Math.max(requestedSize, overGrownHeapSize), 65536));
-      var replacement = growMemory(newSize);
-      if (replacement) {
-        return true;
-      }
-    }
-    return false;
-  };
-  var INT53_MAX = 9007199254740992;
-  var INT53_MIN = -9007199254740992;
-  var bigintToI53Checked = num => num < INT53_MIN || num > INT53_MAX ? NaN : Number(num);
-  function _fd_seek(fd, offset, whence, newOffset) {
-    offset = bigintToI53Checked(offset);
-    return 70;
-  }
-  var printCharBuffers = [null, [], []];
+  var bigintToI53Checked = num => num < -9007199254740992 || num > 9007199254740992 ? NaN : Number(num);
+  var HEAPU32;
   var UTF8Decoder = globalThis.TextDecoder && new TextDecoder();
   var findStringEnd = (heapOrArray, idx, maxBytesToRead, ignoreNul) => {
     var maxIdx = idx + maxBytesToRead;
@@ -468,9 +361,7 @@ async function OpenJPEG(moduleArg = {}) {
   };
   var UTF8ArrayToString = (heapOrArray, idx = 0, maxBytesToRead, ignoreNul) => {
     var endPtr = findStringEnd(heapOrArray, idx, maxBytesToRead, ignoreNul);
-    if (endPtr - idx > 16 && heapOrArray.buffer && UTF8Decoder) {
-      return UTF8Decoder.decode(heapOrArray.subarray(idx, endPtr));
-    }
+    if (endPtr - idx > 16 && heapOrArray.buffer && UTF8Decoder) return UTF8Decoder.decode(heapOrArray.subarray(idx, endPtr));
     var str = "";
     while (idx < endPtr) {
       var u0 = heapOrArray[idx++];
@@ -484,98 +375,111 @@ async function OpenJPEG(moduleArg = {}) {
         continue;
       }
       var u2 = heapOrArray[idx++] & 63;
-      if ((u0 & 240) == 224) {
-        u0 = (u0 & 15) << 12 | u1 << 6 | u2;
-      } else {
-        u0 = (u0 & 7) << 18 | u1 << 12 | u2 << 6 | heapOrArray[idx++] & 63;
-      }
-      if (u0 < 65536) {
-        str += String.fromCharCode(u0);
-      } else {
+      if ((u0 & 240) == 224) u0 = (u0 & 15) << 12 | u1 << 6 | u2;else u0 = (u0 & 7) << 18 | u1 << 12 | u2 << 6 | heapOrArray[idx++] & 63;
+      if (u0 < 65536) str += String.fromCharCode(u0);else {
         var ch = u0 - 65536;
         str += String.fromCharCode(55296 | ch >> 10, 56320 | ch & 1023);
       }
     }
     return str;
   };
+  var printCharBuffers = [null, [], []];
   var printChar = (stream, curr) => {
     var buffer = printCharBuffers[stream];
     if (!curr || curr === 10) {
       (stream === 1 ? out : err)(UTF8ArrayToString(buffer));
       buffer.length = 0;
-    } else {
-      buffer.push(curr);
-    }
+    } else buffer.push(curr);
   };
   var UTF8ToString = (ptr, maxBytesToRead, ignoreNul) => ptr ? UTF8ArrayToString(HEAPU8, ptr, maxBytesToRead, ignoreNul) : "";
-  var HEAPU32;
-  var _fd_write = (fd, iov, iovcnt, pnum) => {
-    var num = 0;
-    for (var i = 0; i < iovcnt; i++) {
-      var ptr = HEAPU32[iov >> 2];
-      var len = HEAPU32[iov + 4 >> 2];
-      iov += 8;
-      for (var j = 0; j < len; j++) {
-        printChar(fd, HEAPU8[ptr + j]);
-      }
-      num += len;
-    }
-    HEAPU32[pnum >> 2] = num;
-    return 0;
-  };
-  function _init_pixels(size) {
-    Module.imageData = new Uint8ClampedArray(size);
-  }
-  function _jsPrintWarning(message_ptr) {
-    const message = UTF8ToString(message_ptr);
-    (Module.warn || console.warn)(`OpenJPEG: ${message}`);
-  }
-  function _setImageData(array_ptr, array_size) {
-    Module.imageData = new Uint8ClampedArray(HEAPU8.slice(array_ptr, array_ptr + array_size).buffer);
-  }
-  function _storeErrorMessage(message_ptr) {
-    const message = UTF8ToString(message_ptr);
-    if (!Module.errorMessages) {
-      Module.errorMessages = message;
-    } else {
-      Module.errorMessages += "\n" + message;
-    }
-  }
-  var writeArrayToMemory = (array, buffer) => {
-    HEAP8.set(array, buffer);
-  };
-  if (Module["noExitRuntime"]) noExitRuntime = Module["noExitRuntime"];
+  if (Module["noExitRuntime"]) Module["noExitRuntime"];
   if (Module["print"]) out = Module["print"];
   if (Module["printErr"]) err = Module["printErr"];
-  if (Module["arguments"]) programArgs = Module["arguments"];
-  if (Module["thisProgram"]) thisProgram = Module["thisProgram"];
+  if (Module["arguments"]) Module["arguments"];
+  if (Module["thisProgram"]) Module["thisProgram"];
   var preInit = Module["preInit"];
   if (preInit) {
-    if (typeof preInit == "function") Module["preInit"] = preInit = [preInit];
-    while (preInit.length > 0) {
-      preInit.shift()();
-    }
+    if (typeof preInit === "function") Module["preInit"] = preInit = [preInit];
+    while (preInit.length > 0) preInit.shift()();
   }
-  Module["writeArrayToMemory"] = writeArrayToMemory;
-  var _malloc, _free, _jp2_decode, memory, __indirect_function_table, wasmMemory;
+  Module["writeArrayToMemory"] = (array, buffer) => {
+    HEAP8.set(array, buffer);
+  };
+  var wasmMemory;
   function assignWasmExports(wasmExports) {
-    _malloc = Module["_malloc"] = wasmExports["k"];
-    _free = Module["_free"] = wasmExports["l"];
-    _jp2_decode = Module["_jp2_decode"] = wasmExports["m"];
-    memory = wasmMemory = wasmExports["i"];
-    __indirect_function_table = wasmExports["__indirect_function_table"];
+    Module["_malloc"] = wasmExports["k"];
+    Module["_free"] = wasmExports["l"];
+    Module["_jp2_decode"] = wasmExports["m"];
+    wasmMemory = wasmExports["i"];
+    wasmExports["__indirect_function_table"];
   }
   var wasmImports = {
-    g: _copy_component,
-    c: _emscripten_resize_heap,
-    d: _fd_seek,
-    b: _fd_write,
-    h: _init_pixels,
-    e: _jsPrintWarning,
-    f: _setImageData,
-    a: _storeErrorMessage
+    g: function (comp_ptr, index, nb_comps, nb_pixels) {
+      comp_ptr >>= 2;
+      const imageData = Module.imageData;
+      const comp = HEAP32.subarray(comp_ptr, comp_ptr + nb_pixels);
+      for (let i = 0, j = index; i < nb_pixels; i++, j += nb_comps) imageData[j] = comp[i];
+    },
+    c: requestedSize => {
+      var oldSize = HEAPU8.length;
+      requestedSize >>>= 0;
+      var maxHeapSize = getHeapMax();
+      if (requestedSize > maxHeapSize) return false;
+      for (var cutDown = 1; cutDown <= 4; cutDown *= 2) {
+        var overGrownHeapSize = oldSize * (1 + .2 / cutDown);
+        overGrownHeapSize = Math.min(overGrownHeapSize, requestedSize + 100663296);
+        var newSize = Math.min(maxHeapSize, alignMemory(Math.max(requestedSize, overGrownHeapSize), 65536));
+        var replacement = growMemory(newSize);
+        if (replacement) return true;
+      }
+      return false;
+    },
+    d: function (fd, offset) {
+      offset = bigintToI53Checked(offset);
+      return 70;
+    },
+    b: (fd, iov, iovcnt, pnum) => {
+      var num = 0;
+      for (var i = 0; i < iovcnt; i++) {
+        var ptr = HEAPU32[iov >> 2];
+        var len = HEAPU32[iov + 4 >> 2];
+        iov += 8;
+        for (var j = 0; j < len; j++) printChar(fd, HEAPU8[ptr + j]);
+        num += len;
+      }
+      HEAPU32[pnum >> 2] = num;
+      return 0;
+    },
+    h: function (size) {
+      Module.imageData = new Uint8ClampedArray(size);
+    },
+    e: function (message_ptr) {
+      const message = UTF8ToString(message_ptr);
+      (Module.warn || console.warn)(`OpenJPEG: ${message}`);
+    },
+    f: function (array_ptr, array_size) {
+      Module.imageData = new Uint8ClampedArray(HEAPU8.slice(array_ptr, array_ptr + array_size).buffer);
+    },
+    a: function (message_ptr) {
+      const message = UTF8ToString(message_ptr);
+      if (!Module.errorMessages) Module.errorMessages = message;else Module.errorMessages += "\n" + message;
+    }
   };
-  async function run() {
+  var wasmExports;
+  wasmExports = await async function () {
+    function receiveInstance(instance) {
+      wasmExports = instance.exports;
+      assignWasmExports(wasmExports);
+      updateMemoryViews();
+      return wasmExports;
+    }
+    var info = getWasmImports();
+    var instantiateWasm = Module["instantiateWasm"];
+    return new Promise(resolve => {
+      instantiateWasm(info, inst => resolve(receiveInstance(inst)));
+    });
+  }();
+  await async function () {
     preRun();
     var setStatus = Module["setStatus"];
     if (setStatus) {
@@ -587,10 +491,7 @@ async function OpenJPEG(moduleArg = {}) {
     initRuntime();
     Module["onRuntimeInitialized"]?.();
     postRun();
-  }
-  var wasmExports;
-  wasmExports = await createWasm();
-  await run();
+  }();
   return Module;
 }
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (OpenJPEG);
@@ -37252,9 +37153,11 @@ const Intent = Object.freeze({
   "3": "AbsoluteColorimetric"
 });
 function qcms_convert_array(transformer, src, add_alpha) {
+  const val2 = +transformer;
+  const val3 = +add_alpha;
   const ptr0 = passArray8ToWasm0(src, wasm.__wbindgen_malloc);
   const len0 = WASM_VECTOR_LEN;
-  wasm.qcms_convert_array(transformer, ptr0, len0, add_alpha);
+  wasm.qcms_convert_array(val2, ptr0, len0, val3);
 }
 function qcms_convert_four(transformer, src1, src2, src3, src4) {
   const ret = wasm.qcms_convert_four(transformer, src1, src2, src3, src4);
@@ -37272,15 +37175,17 @@ function qcms_drop_transformer(transformer) {
   wasm.qcms_drop_transformer(transformer);
 }
 function qcms_transformer_from_memory(mem, in_type, intent) {
+  const val2 = +in_type;
+  const val3 = +intent;
   const ptr0 = passArray8ToWasm0(mem, wasm.__wbindgen_malloc);
   const len0 = WASM_VECTOR_LEN;
-  const ret = wasm.qcms_transformer_from_memory(ptr0, len0, in_type, intent);
+  const ret = wasm.qcms_transformer_from_memory(ptr0, len0, val2, val3);
   return ret >>> 0;
 }
 function __wbg_get_imports() {
   const import0 = {
     __proto__: null,
-    __wbg___wbindgen_throw_344f42d3211c4765: function (arg0, arg1) {
+    __wbg___wbindgen_throw_4c88d8bf264fd984: function (arg0, arg1) {
       throw new Error(getStringFromWasm0(arg0, arg1));
     },
     __wbg_copy_result_0d15f3bf9d9012ae: function (arg0, arg1) {
@@ -37288,12 +37193,11 @@ function __wbg_get_imports() {
     },
     __wbindgen_init_externref_table: function () {
       const table = wasm.__wbindgen_externrefs;
-      const offset = table.grow(4);
       table.set(0, undefined);
-      table.set(offset + 0, undefined);
-      table.set(offset + 1, null);
-      table.set(offset + 2, true);
-      table.set(offset + 3, false);
+      table.set(1024, undefined);
+      table.set(1025, null);
+      table.set(1026, true);
+      table.set(1027, false);
     }
   };
   return {
@@ -37302,7 +37206,8 @@ function __wbg_get_imports() {
   };
 }
 function getStringFromWasm0(ptr, len) {
-  return decodeText(ptr >>> 0, len);
+  ptr = ptr >>> 0;
+  return decodeText(getUint8ArrayMemory0().subarray(ptr, ptr + len));
 }
 let cachedUint8ArrayMemory0 = null;
 function getUint8ArrayMemory0() {
@@ -37318,23 +37223,21 @@ function passArray8ToWasm0(arg, malloc) {
   return ptr;
 }
 let cachedTextDecoder = new TextDecoder('utf-8', {
-  ignoreBOM: true,
-  fatal: true
+  ignoreBOM: true
 });
 cachedTextDecoder.decode();
 const MAX_SAFARI_DECODE_BYTES = 2146435072;
 let numBytesDecoded = 0;
-function decodeText(ptr, len) {
-  numBytesDecoded += len;
+function decodeText(bytes) {
+  numBytesDecoded += bytes.length;
   if (numBytesDecoded >= MAX_SAFARI_DECODE_BYTES) {
     cachedTextDecoder = new TextDecoder('utf-8', {
-      ignoreBOM: true,
-      fatal: true
+      ignoreBOM: true
     });
     cachedTextDecoder.decode();
-    numBytesDecoded = len;
+    numBytesDecoded = bytes.length;
   }
-  return cachedTextDecoder.decode(getUint8ArrayMemory0().subarray(ptr, ptr + len));
+  return cachedTextDecoder.decode(bytes);
 }
 let WASM_VECTOR_LEN = 0;
 let wasmModule, wasmInstance, wasm;
@@ -37348,11 +37251,14 @@ function __wbg_finalize_init(instance, module) {
 }
 async function __wbg_load(module, imports) {
   if (typeof Response === 'function' && module instanceof Response) {
+    if (!module.ok) {
+      throw new Error(`failed to fetch Wasm: ${module.status} ${module.statusText} fetching '${module.url}'`);
+    }
     if (typeof WebAssembly.instantiateStreaming === 'function') {
       try {
         return await WebAssembly.instantiateStreaming(module, imports);
       } catch (e) {
-        const validResponse = module.ok && expectedResponseType(module.type);
+        const validResponse = expectedResponseType(module.type);
         if (validResponse && module.headers.get('Content-Type') !== 'application/wasm') {
           console.warn("`WebAssembly.instantiateStreaming` failed because your server does not serve Wasm with `application/wasm` MIME type. Falling back to `WebAssembly.instantiate` which is slower. Original error:\n", e);
         } else {
@@ -37401,8 +37307,18 @@ function initSync(module) {
   const instance = new WebAssembly.Instance(module, imports);
   return __wbg_finalize_init(instance, module);
 }
+let __wbg_init_promise;
 async function __wbg_init(module_or_path) {
   if (wasm !== undefined) return wasm;
+  if (__wbg_init_promise === undefined) {
+    __wbg_init_promise = __wbg_init_once(module_or_path);
+    __wbg_init_promise.catch(() => {
+      __wbg_init_promise = undefined;
+    });
+  }
+  return __wbg_init_promise;
+}
+async function __wbg_init_once(module_or_path) {
   if (module_or_path !== undefined) {
     if (Object.getPrototypeOf(module_or_path) === Object.prototype) {
       ({
