@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = bfbade6
+ * pdfjsBuild = 541d197
  */
 /******/ var __webpack_modules__ = ({
 
@@ -67111,9 +67111,6 @@ class BasePdfManager {
   getPage(pageIndex) {
     return this.pdfDocument.getPage(pageIndex);
   }
-  fontFallback(id, handler) {
-    return this.pdfDocument.fontFallback(id, handler);
-  }
   cleanup(manuallyTriggered = false) {
     return this.pdfDocument.cleanup(manuallyTriggered);
   }
@@ -68606,7 +68603,7 @@ class WorkerMessageHandler {
     handler.on("FontFallback", function ({
       id
     }) {
-      return pdfManager.fontFallback(id, handler);
+      return pdfManager.ensureDoc("fontFallback", [id, handler]);
     });
     handler.on("Cleanup", function () {
       return pdfManager.cleanup(true);
