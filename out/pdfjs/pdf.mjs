@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = d874053
+ * pdfjsBuild = 6725ea3
  */
 
 ;// ./src/shared/util.js
@@ -2041,7 +2041,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "f1b56f46-9345-446e-96c9-2f6cb6905e7b";
+const INTERNAL_EVT = "8c85d2db-e35e-4ada-beb6-4338196b1f5c";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -7907,15 +7907,18 @@ class MessageHandler {
 class BaseBinaryDataFactory {
   #errorStr = Object.freeze({
     cMapUrl: "CMap",
+    iccUrl: "ICC profile",
     standardFontDataUrl: "font",
     wasmUrl: "wasm"
   });
   constructor({
     cMapUrl = null,
+    iccUrl = null,
     standardFontDataUrl = null,
     wasmUrl = null
   }) {
     this.cMapUrl = cMapUrl;
+    this.iccUrl = iccUrl;
     this.standardFontDataUrl = standardFontDataUrl;
     this.wasmUrl = wasmUrl;
   }
@@ -7925,6 +7928,7 @@ class BaseBinaryDataFactory {
   }) {
     switch (kind) {
       case "cMapUrl":
+      case "iccUrl":
       case "standardFontDataUrl":
       case "wasmUrl":
         break;
@@ -16382,7 +16386,7 @@ function getDocument(src = {}) {
   const pagesMapper = src.pagesMapper || new PagesMapper();
   const styleElement = null;
   const useSystemFonts = typeof src.useSystemFonts === "boolean" ? src.useSystemFonts : !isNodeJS && !disableFontFace;
-  const useWorkerFetch = typeof src.useWorkerFetch === "boolean" ? src.useWorkerFetch : !!(BinaryDataFactory === DOMBinaryDataFactory && cMapUrl && cMapPacked && standardFontDataUrl && wasmUrl && isValidFetchUrl(cMapUrl, document.baseURI) && isValidFetchUrl(standardFontDataUrl, document.baseURI) && isValidFetchUrl(wasmUrl, document.baseURI));
+  const useWorkerFetch = typeof src.useWorkerFetch === "boolean" ? src.useWorkerFetch : !!(BinaryDataFactory === DOMBinaryDataFactory && cMapUrl && cMapPacked && iccUrl && standardFontDataUrl && wasmUrl && isValidFetchUrl(cMapUrl, document.baseURI) && isValidFetchUrl(iccUrl, document.baseURI) && isValidFetchUrl(standardFontDataUrl, document.baseURI) && isValidFetchUrl(wasmUrl, document.baseURI));
   const disableWorkerRendering = src.disableWorkerRendering === true || !isOffscreenCanvasSupported || ownerDocument !== globalThis.document || !!styleElement || !RendererWorker.isAvailable;
   setVerbosityLevel(verbosity);
   const transportFactory = {
@@ -16396,6 +16400,7 @@ function getDocument(src = {}) {
     }),
     binaryDataFactory: useWorkerFetch ? null : new BinaryDataFactory({
       cMapUrl,
+      iccUrl,
       standardFontDataUrl,
       wasmUrl
     })
@@ -18200,7 +18205,7 @@ class InternalRenderTask {
   }
 }
 const version = "7.0.0";
-const build = "d874053";
+const build = "6725ea3";
 
 ;// ./src/display/editor/color_picker.js
 

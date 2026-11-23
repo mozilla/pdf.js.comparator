@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = d874053
+ * pdfjsBuild = 6725ea3
  */
 /******/ var __webpack_modules__ = ({
 
@@ -502,6 +502,295 @@ async function OpenJPEG(moduleArg = {}) {
 
 /***/ },
 
+/***/ 2762
+(__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (/* binding */ __wbg_init),
+/* harmony export */   initSync: () => (/* binding */ initSync),
+/* harmony export */   qcms_convert_array: () => (/* binding */ qcms_convert_array),
+/* harmony export */   qcms_convert_four: () => (/* binding */ qcms_convert_four),
+/* harmony export */   qcms_convert_one: () => (/* binding */ qcms_convert_one),
+/* harmony export */   qcms_convert_three: () => (/* binding */ qcms_convert_three),
+/* harmony export */   qcms_drop_transformer: () => (/* binding */ qcms_drop_transformer),
+/* harmony export */   qcms_transformer_from_memory: () => (/* binding */ qcms_transformer_from_memory)
+/* harmony export */ });
+/* harmony import */ var _qcms_utils_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(8212);
+
+const DataType = Object.freeze({
+  RGB8: 0,
+  "0": "RGB8",
+  RGBA8: 1,
+  "1": "RGBA8",
+  BGRA8: 2,
+  "2": "BGRA8",
+  Gray8: 3,
+  "3": "Gray8",
+  GrayA8: 4,
+  "4": "GrayA8",
+  CMYK: 5,
+  "5": "CMYK"
+});
+const Intent = Object.freeze({
+  Perceptual: 0,
+  "0": "Perceptual",
+  RelativeColorimetric: 1,
+  "1": "RelativeColorimetric",
+  Saturation: 2,
+  "2": "Saturation",
+  AbsoluteColorimetric: 3,
+  "3": "AbsoluteColorimetric"
+});
+function qcms_convert_array(transformer, src, add_alpha) {
+  const val2 = +transformer;
+  const val3 = +add_alpha;
+  const ptr0 = passArray8ToWasm0(src, wasm.__wbindgen_malloc);
+  const len0 = WASM_VECTOR_LEN;
+  wasm.qcms_convert_array(val2, ptr0, len0, val3);
+}
+function qcms_convert_four(transformer, src1, src2, src3, src4) {
+  const ret = wasm.qcms_convert_four(transformer, src1, src2, src3, src4);
+  return ret >>> 0;
+}
+function qcms_convert_one(transformer, src) {
+  const ret = wasm.qcms_convert_one(transformer, src);
+  return ret >>> 0;
+}
+function qcms_convert_three(transformer, src1, src2, src3) {
+  const ret = wasm.qcms_convert_three(transformer, src1, src2, src3);
+  return ret >>> 0;
+}
+function qcms_drop_transformer(transformer) {
+  wasm.qcms_drop_transformer(transformer);
+}
+function qcms_transformer_from_memory(mem, in_type, intent) {
+  const val2 = +in_type;
+  const val3 = +intent;
+  const ptr0 = passArray8ToWasm0(mem, wasm.__wbindgen_malloc);
+  const len0 = WASM_VECTOR_LEN;
+  const ret = wasm.qcms_transformer_from_memory(ptr0, len0, val2, val3);
+  return ret >>> 0;
+}
+function __wbg_get_imports() {
+  const import0 = {
+    __proto__: null,
+    __wbg___wbindgen_throw_4c88d8bf264fd984: function (arg0, arg1) {
+      throw new Error(getStringFromWasm0(arg0, arg1));
+    },
+    __wbg_copy_result_0d15f3bf9d9012ae: function (arg0, arg1) {
+      (0,_qcms_utils_js__WEBPACK_IMPORTED_MODULE_0__.copy_result)(arg0 >>> 0, arg1 >>> 0);
+    },
+    __wbindgen_init_externref_table: function () {
+      const table = wasm.__wbindgen_externrefs;
+      table.set(0, undefined);
+      table.set(1024, undefined);
+      table.set(1025, null);
+      table.set(1026, true);
+      table.set(1027, false);
+    }
+  };
+  return {
+    __proto__: null,
+    "./qcms_bg.js": import0
+  };
+}
+function getStringFromWasm0(ptr, len) {
+  ptr = ptr >>> 0;
+  return decodeText(getUint8ArrayMemory0().subarray(ptr, ptr + len));
+}
+let cachedUint8ArrayMemory0 = null;
+function getUint8ArrayMemory0() {
+  if (cachedUint8ArrayMemory0 === null || cachedUint8ArrayMemory0.byteLength === 0) {
+    cachedUint8ArrayMemory0 = new Uint8Array(wasm.memory.buffer);
+  }
+  return cachedUint8ArrayMemory0;
+}
+function passArray8ToWasm0(arg, malloc) {
+  const ptr = malloc(arg.length * 1, 1) >>> 0;
+  getUint8ArrayMemory0().set(arg, ptr / 1);
+  WASM_VECTOR_LEN = arg.length;
+  return ptr;
+}
+let cachedTextDecoder = new TextDecoder('utf-8', {
+  ignoreBOM: true
+});
+cachedTextDecoder.decode();
+const MAX_SAFARI_DECODE_BYTES = 2146435072;
+let numBytesDecoded = 0;
+function decodeText(bytes) {
+  numBytesDecoded += bytes.length;
+  if (numBytesDecoded >= MAX_SAFARI_DECODE_BYTES) {
+    cachedTextDecoder = new TextDecoder('utf-8', {
+      ignoreBOM: true
+    });
+    cachedTextDecoder.decode();
+    numBytesDecoded = bytes.length;
+  }
+  return cachedTextDecoder.decode(bytes);
+}
+let WASM_VECTOR_LEN = 0;
+let wasmModule, wasmInstance, wasm;
+function __wbg_finalize_init(instance, module) {
+  wasmInstance = instance;
+  wasm = instance.exports;
+  wasmModule = module;
+  cachedUint8ArrayMemory0 = null;
+  wasm.__wbindgen_start();
+  return wasm;
+}
+async function __wbg_load(module, imports) {
+  if (typeof Response === 'function' && module instanceof Response) {
+    if (!module.ok) {
+      throw new Error(`failed to fetch Wasm: ${module.status} ${module.statusText} fetching '${module.url}'`);
+    }
+    if (typeof WebAssembly.instantiateStreaming === 'function') {
+      try {
+        return await WebAssembly.instantiateStreaming(module, imports);
+      } catch (e) {
+        const validResponse = expectedResponseType(module.type);
+        if (validResponse && module.headers.get('Content-Type') !== 'application/wasm') {
+          console.warn("`WebAssembly.instantiateStreaming` failed because your server does not serve Wasm with `application/wasm` MIME type. Falling back to `WebAssembly.instantiate` which is slower. Original error:\n", e);
+        } else {
+          throw e;
+        }
+      }
+    }
+    const bytes = await module.arrayBuffer();
+    return await WebAssembly.instantiate(bytes, imports);
+  } else {
+    const instance = await WebAssembly.instantiate(module, imports);
+    if (instance instanceof WebAssembly.Instance) {
+      return {
+        instance,
+        module
+      };
+    } else {
+      return instance;
+    }
+  }
+  function expectedResponseType(type) {
+    switch (type) {
+      case 'basic':
+      case 'cors':
+      case 'default':
+        return true;
+    }
+    return false;
+  }
+}
+function initSync(module) {
+  if (wasm !== undefined) return wasm;
+  if (module !== undefined) {
+    if (Object.getPrototypeOf(module) === Object.prototype) {
+      ({
+        module
+      } = module);
+    } else {
+      console.warn('using deprecated parameters for `initSync()`; pass a single object instead');
+    }
+  }
+  const imports = __wbg_get_imports();
+  if (!(module instanceof WebAssembly.Module)) {
+    module = new WebAssembly.Module(module);
+  }
+  const instance = new WebAssembly.Instance(module, imports);
+  return __wbg_finalize_init(instance, module);
+}
+let __wbg_init_promise;
+async function __wbg_init(module_or_path) {
+  if (wasm !== undefined) return wasm;
+  if (__wbg_init_promise === undefined) {
+    __wbg_init_promise = __wbg_init_once(module_or_path);
+    __wbg_init_promise.catch(() => {
+      __wbg_init_promise = undefined;
+    });
+  }
+  return __wbg_init_promise;
+}
+async function __wbg_init_once(module_or_path) {
+  if (module_or_path !== undefined) {
+    if (Object.getPrototypeOf(module_or_path) === Object.prototype) {
+      ({
+        module_or_path
+      } = module_or_path);
+    } else {
+      console.warn('using deprecated parameters for the initialization function; pass a single object instead');
+    }
+  }
+  const imports = __wbg_get_imports();
+  if (typeof module_or_path === 'string' || typeof Request === 'function' && module_or_path instanceof Request || typeof URL === 'function' && module_or_path instanceof URL) {
+    module_or_path = fetch(module_or_path);
+  }
+  const {
+    instance,
+    module
+  } = await __wbg_load(await module_or_path, imports);
+  return __wbg_finalize_init(instance, module);
+}
+
+/* harmony export */ __webpack_require__.d(__webpack_exports__, [
+/* harmony export */   "DataType", 0, /* binding */ DataType,
+/* harmony export */   "Intent", 0, /* binding */ Intent
+/* harmony export */ ]);
+
+
+/***/ },
+
+/***/ 8212
+(__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) {
+
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   QCMS: () => (/* binding */ QCMS),
+/* harmony export */   copy_result: () => (/* binding */ copy_result)
+/* harmony export */ });
+const ALPHA_MASK = new Uint8Array(new Uint32Array([1]).buffer)[0] === 1 ? 0xff000000 : 0x000000ff;
+const RGB_MASK = ~ALPHA_MASK;
+class QCMS {
+  static #memoryArray = null;
+  static _memory = null;
+  static _destBuffer = null;
+  static _destOffset = 0;
+  static _keepAlpha = false;
+  static get _memoryArray() {
+    const array = this.#memoryArray;
+    if (array?.byteLength) {
+      return array;
+    }
+    return this.#memoryArray = new Uint8Array(this._memory.buffer);
+  }
+}
+function copy_result(ptr, len) {
+  const {
+    _destBuffer,
+    _destOffset,
+    _keepAlpha,
+    _memoryArray
+  } = QCMS;
+  if (!_keepAlpha) {
+    _destBuffer.set(_memoryArray.subarray(ptr, ptr + len), _destOffset);
+    return;
+  }
+  const count = len >> 2;
+  const destStart = _destBuffer.byteOffset + _destOffset;
+  if (((destStart | ptr) & 3) === 0) {
+    const dest32 = new Uint32Array(_destBuffer.buffer, destStart, count);
+    const src32 = new Uint32Array(QCMS._memory.buffer, ptr, count);
+    for (let i = 0; i < count; i++) {
+      dest32[i] = dest32[i] & ALPHA_MASK | src32[i] & RGB_MASK;
+    }
+    return;
+  }
+  for (let i = ptr, ii = ptr + len, j = _destOffset; i < ii; i += 4, j += 4) {
+    _destBuffer[j] = _memoryArray[i];
+    _destBuffer[j + 1] = _memoryArray[i + 1];
+    _destBuffer[j + 2] = _memoryArray[i + 2];
+  }
+}
+
+
+/***/ },
+
 /***/ 3738
 (__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) {
 
@@ -524,8 +813,8 @@ var core_utils = __webpack_require__(5399);
 var primitives = __webpack_require__(5632);
 // EXTERNAL MODULE: ./src/core/stream.js
 var core_stream = __webpack_require__(4106);
-// EXTERNAL MODULE: ./src/core/colorspace_utils.js
-var colorspace_utils = __webpack_require__(5719);
+// EXTERNAL MODULE: ./src/core/colorspace_utils.js + 1 modules
+var colorspace_utils = __webpack_require__(2056);
 // EXTERNAL MODULE: ./src/core/evaluator.js + 5 modules
 var evaluator = __webpack_require__(9285);
 // EXTERNAL MODULE: ./src/core/image_utils.js
@@ -545,10 +834,11 @@ var string_utils = __webpack_require__(5389);
 
 
 class DefaultAppearanceEvaluator extends evaluator.EvaluatorPreprocessor {
-  constructor(str) {
+  constructor(str, xref) {
     super(new core_stream.StringStream(str));
+    this.xref = xref;
   }
-  parse() {
+  async parse() {
     const operation = {
       fn: 0,
       args: []
@@ -588,8 +878,11 @@ class DefaultAppearanceEvaluator extends evaluator.EvaluatorPreprocessor {
             colorspace_utils.ColorSpaceUtils.gray.getRgbItem(args, 0, result.fontColor, 0);
             break;
           case util.OPS.setFillCMYKColor:
-            colorspace_utils.ColorSpaceUtils.cmyk.getRgbItem(args, 0, result.fontColor, 0);
-            break;
+            {
+              const cmyk = await colorspace_utils.ColorSpaceUtils.getCmyk(this.xref);
+              cmyk.getRgbItem(args, 0, result.fontColor, 0);
+              break;
+            }
         }
       }
     } catch (reason) {
@@ -598,8 +891,8 @@ class DefaultAppearanceEvaluator extends evaluator.EvaluatorPreprocessor {
     return result;
   }
 }
-function parseDefaultAppearance(str) {
-  return new DefaultAppearanceEvaluator(str).parse();
+function parseDefaultAppearance(str, xref) {
+  return new DefaultAppearanceEvaluator(str, xref).parse();
 }
 class AppearanceStreamEvaluator extends evaluator.EvaluatorPreprocessor {
   constructor(stream, xref, globalColorSpaceCache) {
@@ -687,8 +980,11 @@ class AppearanceStreamEvaluator extends evaluator.EvaluatorPreprocessor {
             colorspace_utils.ColorSpaceUtils.gray.getRgbItem(args, 0, result.fontColor, 0);
             break;
           case util.OPS.setFillCMYKColor:
-            colorspace_utils.ColorSpaceUtils.cmyk.getRgbItem(args, 0, result.fontColor, 0);
-            break;
+            {
+              const cmyk = await colorspace_utils.ColorSpaceUtils.getCmyk(this.xref);
+              cmyk.getRgbItem(args, 0, result.fontColor, 0);
+              break;
+            }
           case util.OPS.showText:
           case util.OPS.showSpacedText:
           case util.OPS.nextLineShowText:
@@ -1104,9 +1400,9 @@ class AnnotationFactory {
     };
     switch (subtype) {
       case "Link":
-        return new LinkAnnotation(parameters);
+        return LinkAnnotation.create(parameters);
       case "Text":
-        return new TextAnnotation(parameters);
+        return TextAnnotation.create(parameters);
       case "Widget":
         let fieldType = (0,core_utils.getInheritableProperty)({
           dict,
@@ -1115,52 +1411,52 @@ class AnnotationFactory {
         fieldType = fieldType instanceof primitives.Name ? fieldType.name : null;
         switch (fieldType) {
           case "Tx":
-            return new TextWidgetAnnotation(parameters);
+            return TextWidgetAnnotation.create(parameters);
           case "Btn":
-            return new ButtonWidgetAnnotation(parameters);
+            return ButtonWidgetAnnotation.create(parameters);
           case "Ch":
-            return new ChoiceWidgetAnnotation(parameters);
+            return ChoiceWidgetAnnotation.create(parameters);
           case "Sig":
-            return new SignatureWidgetAnnotation(parameters);
+            return SignatureWidgetAnnotation.create(parameters);
         }
         ;(0,util.warn)(`Unimplemented widget field type "${fieldType}", ` + "falling back to base field type.");
-        return new WidgetAnnotation(parameters);
+        return WidgetAnnotation.create(parameters);
       case "Popup":
-        return new PopupAnnotation(parameters);
+        return PopupAnnotation.create(parameters);
       case "FreeText":
-        return new FreeTextAnnotation(parameters);
+        return FreeTextAnnotation.create(parameters);
       case "Line":
-        return new LineAnnotation(parameters);
+        return LineAnnotation.create(parameters);
       case "Square":
-        return new SquareAnnotation(parameters);
+        return SquareAnnotation.create(parameters);
       case "Circle":
-        return new CircleAnnotation(parameters);
+        return CircleAnnotation.create(parameters);
       case "PolyLine":
-        return new PolylineAnnotation(parameters);
+        return PolylineAnnotation.create(parameters);
       case "Polygon":
-        return new PolygonAnnotation(parameters);
+        return PolygonAnnotation.create(parameters);
       case "Caret":
-        return new CaretAnnotation(parameters);
+        return CaretAnnotation.create(parameters);
       case "Ink":
-        return new InkAnnotation(parameters);
+        return InkAnnotation.create(parameters);
       case "Highlight":
-        return new HighlightAnnotation(parameters);
+        return HighlightAnnotation.create(parameters);
       case "Underline":
-        return new UnderlineAnnotation(parameters);
+        return UnderlineAnnotation.create(parameters);
       case "Squiggly":
-        return new SquigglyAnnotation(parameters);
+        return SquigglyAnnotation.create(parameters);
       case "StrikeOut":
-        return new StrikeOutAnnotation(parameters);
+        return StrikeOutAnnotation.create(parameters);
       case "Stamp":
-        return new StampAnnotation(parameters);
+        return StampAnnotation.create(parameters);
       case "FileAttachment":
-        return new FileAttachmentAnnotation(parameters);
+        return FileAttachmentAnnotation.create(parameters);
       case "RichMedia":
-        return new RichMediaAnnotation(parameters);
+        return RichMediaAnnotation.create(parameters);
       case "Screen":
-        return new ScreenAnnotation(parameters);
+        return ScreenAnnotation.create(parameters);
       case "Sound":
-        return new SoundAnnotation(parameters);
+        return SoundAnnotation.create(parameters);
       default:
         if (!collectFields) {
           if (!subtype) {
@@ -1169,7 +1465,7 @@ class AnnotationFactory {
             (0,util.warn)(`Unimplemented annotation type "${subtype}", ` + "falling back to base annotation.");
           }
         }
-        return new Annotation(parameters);
+        return Annotation.create(parameters);
     }
   }
   static async _getPageIndex(xref, ref, pdfManager) {
@@ -1371,27 +1667,6 @@ class AnnotationFactory {
     return Promise.all(promises);
   }
 }
-function getRgbColor(color, defaultColor = new Uint8ClampedArray(3)) {
-  if (!Array.isArray(color)) {
-    return defaultColor;
-  }
-  const rgbColor = defaultColor || new Uint8ClampedArray(3);
-  switch (color.length) {
-    case 0:
-      return null;
-    case 1:
-      colorspace_utils.ColorSpaceUtils.gray.getRgbItem(color, 0, rgbColor, 0);
-      return rgbColor;
-    case 3:
-      colorspace_utils.ColorSpaceUtils.rgb.getRgbItem(color, 0, rgbColor, 0);
-      return rgbColor;
-    case 4:
-      colorspace_utils.ColorSpaceUtils.cmyk.getRgbItem(color, 0, rgbColor, 0);
-      return rgbColor;
-    default:
-      return defaultColor;
-  }
-}
 function getPdfColorArray(color, defaultValue = null) {
   return color && Array.from(color, c => c / 255) || defaultValue;
 }
@@ -1440,21 +1715,49 @@ function writeLineToCurveToAppearance(data, buffer, maybeClose = false) {
   }
 }
 class Annotation {
+  #cmyk;
+  static _hasDefaultAppearance = false;
   appearance = null;
   _oc = undefined;
-  constructor(params) {
+  static async create(params) {
     const {
       annotationGlobals,
       dict,
       orphanFields,
       ref,
-      subtype,
       xref
     } = params;
     const parentRef = orphanFields?.get(ref);
     if (parentRef) {
       dict.set("Parent", parentRef);
     }
+    if (this._hasCmykColor(dict)) {
+      params.cmyk = await colorspace_utils.ColorSpaceUtils.getCmyk(xref);
+    }
+    if (this._hasDefaultAppearance) {
+      const da = (0,core_utils.getInheritableProperty)({
+        dict,
+        key: "DA"
+      }) || annotationGlobals.acroForm.get("DA");
+      params.defaultAppearance = typeof da === "string" ? da : "";
+      params.defaultAppearanceData = await parseDefaultAppearance(params.defaultAppearance, xref);
+    }
+    return new this(params);
+  }
+  static _hasCmykColor(dict) {
+    const isCmyk = color => Array.isArray(color) && color.length === 4;
+    const mk = dict.get("MK"),
+      parent = dict.get("Parent");
+    return isCmyk(dict.get("C")) || isCmyk(dict.get("IC")) || mk instanceof primitives.Dict && (isCmyk(mk.get("BC")) || isCmyk(mk.get("BG"))) || [parent, dict.get("IRT"), parent instanceof primitives.Dict && parent.get("IRT")].some(related => related instanceof primitives.Dict && isCmyk(related.get("C")));
+  }
+  constructor(params) {
+    const {
+      annotationGlobals,
+      dict,
+      subtype,
+      xref
+    } = params;
+    this.#cmyk = params.cmyk;
     this.setTitle(dict.get("T"));
     this.setContents(dict.get("Contents"));
     this.setModificationDate(dict.get("M"));
@@ -1495,6 +1798,10 @@ class Annotation {
       isEditable: false,
       structParent: -1
     };
+    if (params.defaultAppearanceData) {
+      this._defaultAppearance = params.defaultAppearance;
+      this.data.defaultAppearanceData = params.defaultAppearanceData;
+    }
     if (annotationGlobals.structTreeRoot) {
       let structParent = dict.get("StructParent");
       this.data.structParent = structParent = Number.isInteger(structParent) && structParent >= 0 ? structParent : -1;
@@ -1589,17 +1896,29 @@ class Annotation {
       dir
     };
   }
-  setDefaultAppearance(params) {
-    const {
-      dict,
-      annotationGlobals
-    } = params;
-    const defaultAppearance = (0,core_utils.getInheritableProperty)({
-      dict,
-      key: "DA"
-    }) || annotationGlobals.acroForm.get("DA");
-    this._defaultAppearance = typeof defaultAppearance === "string" ? defaultAppearance : "";
-    this.data.defaultAppearanceData = parseDefaultAppearance(this._defaultAppearance);
+  _getRgbColor(color, defaultColor = new Uint8ClampedArray(3)) {
+    if (!Array.isArray(color)) {
+      return defaultColor;
+    }
+    let colorSpace;
+    switch (color.length) {
+      case 0:
+        return null;
+      case 1:
+        colorSpace = colorspace_utils.ColorSpaceUtils.gray;
+        break;
+      case 3:
+        colorSpace = colorspace_utils.ColorSpaceUtils.rgb;
+        break;
+      case 4:
+        colorSpace = this.#cmyk ?? colorspace_utils.ColorSpaceUtils.deviceCmyk;
+        break;
+      default:
+        return defaultColor;
+    }
+    const rgb = defaultColor ?? new Uint8ClampedArray(3);
+    colorSpace.getRgbItem(color, 0, rgb, 0);
+    return rgb;
   }
   setTitle(title) {
     this._title = this._parseStringHelper(title);
@@ -1623,7 +1942,7 @@ class Annotation {
     this.rectangle = (0,core_utils.lookupNormalRect)(rectangle, [0, 0, 0, 0]);
   }
   setColor(color) {
-    this.color = getRgbColor(color);
+    this.color = this._getRgbColor(color);
   }
   setLineEndings(lineEndings) {
     this.lineEndings = ["None", "None"];
@@ -1666,8 +1985,8 @@ class Annotation {
   }
   setBorderAndBackgroundColors(mk) {
     if (mk instanceof primitives.Dict) {
-      this.borderColor = getRgbColor(mk.getArray("BC"), null);
-      this.backgroundColor = getRgbColor(mk.getArray("BG"), null);
+      this.borderColor = this._getRgbColor(mk.getArray("BC"), null);
+      this.backgroundColor = this._getRgbColor(mk.getArray("BG"), null);
     } else {
       this.borderColor = this.backgroundColor = null;
     }
@@ -2033,6 +2352,9 @@ class AnnotationBorderStyle {
   }
 }
 class MarkupAnnotation extends Annotation {
+  _getInteriorColor(dict) {
+    return getPdfColorArray(this._getRgbColor(dict.getArray("IC"), null));
+  }
   constructor(params) {
     super(params);
     const {
@@ -2186,7 +2508,7 @@ class MarkupAnnotation extends Annotation {
     const annotationDict = this.createNewDict(annotation, xref, ap ? {
       ap
     } : {});
-    const newAnnotation = new this.prototype.constructor({
+    const newAnnotation = await this.create({
       dict: annotationDict,
       xref,
       annotationGlobals,
@@ -2199,6 +2521,7 @@ class MarkupAnnotation extends Annotation {
   }
 }
 class WidgetAnnotation extends Annotation {
+  static _hasDefaultAppearance = true;
   constructor(params) {
     super(params);
     const {
@@ -2237,7 +2560,6 @@ class WidgetAnnotation extends Annotation {
       data.fieldValue = data.defaultFieldValue;
     }
     data.alternativeText = (0,string_utils.stringToPDFString)(dict.get("TU") || "");
-    this.setDefaultAppearance(params);
     data.hasAppearance ||= this._needAppearances && data.fieldValue !== undefined && data.fieldValue !== null;
     const fieldType = (0,core_utils.getInheritableProperty)({
       dict,
@@ -2282,6 +2604,18 @@ class WidgetAnnotation extends Annotation {
       return (0,string_utils.stringToPDFString)(formValue);
     }
     return null;
+  }
+  _ensureDefaultAppearance() {
+    if (this._defaultAppearance) {
+      return;
+    }
+    const appearanceData = {
+      fontName: "Helvetica",
+      fontSize: 0,
+      fontColor: new Uint8ClampedArray(3)
+    };
+    this.data.defaultAppearanceData = appearanceData;
+    this._defaultAppearance = createDefaultAppearance(appearanceData);
   }
   hasFieldFlag(flag) {
     return !!(this.data.fieldFlags & flag);
@@ -2581,9 +2915,7 @@ class WidgetAnnotation extends Annotation {
     if (rotation === 90 || rotation === 270) {
       [totalWidth, totalHeight] = [totalHeight, totalWidth];
     }
-    if (!this._defaultAppearance) {
-      this.data.defaultAppearanceData = parseDefaultAppearance(this._defaultAppearance = "/Helvetica 0 Tf 0 g");
-    }
+    this._ensureDefaultAppearance();
     if (!this.data.defaultAppearanceData.fontSize && (totalWidth <= 2 * defaultHPadding || totalHeight <= 2 * defaultPadding)) {
       return `/Tx BMC q ${colors}Q EMC`;
     }
@@ -3672,9 +4004,7 @@ class ChoiceWidgetAnnotation extends WidgetAnnotation {
         valueIndices.push(i);
       }
     }
-    if (!this._defaultAppearance) {
-      this.data.defaultAppearanceData = parseDefaultAppearance(this._defaultAppearance = "/Helvetica 0 Tf 0 g");
-    }
+    this._ensureDefaultAppearance();
     const font = await WidgetAnnotation._getFontData(evaluator, task, this.data.defaultAppearanceData, this._fieldResources.mergedResources);
     let defaultAppearance;
     let {
@@ -3865,6 +4195,7 @@ class PopupAnnotation extends Annotation {
   }
 }
 class FreeTextAnnotation extends MarkupAnnotation {
+  static _hasDefaultAppearance = true;
   constructor(params) {
     super(params);
     this.data.hasOwnCanvas = this.data.noRotate;
@@ -3873,7 +4204,6 @@ class FreeTextAnnotation extends MarkupAnnotation {
     const {
       xref
     } = params;
-    this.setDefaultAppearance(params);
     this._hasAppearance = !!this.appearance;
     if (!this._hasAppearance) {
       this.data.defaultAppearanceData.fontSize ||= 10;
@@ -4081,8 +4411,7 @@ class LineAnnotation extends MarkupAnnotation {
     if (!this.appearance) {
       const strokeColor = getPdfColorArray(this.color, [0, 0, 0]);
       const strokeAlpha = dict.get("CA");
-      const interiorColor = getRgbColor(dict.getArray("IC"), null);
-      const fillColor = getPdfColorArray(interiorColor);
+      const fillColor = this._getInteriorColor(dict);
       const fillAlpha = fillColor ? strokeAlpha : null;
       const borderWidth = this.borderStyle.width || 1,
         borderAdjust = 2 * borderWidth;
@@ -4117,8 +4446,7 @@ class SquareAnnotation extends MarkupAnnotation {
     if (!this.appearance) {
       const strokeColor = getPdfColorArray(this.color, [0, 0, 0]);
       const strokeAlpha = dict.get("CA");
-      const interiorColor = getRgbColor(dict.getArray("IC"), null);
-      const fillColor = getPdfColorArray(interiorColor);
+      const fillColor = this._getInteriorColor(dict);
       const fillAlpha = fillColor ? strokeAlpha : null;
       if (this.borderStyle.width === 0 && !fillColor) {
         return;
@@ -4157,8 +4485,7 @@ class CircleAnnotation extends MarkupAnnotation {
     if (!this.appearance) {
       const strokeColor = getPdfColorArray(this.color, [0, 0, 0]);
       const strokeAlpha = dict.get("CA");
-      const interiorColor = getRgbColor(dict.getArray("IC"), null);
-      const fillColor = getPdfColorArray(interiorColor);
+      const fillColor = this._getInteriorColor(dict);
       const fillAlpha = fillColor ? strokeAlpha : null;
       if (this.borderStyle.width === 0 && !fillColor) {
         return;
@@ -4214,8 +4541,7 @@ class PolylineAnnotation extends MarkupAnnotation {
     if (!this.appearance) {
       const strokeColor = getPdfColorArray(this.color, [0, 0, 0]);
       const strokeAlpha = dict.get("CA");
-      let fillColor = getRgbColor(dict.getArray("IC"), null);
-      fillColor &&= getPdfColorArray(fillColor);
+      const fillColor = this._getInteriorColor(dict);
       let operator;
       if (fillColor) {
         if (this.color) {
@@ -7518,8 +7844,8 @@ var name_number_tree = __webpack_require__(1740);
 var base_stream = __webpack_require__(1834);
 // EXTERNAL MODULE: ./src/core/cleanup_helper.js
 var cleanup_helper = __webpack_require__(3447);
-// EXTERNAL MODULE: ./src/core/colorspace_utils.js
-var colorspace_utils = __webpack_require__(5719);
+// EXTERNAL MODULE: ./src/core/colorspace_utils.js + 1 modules
+var colorspace_utils = __webpack_require__(2056);
 // EXTERNAL MODULE: ./src/core/file_spec.js
 var file_spec = __webpack_require__(3944);
 // EXTERNAL MODULE: ./src/core/xml_parser.js
@@ -9996,18 +10322,146 @@ class LabCS extends ColorSpace {
 
 /***/ },
 
-/***/ 5719
+/***/ 2056
 (__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) {
 
-/* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   ColorSpaceUtils: () => (/* binding */ ColorSpaceUtils)
-/* harmony export */ });
-/* harmony import */ var _colorspace_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(3069);
-/* harmony import */ var _icc_colorspace_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(3141);
-/* harmony import */ var _primitives_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(5632);
-/* harmony import */ var _shared_util_js__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(4292);
-/* harmony import */ var _shared_math_clamp_js__WEBPACK_IMPORTED_MODULE_4__ = /*#__PURE__*/__webpack_require__(4566);
-/* harmony import */ var _core_utils_js__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(5399);
+
+// EXPORTS
+__webpack_require__.d(__webpack_exports__, {
+  ColorSpaceUtils: () => (/* binding */ ColorSpaceUtils)
+});
+
+// EXTERNAL MODULE: ./src/core/colorspace.js
+var colorspace = __webpack_require__(3069);
+// EXTERNAL MODULE: ./src/core/primitives.js
+var primitives = __webpack_require__(5632);
+// EXTERNAL MODULE: ./src/shared/util.js
+var util = __webpack_require__(4292);
+// EXTERNAL MODULE: ./external/qcms/qcms_utils.js
+var qcms_utils = __webpack_require__(8212);
+// EXTERNAL MODULE: ./src/core/wasm_loader.js
+var wasm_loader = __webpack_require__(3070);
+;// ./src/core/icc_colorspace.js
+
+
+
+
+class IccColorSpace extends colorspace.ColorSpace {
+  #transformer;
+  #convertPixel;
+  static #loadPromises = new WeakMap();
+  static #qcms = null;
+  static #finalizer = null;
+  constructor(iccProfile, name, numComps) {
+    const qcms = IccColorSpace.#qcms;
+    if (!qcms) {
+      throw new Error("No ICC color space support");
+    }
+    super(name, numComps);
+    let inType;
+    switch (numComps) {
+      case 1:
+        inType = qcms.DataType.Gray8;
+        this.#convertPixel = (src, srcOffset) => qcms.qcms_convert_one(this.#transformer, src[srcOffset] * 255);
+        break;
+      case 3:
+        inType = qcms.DataType.RGB8;
+        this.#convertPixel = (src, srcOffset) => qcms.qcms_convert_three(this.#transformer, src[srcOffset] * 255, src[srcOffset + 1] * 255, src[srcOffset + 2] * 255);
+        break;
+      case 4:
+        inType = qcms.DataType.CMYK;
+        this.#convertPixel = (src, srcOffset) => qcms.qcms_convert_four(this.#transformer, src[srcOffset] * 255, src[srcOffset + 1] * 255, src[srcOffset + 2] * 255, src[srcOffset + 3] * 255);
+        break;
+      default:
+        throw new Error(`Unsupported number of components: ${numComps}`);
+    }
+    this.#transformer = qcms.qcms_transformer_from_memory(iccProfile, inType, qcms.Intent.Perceptual);
+    if (!this.#transformer) {
+      throw new Error("Failed to create ICC color space");
+    }
+    IccColorSpace.#finalizer ||= new FinalizationRegistry(transformer => {
+      qcms.qcms_drop_transformer(transformer);
+    });
+    IccColorSpace.#finalizer.register(this, this.#transformer);
+  }
+  getRgbHex(src, srcOffset) {
+    const color = this.#convertPixel(src, srcOffset);
+    return util.Util.makeHexColor(color >> 16, color >> 8 & 0xff, color & 0xff);
+  }
+  getRgbItem(src, srcOffset, dest, destOffset) {
+    const color = this.#convertPixel(src, srcOffset);
+    dest[destOffset] = color >> 16;
+    dest[destOffset + 1] = color >> 8 & 0xff;
+    dest[destOffset + 2] = color & 0xff;
+  }
+  getRgbItems(src, count, dest, destOffset, alpha01) {
+    const {
+      numComps
+    } = this;
+    const length = count * numComps;
+    const scaled = new Uint8Array(length);
+    for (let i = 0; i < length; i++) {
+      scaled[i] = src[i] * 255;
+    }
+    qcms_utils.QCMS._destBuffer = dest;
+    qcms_utils.QCMS._destOffset = destOffset;
+    qcms_utils.QCMS._keepAlpha = alpha01 === 1;
+    IccColorSpace.#qcms.qcms_convert_array(this.#transformer, scaled, alpha01 === 1);
+    qcms_utils.QCMS._destBuffer = null;
+  }
+  getRgbBuffer(src, srcOffset, count, dest, destOffset, bits, alpha01) {
+    src = src.subarray(srcOffset, srcOffset + count * this.numComps);
+    if (bits !== 8) {
+      const scale = 255 / ((1 << bits) - 1);
+      for (let i = 0, ii = src.length; i < ii; i++) {
+        src[i] *= scale;
+      }
+    }
+    qcms_utils.QCMS._destBuffer = dest;
+    qcms_utils.QCMS._destOffset = destOffset;
+    qcms_utils.QCMS._keepAlpha = alpha01 === 1 && dest.buffer !== src.buffer;
+    IccColorSpace.#qcms.qcms_convert_array(this.#transformer, src, alpha01 === 1);
+    qcms_utils.QCMS._destBuffer = null;
+  }
+  static load(context) {
+    if (!context?.options.useWasm) {
+      return false;
+    }
+    return this.#loadPromises.getOrInsertComputed(context, async () => {
+      try {
+        const [qcms, module] = await Promise.all([this.#qcms || Promise.resolve(/* import() */).then(() => (__webpack_require__(2762))), wasm_loader.WasmLoader.compile(context, "qcms_bg.wasm")]);
+        if (!this.#qcms) {
+          qcms_utils.QCMS._memory = qcms.initSync({
+            module
+          }).memory;
+          this.#qcms = qcms;
+        }
+        return true;
+      } catch (ex) {
+        ;(0,util.warn)(`No ICC color space support: "${ex}".`);
+        return false;
+      }
+    });
+  }
+  static async createCmyk(context) {
+    if (!(await this.load(context))) {
+      return null;
+    }
+    try {
+      const iccProfile = await wasm_loader.WasmLoader.fetch(context, "iccUrl", "CGATS001Compat-v2-micro.icc");
+      return new IccColorSpace(iccProfile, "DeviceCMYK", 4);
+    } catch (ex) {
+      ;(0,util.warn)(`No CMYK ICC profile support: "${ex}".`);
+      return null;
+    }
+  }
+}
+
+// EXTERNAL MODULE: ./src/shared/math_clamp.js
+var math_clamp = /*#__PURE__*/__webpack_require__(4566);
+// EXTERNAL MODULE: ./src/core/core_utils.js
+var core_utils = __webpack_require__(5399);
+;// ./src/core/colorspace_utils.js
 
 
 
@@ -10015,6 +10469,7 @@ class LabCS extends ColorSpace {
 
 
 class ColorSpaceUtils {
+  static #cmykByContext = new WeakMap();
   static parse({
     cs,
     xref,
@@ -10030,7 +10485,7 @@ class ColorSpaceUtils {
       globalColorSpaceCache
     };
     let csName, csRef;
-    if (cs instanceof _primitives_js__WEBPACK_IMPORTED_MODULE_2__.Ref) {
+    if (cs instanceof primitives.Ref) {
       csRef = cs;
       const cachedCS = globalColorSpaceCache.getByRef(csRef) || localColorSpaceCache.getByRef(csRef);
       if (cachedCS) {
@@ -10038,7 +10493,7 @@ class ColorSpaceUtils {
       }
       cs = xref.fetch(cs);
     }
-    if (cs instanceof _primitives_js__WEBPACK_IMPORTED_MODULE_2__.Name) {
+    if (cs instanceof primitives.Name) {
       csName = cs.name;
       const cachedCS = localColorSpaceCache.getByName(csName);
       if (cachedCS) {
@@ -10059,7 +10514,7 @@ class ColorSpaceUtils {
     return parsedCS;
   }
   static #subParse(cs, options) {
-    if (!(cs instanceof _primitives_js__WEBPACK_IMPORTED_MODULE_2__.Ref)) {
+    if (!(cs instanceof primitives.Ref)) {
       return this.#parse(cs, options);
     }
     return options.globalColorSpaceCache.getByRef(cs) || this.#parseAndCacheGlobally(cs, cs, options);
@@ -10072,7 +10527,7 @@ class ColorSpaceUtils {
       globalColorSpaceCache
     } = options;
     cs = xref.fetchIfRef(cs);
-    if (cs instanceof _primitives_js__WEBPACK_IMPORTED_MODULE_2__.Name) {
+    if (cs instanceof primitives.Name) {
       switch (cs.name) {
         case "G":
         case "DeviceGray":
@@ -10084,16 +10539,16 @@ class ColorSpaceUtils {
           return this.rgba;
         case "CMYK":
         case "DeviceCMYK":
-          return this.cmyk;
+          return this.getCmyk(xref);
         case "Pattern":
-          return new _colorspace_js__WEBPACK_IMPORTED_MODULE_0__.PatternCS(null);
+          return new colorspace.PatternCS(null);
         default:
-          if (resources instanceof _primitives_js__WEBPACK_IMPORTED_MODULE_2__.Dict) {
+          if (resources instanceof primitives.Dict) {
             const colorSpaces = resources.get("ColorSpace");
-            if (colorSpaces instanceof _primitives_js__WEBPACK_IMPORTED_MODULE_2__.Dict) {
+            if (colorSpaces instanceof primitives.Dict) {
               const resourcesCS = colorSpaces.get(cs.name);
               if (resourcesCS) {
-                if (resourcesCS instanceof _primitives_js__WEBPACK_IMPORTED_MODULE_2__.Name) {
+                if (resourcesCS instanceof primitives.Name) {
                   return this.#parse(resourcesCS, options);
                 }
                 cs = resourcesCS;
@@ -10101,7 +10556,7 @@ class ColorSpaceUtils {
               }
             }
           }
-          ;(0,_shared_util_js__WEBPACK_IMPORTED_MODULE_3__.warn)(`Unrecognized ColorSpace: ${cs.name}`);
+          ;(0,util.warn)(`Unrecognized ColorSpace: ${cs.name}`);
           return this.gray;
       }
     }
@@ -10117,22 +10572,23 @@ class ColorSpaceUtils {
           return this.rgb;
         case "CMYK":
         case "DeviceCMYK":
-          return this.cmyk;
+          return this.getCmyk(xref);
         case "CalGray":
           params = xref.fetchIfRef(cs[1]);
           whitePoint = params.getArray("WhitePoint");
           blackPoint = params.getArray("BlackPoint");
           gamma = params.get("Gamma");
-          return new _colorspace_js__WEBPACK_IMPORTED_MODULE_0__.CalGrayCS(whitePoint, blackPoint, gamma);
+          return new colorspace.CalGrayCS(whitePoint, blackPoint, gamma);
         case "CalRGB":
           params = xref.fetchIfRef(cs[1]);
           whitePoint = params.getArray("WhitePoint");
           blackPoint = params.getArray("BlackPoint");
           gamma = params.getArray("Gamma");
           const matrix = params.getArray("Matrix");
-          return new _colorspace_js__WEBPACK_IMPORTED_MODULE_0__.CalRGBCS(whitePoint, blackPoint, gamma, matrix);
+          return new colorspace.CalRGBCS(whitePoint, blackPoint, gamma, matrix);
         case "ICCBased":
-          const isRef = cs[1] instanceof _primitives_js__WEBPACK_IMPORTED_MODULE_2__.Ref;
+          const isRef = cs[1] instanceof primitives.Ref;
+          const useIcc = await IccColorSpace.load(xref.pdfManager?.binaryDataContext);
           if (isRef) {
             const cachedCS = globalColorSpaceCache.getByRef(cs[1]);
             if (cachedCS) {
@@ -10142,18 +10598,18 @@ class ColorSpaceUtils {
           const stream = xref.fetchIfRef(cs[1]);
           const dict = stream.dict;
           numComps = dict.get("N");
-          if (_icc_colorspace_js__WEBPACK_IMPORTED_MODULE_1__.IccColorSpace.isUsable) {
+          if (useIcc) {
             try {
-              const iccCS = new _icc_colorspace_js__WEBPACK_IMPORTED_MODULE_1__.IccColorSpace(stream.getBytes(), "ICCBased", numComps);
+              const iccCS = new IccColorSpace(stream.peekBytes(), "ICCBased", numComps);
               if (isRef) {
                 globalColorSpaceCache.set(null, cs[1], iccCS);
               }
               return iccCS;
             } catch (ex) {
-              if (ex instanceof _core_utils_js__WEBPACK_IMPORTED_MODULE_5__.MissingDataException) {
+              if (ex instanceof core_utils.MissingDataException) {
                 throw ex;
               }
-              ;(0,_shared_util_js__WEBPACK_IMPORTED_MODULE_3__.warn)(`ICCBased color space (${cs[1]}): "${ex}".`);
+              ;(0,util.warn)(`ICCBased color space (${cs[1]}): "${ex}".`);
             }
           }
           const altRaw = dict.getRaw("Alternate");
@@ -10162,63 +10618,67 @@ class ColorSpaceUtils {
             if (altCS.numComps === numComps) {
               return altCS;
             }
-            ;(0,_shared_util_js__WEBPACK_IMPORTED_MODULE_3__.warn)("ICCBased color space: Ignoring incorrect /Alternate entry.");
+            ;(0,util.warn)("ICCBased color space: Ignoring incorrect /Alternate entry.");
           }
           if (numComps === 1) {
             return this.gray;
           } else if (numComps === 3) {
             return this.rgb;
           } else if (numComps === 4) {
-            return this.cmyk;
+            return this.getCmyk(xref);
           }
           break;
         case "Pattern":
-          return new _colorspace_js__WEBPACK_IMPORTED_MODULE_0__.PatternCS(cs[1] ? await this.#subParse(cs[1], options) : null);
+          return new colorspace.PatternCS(cs[1] ? await this.#subParse(cs[1], options) : null);
         case "I":
         case "Indexed":
           baseCS = await this.#subParse(cs[1], options);
-          const hiVal = (0,_shared_math_clamp_js__WEBPACK_IMPORTED_MODULE_4__.MathClamp)(xref.fetchIfRef(cs[2]), 0, 255);
+          const hiVal = (0,math_clamp.MathClamp)(xref.fetchIfRef(cs[2]), 0, 255);
           const lookup = xref.fetchIfRef(cs[3]);
-          return new _colorspace_js__WEBPACK_IMPORTED_MODULE_0__.IndexedCS(baseCS, hiVal, lookup);
+          return new colorspace.IndexedCS(baseCS, hiVal, lookup);
         case "Separation":
         case "DeviceN":
           const name = xref.fetchIfRef(cs[1]);
           numComps = Array.isArray(name) ? name.length : 1;
           baseCS = await this.#subParse(cs[2], options);
           const tintFn = await pdfFunctionFactory.create(cs[3]);
-          return new _colorspace_js__WEBPACK_IMPORTED_MODULE_0__.AlternateCS(numComps, baseCS, tintFn);
+          return new colorspace.AlternateCS(numComps, baseCS, tintFn);
         case "Lab":
           params = xref.fetchIfRef(cs[1]);
           whitePoint = params.getArray("WhitePoint");
           blackPoint = params.getArray("BlackPoint");
           const range = params.getArray("Range");
-          return new _colorspace_js__WEBPACK_IMPORTED_MODULE_0__.LabCS(whitePoint, blackPoint, range);
+          return new colorspace.LabCS(whitePoint, blackPoint, range);
         default:
-          (0,_shared_util_js__WEBPACK_IMPORTED_MODULE_3__.warn)(`Unimplemented ColorSpace object: ${mode}`);
+          (0,util.warn)(`Unimplemented ColorSpace object: ${mode}`);
           return this.gray;
       }
     }
-    ;(0,_shared_util_js__WEBPACK_IMPORTED_MODULE_3__.warn)(`Unrecognized ColorSpace object: ${cs}`);
+    ;(0,util.warn)(`Unrecognized ColorSpace object: ${cs}`);
     return this.gray;
   }
   static get gray() {
-    return (0,_shared_util_js__WEBPACK_IMPORTED_MODULE_3__.shadow)(this, "gray", new _colorspace_js__WEBPACK_IMPORTED_MODULE_0__.DeviceGrayCS());
+    return (0,util.shadow)(this, "gray", new colorspace.DeviceGrayCS());
   }
   static get rgb() {
-    return (0,_shared_util_js__WEBPACK_IMPORTED_MODULE_3__.shadow)(this, "rgb", new _colorspace_js__WEBPACK_IMPORTED_MODULE_0__.DeviceRgbCS());
+    return (0,util.shadow)(this, "rgb", new colorspace.DeviceRgbCS());
   }
   static get rgba() {
-    return (0,_shared_util_js__WEBPACK_IMPORTED_MODULE_3__.shadow)(this, "rgba", new _colorspace_js__WEBPACK_IMPORTED_MODULE_0__.DeviceRgbaCS());
+    return (0,util.shadow)(this, "rgba", new colorspace.DeviceRgbaCS());
   }
-  static get cmyk() {
-    if (_icc_colorspace_js__WEBPACK_IMPORTED_MODULE_1__.CmykICCBasedCS.isUsable) {
-      try {
-        return (0,_shared_util_js__WEBPACK_IMPORTED_MODULE_3__.shadow)(this, "cmyk", new _icc_colorspace_js__WEBPACK_IMPORTED_MODULE_1__.CmykICCBasedCS());
-      } catch {
-        ;(0,_shared_util_js__WEBPACK_IMPORTED_MODULE_3__.warn)("CMYK fallback: DeviceCMYK");
-      }
+  static get deviceCmyk() {
+    return (0,util.shadow)(this, "deviceCmyk", new colorspace.DeviceCmykCS());
+  }
+  static getCmyk(xref) {
+    const context = xref?.pdfManager?.binaryDataContext;
+    if (!context?.options.useWasm) {
+      return this.deviceCmyk;
     }
-    return (0,_shared_util_js__WEBPACK_IMPORTED_MODULE_3__.shadow)(this, "cmyk", new _colorspace_js__WEBPACK_IMPORTED_MODULE_0__.DeviceCmykCS());
+    return this.#cmykByContext.getOrInsertComputed(context, () => IccColorSpace.createCmyk(context).then(colorSpace => {
+      const cmyk = colorSpace ?? this.deviceCmyk;
+      this.#cmykByContext.set(context, cmyk);
+      return cmyk;
+    }));
   }
 }
 
@@ -18816,8 +19276,8 @@ var evaluator_utils = __webpack_require__(5275);
 var bidi = __webpack_require__(7092);
 // EXTERNAL MODULE: ./src/core/colorspace.js
 var colorspace = __webpack_require__(3069);
-// EXTERNAL MODULE: ./src/core/colorspace_utils.js
-var colorspace_utils = __webpack_require__(5719);
+// EXTERNAL MODULE: ./src/core/colorspace_utils.js + 1 modules
+var colorspace_utils = __webpack_require__(2056);
 // EXTERNAL MODULE: ./src/core/obj_bin_transform_core.js + 1 modules
 var obj_bin_transform_core = __webpack_require__(5709);
 ;// ./src/core/font_substitutions.js
@@ -20912,6 +21372,11 @@ class PartialEvaluator {
         operatorList.addOp(util.OPS.endMarkedContent, []);
       }
     }
+    function setCmykColor(cmyk, fn, args) {
+      const isFill = fn === util.OPS.setFillCMYKColor;
+      stateManager.state[isFill ? "fillColorSpace" : "strokeColorSpace"] = cmyk;
+      operatorList.addOp(isFill ? util.OPS.setFillRGBColor : util.OPS.setStrokeRGBColor, [cmyk.getRgbHex(args, 0)]);
+    }
     return new Promise(function promiseBody(resolve, reject) {
       const next = function (promise) {
         Promise.all([promise, operatorList.ready]).then(function () {
@@ -21141,21 +21606,19 @@ class PartialEvaluator {
             fn = util.OPS.setStrokeRGBColor;
             break;
           case util.OPS.setFillCMYKColor:
-            if (!(0,core_utils.isNumberArray)(args, null)) {
-              continue;
-            }
-            stateManager.state.fillColorSpace = colorspace_utils.ColorSpaceUtils.cmyk;
-            args = [colorspace_utils.ColorSpaceUtils.cmyk.getRgbHex(args, 0)];
-            fn = util.OPS.setFillRGBColor;
-            break;
           case util.OPS.setStrokeCMYKColor:
-            if (!(0,core_utils.isNumberArray)(args, null)) {
-              continue;
+            {
+              if (!(0,core_utils.isNumberArray)(args, null)) {
+                continue;
+              }
+              const cmyk = colorspace_utils.ColorSpaceUtils.getCmyk(xref);
+              if (cmyk instanceof colorspace.ColorSpace) {
+                setCmykColor(cmyk, fn, args);
+                continue;
+              }
+              next(cmyk.then(colorSpace => setCmykColor(colorSpace, fn, args)));
+              return;
             }
-            stateManager.state.strokeColorSpace = colorspace_utils.ColorSpaceUtils.cmyk;
-            args = [colorspace_utils.ColorSpaceUtils.cmyk.getRgbHex(args, 0)];
-            fn = util.OPS.setStrokeRGBColor;
-            break;
           case util.OPS.setFillRGBColor:
             if (!(0,core_utils.isNumberArray)(args, null)) {
               continue;
@@ -37071,425 +37534,6 @@ const getDingbatsGlyphsUnicode = (0,_core_utils_js__WEBPACK_IMPORTED_MODULE_0__.
 
 /***/ },
 
-/***/ 3141
-(__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) {
-
-
-// EXPORTS
-__webpack_require__.d(__webpack_exports__, {
-  CmykICCBasedCS: () => (/* binding */ CmykICCBasedCS),
-  IccColorSpace: () => (/* binding */ IccColorSpace)
-});
-
-;// ./external/qcms/qcms_utils.js
-const ALPHA_MASK = new Uint8Array(new Uint32Array([1]).buffer)[0] === 1 ? 0xff000000 : 0x000000ff;
-const RGB_MASK = ~ALPHA_MASK;
-class QCMS {
-  static #memoryArray = null;
-  static _memory = null;
-  static _destBuffer = null;
-  static _destOffset = 0;
-  static _keepAlpha = false;
-  static get _memoryArray() {
-    const array = this.#memoryArray;
-    if (array?.byteLength) {
-      return array;
-    }
-    return this.#memoryArray = new Uint8Array(this._memory.buffer);
-  }
-}
-function copy_result(ptr, len) {
-  const {
-    _destBuffer,
-    _destOffset,
-    _keepAlpha,
-    _memoryArray
-  } = QCMS;
-  if (!_keepAlpha) {
-    _destBuffer.set(_memoryArray.subarray(ptr, ptr + len), _destOffset);
-    return;
-  }
-  const count = len >> 2;
-  const destStart = _destBuffer.byteOffset + _destOffset;
-  if (((destStart | ptr) & 3) === 0) {
-    const dest32 = new Uint32Array(_destBuffer.buffer, destStart, count);
-    const src32 = new Uint32Array(QCMS._memory.buffer, ptr, count);
-    for (let i = 0; i < count; i++) {
-      dest32[i] = dest32[i] & ALPHA_MASK | src32[i] & RGB_MASK;
-    }
-    return;
-  }
-  for (let i = ptr, ii = ptr + len, j = _destOffset; i < ii; i += 4, j += 4) {
-    _destBuffer[j] = _memoryArray[i];
-    _destBuffer[j + 1] = _memoryArray[i + 1];
-    _destBuffer[j + 2] = _memoryArray[i + 2];
-  }
-}
-
-;// ./external/qcms/qcms.js
-
-const DataType = Object.freeze({
-  RGB8: 0,
-  "0": "RGB8",
-  RGBA8: 1,
-  "1": "RGBA8",
-  BGRA8: 2,
-  "2": "BGRA8",
-  Gray8: 3,
-  "3": "Gray8",
-  GrayA8: 4,
-  "4": "GrayA8",
-  CMYK: 5,
-  "5": "CMYK"
-});
-const Intent = Object.freeze({
-  Perceptual: 0,
-  "0": "Perceptual",
-  RelativeColorimetric: 1,
-  "1": "RelativeColorimetric",
-  Saturation: 2,
-  "2": "Saturation",
-  AbsoluteColorimetric: 3,
-  "3": "AbsoluteColorimetric"
-});
-function qcms_convert_array(transformer, src, add_alpha) {
-  const val2 = +transformer;
-  const val3 = +add_alpha;
-  const ptr0 = passArray8ToWasm0(src, wasm.__wbindgen_malloc);
-  const len0 = WASM_VECTOR_LEN;
-  wasm.qcms_convert_array(val2, ptr0, len0, val3);
-}
-function qcms_convert_four(transformer, src1, src2, src3, src4) {
-  const ret = wasm.qcms_convert_four(transformer, src1, src2, src3, src4);
-  return ret >>> 0;
-}
-function qcms_convert_one(transformer, src) {
-  const ret = wasm.qcms_convert_one(transformer, src);
-  return ret >>> 0;
-}
-function qcms_convert_three(transformer, src1, src2, src3) {
-  const ret = wasm.qcms_convert_three(transformer, src1, src2, src3);
-  return ret >>> 0;
-}
-function qcms_drop_transformer(transformer) {
-  wasm.qcms_drop_transformer(transformer);
-}
-function qcms_transformer_from_memory(mem, in_type, intent) {
-  const val2 = +in_type;
-  const val3 = +intent;
-  const ptr0 = passArray8ToWasm0(mem, wasm.__wbindgen_malloc);
-  const len0 = WASM_VECTOR_LEN;
-  const ret = wasm.qcms_transformer_from_memory(ptr0, len0, val2, val3);
-  return ret >>> 0;
-}
-function __wbg_get_imports() {
-  const import0 = {
-    __proto__: null,
-    __wbg___wbindgen_throw_4c88d8bf264fd984: function (arg0, arg1) {
-      throw new Error(getStringFromWasm0(arg0, arg1));
-    },
-    __wbg_copy_result_0d15f3bf9d9012ae: function (arg0, arg1) {
-      copy_result(arg0 >>> 0, arg1 >>> 0);
-    },
-    __wbindgen_init_externref_table: function () {
-      const table = wasm.__wbindgen_externrefs;
-      table.set(0, undefined);
-      table.set(1024, undefined);
-      table.set(1025, null);
-      table.set(1026, true);
-      table.set(1027, false);
-    }
-  };
-  return {
-    __proto__: null,
-    "./qcms_bg.js": import0
-  };
-}
-function getStringFromWasm0(ptr, len) {
-  ptr = ptr >>> 0;
-  return decodeText(getUint8ArrayMemory0().subarray(ptr, ptr + len));
-}
-let cachedUint8ArrayMemory0 = null;
-function getUint8ArrayMemory0() {
-  if (cachedUint8ArrayMemory0 === null || cachedUint8ArrayMemory0.byteLength === 0) {
-    cachedUint8ArrayMemory0 = new Uint8Array(wasm.memory.buffer);
-  }
-  return cachedUint8ArrayMemory0;
-}
-function passArray8ToWasm0(arg, malloc) {
-  const ptr = malloc(arg.length * 1, 1) >>> 0;
-  getUint8ArrayMemory0().set(arg, ptr / 1);
-  WASM_VECTOR_LEN = arg.length;
-  return ptr;
-}
-let cachedTextDecoder = new TextDecoder('utf-8', {
-  ignoreBOM: true
-});
-cachedTextDecoder.decode();
-const MAX_SAFARI_DECODE_BYTES = 2146435072;
-let numBytesDecoded = 0;
-function decodeText(bytes) {
-  numBytesDecoded += bytes.length;
-  if (numBytesDecoded >= MAX_SAFARI_DECODE_BYTES) {
-    cachedTextDecoder = new TextDecoder('utf-8', {
-      ignoreBOM: true
-    });
-    cachedTextDecoder.decode();
-    numBytesDecoded = bytes.length;
-  }
-  return cachedTextDecoder.decode(bytes);
-}
-let WASM_VECTOR_LEN = 0;
-let wasmModule, wasmInstance, wasm;
-function __wbg_finalize_init(instance, module) {
-  wasmInstance = instance;
-  wasm = instance.exports;
-  wasmModule = module;
-  cachedUint8ArrayMemory0 = null;
-  wasm.__wbindgen_start();
-  return wasm;
-}
-async function __wbg_load(module, imports) {
-  if (typeof Response === 'function' && module instanceof Response) {
-    if (!module.ok) {
-      throw new Error(`failed to fetch Wasm: ${module.status} ${module.statusText} fetching '${module.url}'`);
-    }
-    if (typeof WebAssembly.instantiateStreaming === 'function') {
-      try {
-        return await WebAssembly.instantiateStreaming(module, imports);
-      } catch (e) {
-        const validResponse = expectedResponseType(module.type);
-        if (validResponse && module.headers.get('Content-Type') !== 'application/wasm') {
-          console.warn("`WebAssembly.instantiateStreaming` failed because your server does not serve Wasm with `application/wasm` MIME type. Falling back to `WebAssembly.instantiate` which is slower. Original error:\n", e);
-        } else {
-          throw e;
-        }
-      }
-    }
-    const bytes = await module.arrayBuffer();
-    return await WebAssembly.instantiate(bytes, imports);
-  } else {
-    const instance = await WebAssembly.instantiate(module, imports);
-    if (instance instanceof WebAssembly.Instance) {
-      return {
-        instance,
-        module
-      };
-    } else {
-      return instance;
-    }
-  }
-  function expectedResponseType(type) {
-    switch (type) {
-      case 'basic':
-      case 'cors':
-      case 'default':
-        return true;
-    }
-    return false;
-  }
-}
-function initSync(module) {
-  if (wasm !== undefined) return wasm;
-  if (module !== undefined) {
-    if (Object.getPrototypeOf(module) === Object.prototype) {
-      ({
-        module
-      } = module);
-    } else {
-      console.warn('using deprecated parameters for `initSync()`; pass a single object instead');
-    }
-  }
-  const imports = __wbg_get_imports();
-  if (!(module instanceof WebAssembly.Module)) {
-    module = new WebAssembly.Module(module);
-  }
-  const instance = new WebAssembly.Instance(module, imports);
-  return __wbg_finalize_init(instance, module);
-}
-let __wbg_init_promise;
-async function __wbg_init(module_or_path) {
-  if (wasm !== undefined) return wasm;
-  if (__wbg_init_promise === undefined) {
-    __wbg_init_promise = __wbg_init_once(module_or_path);
-    __wbg_init_promise.catch(() => {
-      __wbg_init_promise = undefined;
-    });
-  }
-  return __wbg_init_promise;
-}
-async function __wbg_init_once(module_or_path) {
-  if (module_or_path !== undefined) {
-    if (Object.getPrototypeOf(module_or_path) === Object.prototype) {
-      ({
-        module_or_path
-      } = module_or_path);
-    } else {
-      console.warn('using deprecated parameters for the initialization function; pass a single object instead');
-    }
-  }
-  const imports = __wbg_get_imports();
-  if (typeof module_or_path === 'string' || typeof Request === 'function' && module_or_path instanceof Request || typeof URL === 'function' && module_or_path instanceof URL) {
-    module_or_path = fetch(module_or_path);
-  }
-  const {
-    instance,
-    module
-  } = await __wbg_load(await module_or_path, imports);
-  return __wbg_finalize_init(instance, module);
-}
-
-// EXTERNAL MODULE: ./src/shared/util.js
-var util = __webpack_require__(4292);
-// EXTERNAL MODULE: ./src/core/colorspace.js
-var colorspace = __webpack_require__(3069);
-;// ./src/core/icc_colorspace.js
-
-
-
-
-function fetchSync(url) {
-  const xhr = new XMLHttpRequest();
-  xhr.open("GET", url, false);
-  xhr.responseType = "arraybuffer";
-  xhr.send(null);
-  return xhr.response;
-}
-class IccColorSpace extends colorspace.ColorSpace {
-  #transformer;
-  #convertPixel;
-  static #useWasm = true;
-  static #wasmUrl = null;
-  static #finalizer = null;
-  constructor(iccProfile, name, numComps) {
-    if (!IccColorSpace.isUsable) {
-      throw new Error("No ICC color space support");
-    }
-    super(name, numComps);
-    let inType;
-    switch (numComps) {
-      case 1:
-        inType = DataType.Gray8;
-        this.#convertPixel = (src, srcOffset) => qcms_convert_one(this.#transformer, src[srcOffset] * 255);
-        break;
-      case 3:
-        inType = DataType.RGB8;
-        this.#convertPixel = (src, srcOffset) => qcms_convert_three(this.#transformer, src[srcOffset] * 255, src[srcOffset + 1] * 255, src[srcOffset + 2] * 255);
-        break;
-      case 4:
-        inType = DataType.CMYK;
-        this.#convertPixel = (src, srcOffset) => qcms_convert_four(this.#transformer, src[srcOffset] * 255, src[srcOffset + 1] * 255, src[srcOffset + 2] * 255, src[srcOffset + 3] * 255);
-        break;
-      default:
-        throw new Error(`Unsupported number of components: ${numComps}`);
-    }
-    this.#transformer = qcms_transformer_from_memory(iccProfile, inType, Intent.Perceptual);
-    if (!this.#transformer) {
-      throw new Error("Failed to create ICC color space");
-    }
-    IccColorSpace.#finalizer ||= new FinalizationRegistry(transformer => {
-      qcms_drop_transformer(transformer);
-    });
-    IccColorSpace.#finalizer.register(this, this.#transformer);
-  }
-  getRgbHex(src, srcOffset) {
-    const color = this.#convertPixel(src, srcOffset);
-    return util.Util.makeHexColor(color >> 16, color >> 8 & 0xff, color & 0xff);
-  }
-  getRgbItem(src, srcOffset, dest, destOffset) {
-    const color = this.#convertPixel(src, srcOffset);
-    dest[destOffset] = color >> 16;
-    dest[destOffset + 1] = color >> 8 & 0xff;
-    dest[destOffset + 2] = color & 0xff;
-  }
-  getRgbItems(src, count, dest, destOffset, alpha01) {
-    const {
-      numComps
-    } = this;
-    const length = count * numComps;
-    const scaled = new Uint8Array(length);
-    for (let i = 0; i < length; i++) {
-      scaled[i] = src[i] * 255;
-    }
-    QCMS._destBuffer = dest;
-    QCMS._destOffset = destOffset;
-    QCMS._keepAlpha = alpha01 === 1;
-    qcms_convert_array(this.#transformer, scaled, alpha01 === 1);
-    QCMS._destBuffer = null;
-  }
-  getRgbBuffer(src, srcOffset, count, dest, destOffset, bits, alpha01) {
-    src = src.subarray(srcOffset, srcOffset + count * this.numComps);
-    if (bits !== 8) {
-      const scale = 255 / ((1 << bits) - 1);
-      for (let i = 0, ii = src.length; i < ii; i++) {
-        src[i] *= scale;
-      }
-    }
-    QCMS._destBuffer = dest;
-    QCMS._destOffset = destOffset;
-    QCMS._keepAlpha = alpha01 === 1 && dest.buffer !== src.buffer;
-    qcms_convert_array(this.#transformer, src, alpha01 === 1);
-    QCMS._destBuffer = null;
-  }
-  static setOptions({
-    useWasm,
-    useWorkerFetch,
-    wasmUrl
-  }) {
-    if (!useWorkerFetch) {
-      this.#useWasm = false;
-      return;
-    }
-    this.#useWasm = useWasm;
-    this.#wasmUrl = wasmUrl;
-  }
-  static get isUsable() {
-    let isUsable = false;
-    if (this.#useWasm) {
-      if (this.#wasmUrl) {
-        try {
-          this._module = initSync({
-            module: fetchSync(`${this.#wasmUrl}qcms_bg.wasm`)
-          });
-          isUsable = !!this._module;
-          QCMS._memory = this._module.memory;
-        } catch (e) {
-          ;(0,util.warn)(`ICCBased color space: "${e}".`);
-        }
-      } else {
-        (0,util.warn)("No ICC color space support due to missing `wasmUrl` API option");
-      }
-    }
-    return (0,util.shadow)(this, "isUsable", isUsable);
-  }
-}
-class CmykICCBasedCS extends IccColorSpace {
-  static #iccUrl;
-  constructor() {
-    const iccProfile = new Uint8Array(fetchSync(`${CmykICCBasedCS.#iccUrl}CGATS001Compat-v2-micro.icc`));
-    super(iccProfile, "DeviceCMYK", 4);
-  }
-  static setOptions({
-    iccUrl
-  }) {
-    this.#iccUrl = iccUrl;
-  }
-  static get isUsable() {
-    let isUsable = false;
-    if (IccColorSpace.isUsable) {
-      if (this.#iccUrl) {
-        isUsable = true;
-      } else {
-        (0,util.warn)("No CMYK ICC profile support due to missing `iccUrl` API option");
-      }
-    }
-    return (0,util.shadow)(this, "isUsable", isUsable);
-  }
-}
-
-
-/***/ },
-
 /***/ 8545
 (__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) {
 
@@ -37500,7 +37544,7 @@ class CmykICCBasedCS extends IccColorSpace {
 /* harmony import */ var _shared_image_utils_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(8609);
 /* harmony import */ var _base_stream_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(1834);
 /* harmony import */ var _colorspace_js__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(3069);
-/* harmony import */ var _colorspace_utils_js__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(5719);
+/* harmony import */ var _colorspace_utils_js__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(2056);
 /* harmony import */ var _decode_stream_js__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(4563);
 /* harmony import */ var _image_resizer_js__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(2320);
 /* harmony import */ var _jpeg_stream_js__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(5495);
@@ -39234,16 +39278,18 @@ class GlobalImageCache {
 /* harmony export */   JpegStream: () => (/* binding */ JpegStream)
 /* harmony export */ });
 /* harmony import */ var _shared_util_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(4292);
-/* harmony import */ var _decode_stream_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(4563);
-/* harmony import */ var _primitives_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(5632);
-/* harmony import */ var _jpeg_utils_js__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(2478);
-/* harmony import */ var _image_resizer_js__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(2320);
+/* harmony import */ var _colorspace_utils_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(2056);
+/* harmony import */ var _decode_stream_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(4563);
+/* harmony import */ var _primitives_js__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(5632);
+/* harmony import */ var _jpeg_utils_js__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(2478);
+/* harmony import */ var _image_resizer_js__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(2320);
 
 
 
 
 
-class JpegStream extends _decode_stream_js__WEBPACK_IMPORTED_MODULE_1__.DecodeStream {
+
+class JpegStream extends _decode_stream_js__WEBPACK_IMPORTED_MODULE_2__.DecodeStream {
   static #isImageDecoderSupported = _shared_util_js__WEBPACK_IMPORTED_MODULE_0__.FeatureTest.isImageDecoderSupported;
   constructor(stream, maybeLength, params) {
     super(maybeLength);
@@ -39271,7 +39317,7 @@ class JpegStream extends _decode_stream_js__WEBPACK_IMPORTED_MODULE_1__.DecodeSt
     const jpegOptions = {
       colorTransform: undefined
     };
-    if (this.params instanceof _primitives_js__WEBPACK_IMPORTED_MODULE_2__.Dict) {
+    if (this.params instanceof _primitives_js__WEBPACK_IMPORTED_MODULE_3__.Dict) {
       const colorTransform = this.params.get("ColorTransform");
       if (Number.isInteger(colorTransform)) {
         jpegOptions.colorTransform = colorTransform;
@@ -39304,11 +39350,17 @@ class JpegStream extends _decode_stream_js__WEBPACK_IMPORTED_MODULE_1__.DecodeSt
     } = await Promise.resolve(/* import() */).then(() => (__webpack_require__(1011)));
     const jpegImage = new JpegImage(this.jpegOptions);
     jpegImage.parse(bytes);
+    const {
+      forceRGBA,
+      forceRGB
+    } = this;
+    const cmyk = jpegImage.numComponents === 4 && (forceRGBA || forceRGB) ? await _colorspace_utils_js__WEBPACK_IMPORTED_MODULE_1__.ColorSpaceUtils.getCmyk(this.dict?.xref) : undefined;
     const data = jpegImage.getData({
       width: this.drawWidth,
       height: this.drawHeight,
-      forceRGBA: this.forceRGBA,
-      forceRGB: this.forceRGB
+      forceRGBA,
+      forceRGB,
+      cmyk
     });
     this.buffer = data;
     this.bufferLength = data.length;
@@ -39330,7 +39382,7 @@ class JpegStream extends _decode_stream_js__WEBPACK_IMPORTED_MODULE_1__.DecodeSt
         return null;
       }
       let data = this.#skipUselessBytes(bytes);
-      const info = (0,_jpeg_utils_js__WEBPACK_IMPORTED_MODULE_3__.getJpegImageInfo)(data, jpegOptions.colorTransform);
+      const info = (0,_jpeg_utils_js__WEBPACK_IMPORTED_MODULE_4__.getJpegImageInfo)(data, jpegOptions.colorTransform);
       if (!info) {
         return null;
       }
@@ -39340,7 +39392,7 @@ class JpegStream extends _decode_stream_js__WEBPACK_IMPORTED_MODULE_1__.DecodeSt
         exifStart,
         exifEnd
       } = info;
-      const reducePower = _image_resizer_js__WEBPACK_IMPORTED_MODULE_4__.ImageResizer.getReducePower(frameWidth, frameHeight);
+      const reducePower = _image_resizer_js__WEBPACK_IMPORTED_MODULE_5__.ImageResizer.getReducePower(frameWidth, frameHeight);
       if ((frameWidth !== width || frameHeight !== height) && (reducePower || !frameHeight)) {
         return null;
       }
@@ -39514,7 +39566,7 @@ function getJpegImageInfo(data, colorTransform = -1) {
 /* harmony export */ });
 /* harmony import */ var _shared_util_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(4292);
 /* harmony import */ var _jpeg_utils_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(2478);
-/* harmony import */ var _colorspace_utils_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(5719);
+/* harmony import */ var _colorspace_utils_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(2056);
 /* harmony import */ var _colorspace_js__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(3069);
 /* harmony import */ var _shared_image_utils_js__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(8609);
 
@@ -40419,14 +40471,6 @@ class JpegImage {
     }
     return out;
   }
-  _convertYcckToRgb(data) {
-    this._convertYcckToCmyk(data);
-    return this._convertCmykToRgb(data);
-  }
-  _convertYcckToRgba(data) {
-    this._convertYcckToCmyk(data);
-    return this._convertCmykToRgba(data);
-  }
   _convertYcckToCmyk(data) {
     let Y, Cb, Cr;
     for (let i = 0, ii = data.length; i < ii; i += 4) {
@@ -40439,14 +40483,13 @@ class JpegImage {
     }
     return data;
   }
-  _convertCmykToRgb(data) {
+  #convertCmyk(data, cmyk, forceRGBA) {
     const count = data.length / 4;
-    _colorspace_utils_js__WEBPACK_IMPORTED_MODULE_2__.ColorSpaceUtils.cmyk.getRgbBuffer(data, 0, count, data, 0, 8, 0);
-    return data.subarray(0, count * 3);
-  }
-  _convertCmykToRgba(data) {
-    _colorspace_utils_js__WEBPACK_IMPORTED_MODULE_2__.ColorSpaceUtils.cmyk.getRgbBuffer(data, 0, data.length / 4, data, 0, 8, 1);
-    if (_colorspace_utils_js__WEBPACK_IMPORTED_MODULE_2__.ColorSpaceUtils.cmyk instanceof _colorspace_js__WEBPACK_IMPORTED_MODULE_3__.DeviceCmykCS) {
+    cmyk.getRgbBuffer(data, 0, count, data, 0, 8, forceRGBA ? 1 : 0);
+    if (!forceRGBA) {
+      return data.subarray(0, count * 3);
+    }
+    if (cmyk instanceof _colorspace_js__WEBPACK_IMPORTED_MODULE_3__.DeviceCmykCS) {
       for (let i = 3, ii = data.length; i < ii; i += 4) {
         data[i] = 255;
       }
@@ -40457,7 +40500,8 @@ class JpegImage {
     width,
     height,
     forceRGBA = false,
-    forceRGB = false
+    forceRGB = false,
+    cmyk = _colorspace_utils_js__WEBPACK_IMPORTED_MODULE_2__.ColorSpaceUtils.deviceCmyk
   }) {
     if (this.numComponents > 4) {
       throw new _jpeg_utils_js__WEBPACK_IMPORTED_MODULE_1__.JpegError("Unsupported color mode");
@@ -40485,14 +40529,10 @@ class JpegImage {
       return this._convertYccToRgb(data);
     } else if (this.numComponents === 4) {
       if (this._isColorConversionNeeded) {
-        if (forceRGBA) {
-          return this._convertYcckToRgba(data);
-        }
-        return forceRGB ? this._convertYcckToRgb(data) : this._convertYcckToCmyk(data);
-      } else if (forceRGBA) {
-        return this._convertCmykToRgba(data);
-      } else if (forceRGB) {
-        return this._convertCmykToRgb(data);
+        this._convertYcckToCmyk(data);
+      }
+      if (forceRGBA || forceRGB) {
+        return this.#convertCmyk(data, cmyk, forceRGBA);
       }
     }
     return data;
@@ -46873,7 +46913,7 @@ class Linearization {
 /* harmony import */ var _shared_util_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(4292);
 /* harmony import */ var _core_utils_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(5399);
 /* harmony import */ var _base_stream_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(1834);
-/* harmony import */ var _colorspace_utils_js__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(5719);
+/* harmony import */ var _colorspace_utils_js__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(2056);
 /* harmony import */ var _shared_math_clamp_js__WEBPACK_IMPORTED_MODULE_4__ = /*#__PURE__*/__webpack_require__(4566);
 
 
@@ -53439,49 +53479,55 @@ async function decodeBrotli(data) {
 class WasmLoader {
   static #modules = new Map();
   static async fetch(context, kind, filename) {
-    const {
-      handler,
-      options
-    } = context;
-    if (!options.useWorkerFetch) {
-      return handler.sendWithPromise("FetchBinaryData", {
+    const url = this.#getWorkerUrl(context, kind, filename);
+    if (!url) {
+      return context.handler.sendWithPromise("FetchBinaryData", {
         kind,
         filename
       });
     }
-    const response = await this.#workerFetch(options[kind], filename);
+    const response = await this.#workerFetch(url);
     return response.bytes();
   }
-  static async #workerFetch(baseUrl, filename) {
-    const url = `${baseUrl}${filename}`,
-      response = await fetch(url);
+  static #getWorkerUrl({
+    options
+  }, kind, filename) {
+    if (!options.useWorkerFetch) {
+      return null;
+    }
+    const baseUrl = options[kind];
+    if (!baseUrl) {
+      throw new Error(`Ensure that the \`${kind}\` API parameter is provided.`);
+    }
+    return `${baseUrl}${filename}`;
+  }
+  static async #workerFetch(url) {
+    const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`Failed to fetch file "${url}" with "${response.statusText}".`);
     }
     return response;
   }
-  static async #fetchAndCompile(context, filename) {
-    const {
-      options
-    } = context;
-    if (!options.useWorkerFetch) {
+  static async #fetchAndCompile(context, filename, url) {
+    if (!url) {
       return WebAssembly.compile(await this.fetch(context, "wasmUrl", filename));
     }
     const {
       body
-    } = await this.#workerFetch(options.wasmUrl, filename);
+    } = await this.#workerFetch(url);
     return WebAssembly.compileStreaming(new Response(body, {
       headers: {
         "Content-Type": "application/wasm"
       }
     }));
   }
-  static #compile(context, filename) {
+  static async compile(context, filename) {
+    const url = this.#getWorkerUrl(context, "wasmUrl", filename);
     const cached = this.#modules.get(filename);
     if (cached) {
-      return cached.catch(() => this.#compile(context, filename));
+      return cached.catch(() => this.compile(context, filename));
     }
-    const promise = this.#fetchAndCompile(context, filename).catch(ex => {
+    const promise = this.#fetchAndCompile(context, filename, url).catch(ex => {
       this.#modules.delete(filename);
       throw ex;
     });
@@ -53514,7 +53560,7 @@ class WasmLoader {
     } = context.options;
     if (useWasm) {
       try {
-        const module = await this.#compile(context, filename);
+        const module = await this.compile(context, filename);
         init(imports => new WebAssembly.Instance(module, imports).exports);
         return true;
       } catch (ex) {
@@ -66540,8 +66586,6 @@ var util = __webpack_require__(4292);
 var core_utils = __webpack_require__(5399);
 // EXTERNAL MODULE: ./src/core/primitives.js
 var primitives = __webpack_require__(5632);
-// EXTERNAL MODULE: ./src/core/icc_colorspace.js + 2 modules
-var icc_colorspace = __webpack_require__(3141);
 // EXTERNAL MODULE: ./src/shared/math_clamp.js
 var math_clamp = /*#__PURE__*/__webpack_require__(4566);
 // EXTERNAL MODULE: ./src/core/stream.js
@@ -66950,7 +66994,6 @@ var wasm_image = __webpack_require__(5412);
 
 
 
-
 function parseDocBaseUrl(url) {
   if (url) {
     const absoluteUrl = (0,util.createValidAbsoluteUrl)(url);
@@ -66979,6 +67022,10 @@ class BasePdfManager {
     evaluatorOptions.isOffscreenCanvasSupported &&= util.FeatureTest.isOffscreenCanvasSupported;
     evaluatorOptions.isImageDecoderSupported &&= util.FeatureTest.isImageDecoderSupported;
     this.evaluatorOptions = Object.freeze(evaluatorOptions);
+    this.binaryDataContext = {
+      handler,
+      options: this.evaluatorOptions
+    };
     image_resizer.ImageResizer.setOptions(evaluatorOptions);
     jpeg_stream.JpegStream.setOptions(evaluatorOptions);
     operator_list.OperatorList.setOptions(evaluatorOptions);
@@ -66986,8 +67033,6 @@ class BasePdfManager {
       ...evaluatorOptions,
       getHandler: () => BasePdfManager.#handlers.values().find(h => !h.destroyed)
     };
-    icc_colorspace.IccColorSpace.setOptions(options);
-    icc_colorspace.CmykICCBasedCS.setOptions(options);
     core_function.PDFFunctionFactory.setOptions(options);
     wasm_image.WasmImage.setOptions(options);
   }
