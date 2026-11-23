@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = 6725ea3
+ * pdfjsBuild = 32fb05b
  */
 /******/ var __webpack_modules__ = ({
 
@@ -1642,7 +1642,7 @@ class AnnotationFactory {
               smaskStream,
               smaskRenderStream
             } = image;
-            const imageRef = imageRenderStream || new jpeg_stream.JpegStream(imageStream, imageStream.length);
+            const imageRef = imageRenderStream || new jpeg_stream.JpegStream(imageStream, imageStream.length, null, xref.pdfManager);
             if (smaskStream || smaskRenderStream) {
               imageRef.dict.set("SMask", smaskRenderStream || smaskStream);
             }
@@ -9600,8 +9600,6 @@ class CharCodeMap {
 /* harmony import */ var _pattern_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(918);
 /* harmony import */ var _primitives_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(5632);
 /* harmony import */ var _unicode_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(115);
-/* harmony import */ var _wasm_image_js__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(5412);
-
 
 
 
@@ -9609,7 +9607,6 @@ function clearGlobalCaches() {
   (0,_pattern_js__WEBPACK_IMPORTED_MODULE_0__.clearPatternCaches)();
   (0,_primitives_js__WEBPACK_IMPORTED_MODULE_1__.clearPrimitiveCaches)();
   (0,_unicode_js__WEBPACK_IMPORTED_MODULE_2__.clearUnicodeCaches)();
-  _wasm_image_js__WEBPACK_IMPORTED_MODULE_3__.WasmImage.cleanup();
 }
 
 
@@ -13392,6 +13389,8 @@ class TextLayerFonts {
   }
 }
 
+// EXTERNAL MODULE: ./src/core/wasm_image.js
+var wasm_image = __webpack_require__(5412);
 ;// ./src/core/xref.js
 
 
@@ -14175,6 +14174,7 @@ class XRef {
 
 
 
+
 const LETTER_SIZE_MEDIABOX = [0, 0, 612, 792];
 const SIGNATURE_TAIL_CHUNK_SIZE = 65536;
 class Page {
@@ -14520,7 +14520,7 @@ class Page {
     }
     const pageListPromise = Promise.all([contentStreamPromise, resourcesPromise]).then(async ([contentStream]) => {
       const resources = await this.#getMergedResources(contentStream.dict, core_utils.RESOURCES_KEYS_OPERATOR_LIST);
-      const opList = new operator_list.OperatorList(intent, sink);
+      const opList = new operator_list.OperatorList(intent, sink, this.evaluatorOptions);
       handler.send("StartRenderPage", {
         transparency: partialEvaluator.hasBlendModes(resources, this.nonBlendModesSet),
         pageProxyId,
@@ -15471,6 +15471,7 @@ class PDFDocument {
     }
   }
   async cleanup(manuallyTriggered = false) {
+    wasm_image.WasmImage.cleanup(this.pdfManager.binaryDataContext);
     return this.catalog ? this.catalog.cleanup(manuallyTriggered) : (0,cleanup_helper.clearGlobalCaches)();
   }
   async #collectFieldObjects(name, parentRef, fieldRef, promises, annotationGlobals, visitedRefs, orphanFields) {
@@ -20632,6 +20633,7 @@ class PartialEvaluator {
     if (imageMask) {
       imgData = await core_image.PDFImage.createMask({
         image,
+        imageResizer: this.xref.pdfManager.imageResizer,
         isOffscreenCanvasSupported: isOffscreenCanvasSupported && !this.parsingType3Font
       });
       if (imgData.isSingleOpaquePixel) {
@@ -32667,19 +32669,13 @@ const FunctionType = {
   POSTSCRIPT_CALCULATOR: 4
 };
 class PDFFunctionFactory {
-  static #useWasm = true;
-  static setOptions({
-    useWasm
-  }) {
-    this.#useWasm = useWasm;
-  }
   constructor({
     xref
   }) {
     this.xref = xref;
   }
   get useWasm() {
-    return PDFFunctionFactory.#useWasm;
+    return this.xref.pdfManager.evaluatorOptions.useWasm;
   }
   async create(fn, parseArray = false) {
     let fnRef, parsedFn;
@@ -37546,12 +37542,10 @@ const getDingbatsGlyphsUnicode = (0,_core_utils_js__WEBPACK_IMPORTED_MODULE_0__.
 /* harmony import */ var _colorspace_js__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(3069);
 /* harmony import */ var _colorspace_utils_js__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(2056);
 /* harmony import */ var _decode_stream_js__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(4563);
-/* harmony import */ var _image_resizer_js__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(2320);
-/* harmony import */ var _jpeg_stream_js__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(5495);
-/* harmony import */ var _jpx_js__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(4242);
-/* harmony import */ var _shared_math_clamp_js__WEBPACK_IMPORTED_MODULE_9__ = /*#__PURE__*/__webpack_require__(4566);
-/* harmony import */ var _primitives_js__WEBPACK_IMPORTED_MODULE_10__ = __webpack_require__(5632);
-
+/* harmony import */ var _jpeg_stream_js__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(5495);
+/* harmony import */ var _jpx_js__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(4242);
+/* harmony import */ var _shared_math_clamp_js__WEBPACK_IMPORTED_MODULE_8__ = /*#__PURE__*/__webpack_require__(4566);
+/* harmony import */ var _primitives_js__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(5632);
 
 
 
@@ -37587,14 +37581,15 @@ function sumPreblendedRow(sums, rgbRow, rgbX, alpha, alphaOffset, alphaX, [matte
     const opacity = alpha[alphaOffset + alphaX[x]];
     if (opacity !== 0) {
       const i = rgbX[x];
-      sums[k] += (0,_shared_math_clamp_js__WEBPACK_IMPORTED_MODULE_9__.MathClamp)((rgbRow[i] - matteR) * 255 + matteR * opacity, 0, 255 * opacity);
-      sums[k + 1] += (0,_shared_math_clamp_js__WEBPACK_IMPORTED_MODULE_9__.MathClamp)((rgbRow[i + 1] - matteG) * 255 + matteG * opacity, 0, 255 * opacity);
-      sums[k + 2] += (0,_shared_math_clamp_js__WEBPACK_IMPORTED_MODULE_9__.MathClamp)((rgbRow[i + 2] - matteB) * 255 + matteB * opacity, 0, 255 * opacity);
+      sums[k] += (0,_shared_math_clamp_js__WEBPACK_IMPORTED_MODULE_8__.MathClamp)((rgbRow[i] - matteR) * 255 + matteR * opacity, 0, 255 * opacity);
+      sums[k + 1] += (0,_shared_math_clamp_js__WEBPACK_IMPORTED_MODULE_8__.MathClamp)((rgbRow[i + 1] - matteG) * 255 + matteG * opacity, 0, 255 * opacity);
+      sums[k + 2] += (0,_shared_math_clamp_js__WEBPACK_IMPORTED_MODULE_8__.MathClamp)((rgbRow[i + 2] - matteB) * 255 + matteB * opacity, 0, 255 * opacity);
       sums[k + 3] += opacity;
     }
   }
 }
 class PDFImage {
+  #imageResizer;
   async #initialize({
     xref,
     res,
@@ -37608,14 +37603,15 @@ class PDFImage {
     localColorSpaceCache
   }) {
     this.image = image;
+    this.#imageResizer = xref.pdfManager.imageResizer;
     const dict = image.dict;
     const filter = dict.get("F", "Filter");
     let filterName;
-    if (filter instanceof _primitives_js__WEBPACK_IMPORTED_MODULE_10__.Name) {
+    if (filter instanceof _primitives_js__WEBPACK_IMPORTED_MODULE_9__.Name) {
       filterName = filter.name;
     } else if (Array.isArray(filter)) {
       const lastFilter = xref.fetchIfRef(filter.at(-1));
-      if (lastFilter instanceof _primitives_js__WEBPACK_IMPORTED_MODULE_10__.Name) {
+      if (lastFilter instanceof _primitives_js__WEBPACK_IMPORTED_MODULE_9__.Name) {
         filterName = lastFilter.name;
       }
     }
@@ -37626,9 +37622,9 @@ class PDFImage {
           height: image.height,
           componentsCount: image.numComps,
           bitsPerComponent: image.bitsPerComponent
-        } = _jpx_js__WEBPACK_IMPORTED_MODULE_8__.JpxImage.parseImageProperties(image.stream));
+        } = _jpx_js__WEBPACK_IMPORTED_MODULE_7__.JpxImage.parseImageProperties(image.stream));
         image.stream.reset();
-        const reducePower = _image_resizer_js__WEBPACK_IMPORTED_MODULE_6__.ImageResizer.getReducePowerForJPX(image.width, image.height, image.numComps);
+        const reducePower = this.#imageResizer.getReducePowerForJPX(image.width, image.height, image.numComps);
         this.jpxDecoderOptions = {
           numComponents: 0,
           isIndexedColormap: false,
@@ -37692,7 +37688,7 @@ class PDFImage {
         this.jpxPremultiplied = true;
         if (this.matte) {
           const matteColorSpace = await _colorspace_utils_js__WEBPACK_IMPORTED_MODULE_4__.ColorSpaceUtils.parse({
-            cs: hasColorSpace ? colorSpace : _primitives_js__WEBPACK_IMPORTED_MODULE_10__.Name.get("DeviceRGB"),
+            cs: hasColorSpace ? colorSpace : _primitives_js__WEBPACK_IMPORTED_MODULE_9__.Name.get("DeviceRGB"),
             xref,
             resources: isInline ? res : null,
             pdfFunctionFactory,
@@ -37704,24 +37700,24 @@ class PDFImage {
       }
       if (!hasColorSpace) {
         if (this.jpxDecoderOptions) {
-          colorSpace = _primitives_js__WEBPACK_IMPORTED_MODULE_10__.Name.get("DeviceRGBA");
+          colorSpace = _primitives_js__WEBPACK_IMPORTED_MODULE_9__.Name.get("DeviceRGBA");
         } else {
           switch (image.numComps) {
             case 1:
-              colorSpace = _primitives_js__WEBPACK_IMPORTED_MODULE_10__.Name.get("DeviceGray");
+              colorSpace = _primitives_js__WEBPACK_IMPORTED_MODULE_9__.Name.get("DeviceGray");
               break;
             case 3:
-              colorSpace = _primitives_js__WEBPACK_IMPORTED_MODULE_10__.Name.get("DeviceRGB");
+              colorSpace = _primitives_js__WEBPACK_IMPORTED_MODULE_9__.Name.get("DeviceRGB");
               break;
             case 4:
-              colorSpace = _primitives_js__WEBPACK_IMPORTED_MODULE_10__.Name.get("DeviceCMYK");
+              colorSpace = _primitives_js__WEBPACK_IMPORTED_MODULE_9__.Name.get("DeviceCMYK");
               break;
             default:
               throw new Error(`Images with ${image.numComps} color components not supported.`);
           }
         }
       } else if (this.jpxDecoderOptions?.smaskInData) {
-        colorSpace = _primitives_js__WEBPACK_IMPORTED_MODULE_10__.Name.get("DeviceRGBA");
+        colorSpace = _primitives_js__WEBPACK_IMPORTED_MODULE_9__.Name.get("DeviceRGBA");
       }
       this.colorSpace = await _colorspace_utils_js__WEBPACK_IMPORTED_MODULE_4__.ColorSpaceUtils.parse({
         cs: colorSpace,
@@ -37820,6 +37816,7 @@ class PDFImage {
   }
   static async createMask({
     image,
+    imageResizer,
     isOffscreenCanvasSupported = false
   }) {
     const {
@@ -37839,7 +37836,7 @@ class PDFImage {
       };
     }
     if (isOffscreenCanvasSupported) {
-      if (_image_resizer_js__WEBPACK_IMPORTED_MODULE_6__.ImageResizer.needsToBeResized(width, height)) {
+      if (imageResizer.needsToBeResized(width, height)) {
         const data = new Uint8ClampedArray(width * height * 4);
         (0,_shared_image_utils_js__WEBPACK_IMPORTED_MODULE_1__.convertBlackAndWhiteToRGBA)({
           src: imgArray,
@@ -37849,7 +37846,7 @@ class PDFImage {
           nonBlackColor: 0,
           inverseDecode
         });
-        return _image_resizer_js__WEBPACK_IMPORTED_MODULE_6__.ImageResizer.createImage({
+        return imageResizer.createImage({
           kind: _shared_util_js__WEBPACK_IMPORTED_MODULE_0__.ImageKind.RGBA_32BPP,
           data,
           width,
@@ -37924,7 +37921,7 @@ class PDFImage {
     let index = 0;
     for (i = 0, ii = this.width * this.height; i < ii; i++) {
       for (let j = 0; j < numComps; j++) {
-        buffer[index] = (0,_shared_math_clamp_js__WEBPACK_IMPORTED_MODULE_9__.MathClamp)(decodeAddends[j] + buffer[index] * decodeCoefficients[j], 0, max);
+        buffer[index] = (0,_shared_math_clamp_js__WEBPACK_IMPORTED_MODULE_8__.MathClamp)(decodeAddends[j] + buffer[index] * decodeCoefficients[j], 0, max);
         index++;
       }
     }
@@ -37990,7 +37987,7 @@ class PDFImage {
           bits += 8;
         }
         const remainingBits = bits - bpc;
-        output[i] = (0,_shared_math_clamp_js__WEBPACK_IMPORTED_MODULE_9__.MathClamp)(buf >> remainingBits, 0, max);
+        output[i] = (0,_shared_math_clamp_js__WEBPACK_IMPORTED_MODULE_8__.MathClamp)(buf >> remainingBits, 0, max);
         buf &= (1 << remainingBits) - 1;
         bits = remainingBits;
       }
@@ -38077,6 +38074,7 @@ class PDFImage {
     PDFImage.#undoPreblend(buffer, width * height * 4, matteRgb[0], matteRgb[1], matteRgb[2]);
   }
   async createImageData(forceRGBA = false, isOffscreenCanvasSupported = false) {
+    const imageResizer = this.#imageResizer;
     const drawWidth = this.drawWidth;
     const drawHeight = this.drawHeight;
     const imgData = {
@@ -38091,7 +38089,7 @@ class PDFImage {
     const originalHeight = this.height;
     const bpc = this.bpc;
     const rowBytes = originalWidth * numComps * bpc + 7 >> 3;
-    const mustBeResized = isOffscreenCanvasSupported && _image_resizer_js__WEBPACK_IMPORTED_MODULE_6__.ImageResizer.needsToBeResized(drawWidth, drawHeight);
+    const mustBeResized = isOffscreenCanvasSupported && imageResizer.needsToBeResized(drawWidth, drawHeight);
     if (!this.smask && !this.mask && this.colorSpace.name === "DeviceRGBA") {
       imgData.kind = _shared_util_js__WEBPACK_IMPORTED_MODULE_0__.ImageKind.RGBA_32BPP;
       const imgArray = imgData.data = await this.getImageBytes(originalHeight * originalWidth * 4, {
@@ -38105,7 +38103,7 @@ class PDFImage {
         if (!mustBeResized) {
           return this.createBitmap(_shared_util_js__WEBPACK_IMPORTED_MODULE_0__.ImageKind.RGBA_32BPP, drawWidth, drawHeight, imgArray);
         }
-        return _image_resizer_js__WEBPACK_IMPORTED_MODULE_6__.ImageResizer.createImage(imgData, false);
+        return imageResizer.createImage(imgData);
       }
       return imgData;
     }
@@ -38126,7 +38124,7 @@ class PDFImage {
         });
         if (isOffscreenCanvasSupported) {
           if (mustBeResized) {
-            return _image_resizer_js__WEBPACK_IMPORTED_MODULE_6__.ImageResizer.createImage({
+            return imageResizer.createImage({
               data,
               kind,
               width: drawWidth,
@@ -38147,7 +38145,7 @@ class PDFImage {
         }
         return imgData;
       }
-      if (this.image instanceof _jpeg_stream_js__WEBPACK_IMPORTED_MODULE_7__.JpegStream && !this.needsDecode) {
+      if (this.image instanceof _jpeg_stream_js__WEBPACK_IMPORTED_MODULE_6__.JpegStream && !this.needsDecode) {
         let isHandled = false;
         switch (this.colorSpace.name) {
           case "DeviceGray":
@@ -38191,15 +38189,15 @@ class PDFImage {
             forceRGB: true,
             internal: mustBeResized
           });
-          return mustBeResized ? _image_resizer_js__WEBPACK_IMPORTED_MODULE_6__.ImageResizer.createImage(imgData) : imgData;
+          return mustBeResized ? imageResizer.createImage(imgData) : imgData;
         }
       }
     }
     if (mustBeResized && !Array.isArray(this.mask)) {
-      const reducePower = _image_resizer_js__WEBPACK_IMPORTED_MODULE_6__.ImageResizer.getReducePower(drawWidth, drawHeight);
+      const reducePower = imageResizer.getReducePower(drawWidth, drawHeight);
       const width = Math.max(1, drawWidth >> reducePower);
       const height = Math.max(1, drawHeight >> reducePower);
-      if (!_image_resizer_js__WEBPACK_IMPORTED_MODULE_6__.ImageResizer.needsToBeResized(width, height)) {
+      if (!imageResizer.needsToBeResized(width, height)) {
         const rgba = new Uint8ClampedArray(width * height * 4);
         await this._fillDownscaledRgba(rgba, width, height);
         return this.createBitmap(_shared_util_js__WEBPACK_IMPORTED_MODULE_0__.ImageKind.RGBA_32BPP, width, height, rgba);
@@ -38257,7 +38255,7 @@ class PDFImage {
       };
     }
     imgData.data = data;
-    return mustBeResized ? _image_resizer_js__WEBPACK_IMPORTED_MODULE_6__.ImageResizer.createImage(imgData) : imgData;
+    return mustBeResized ? imageResizer.createImage(imgData) : imgData;
   }
   async fillGrayBuffer(buffer, {
     destWidth,
@@ -38559,398 +38557,6 @@ class PDFImage {
     }
     ;(0,_shared_util_js__WEBPACK_IMPORTED_MODULE_0__.assert)(imageBytes instanceof Uint8Array, 'PDFImage.getImageBytes: Unsupported "imageBytes" type.');
     return new Uint8Array(imageBytes);
-  }
-}
-
-
-/***/ },
-
-/***/ 2320
-(__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) {
-
-/* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   ImageResizer: () => (/* binding */ ImageResizer)
-/* harmony export */ });
-/* harmony import */ var _shared_util_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(4292);
-/* harmony import */ var _shared_image_utils_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(8609);
-/* harmony import */ var _core_utils_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(5399);
-
-
-
-const MIN_IMAGE_DIM = 2048;
-const MAX_IMAGE_DIM = 32768;
-const MAX_ERROR = 128;
-class ImageResizer {
-  static #goodSquareLength = MIN_IMAGE_DIM;
-  static #isImageDecoderSupported = _shared_util_js__WEBPACK_IMPORTED_MODULE_0__.FeatureTest.isImageDecoderSupported;
-  constructor(imgData, isMask) {
-    this._imgData = imgData;
-    this._isMask = isMask;
-  }
-  static get canUseImageDecoder() {
-    return (0,_shared_util_js__WEBPACK_IMPORTED_MODULE_0__.shadow)(this, "canUseImageDecoder", this.#isImageDecoderSupported ? ImageDecoder.isTypeSupported("image/bmp") : Promise.resolve(false));
-  }
-  static needsToBeResized(width, height) {
-    if (width <= this.#goodSquareLength && height <= this.#goodSquareLength) {
-      return false;
-    }
-    const {
-      MAX_DIM
-    } = this;
-    if (width > MAX_DIM || height > MAX_DIM) {
-      return true;
-    }
-    const area = width * height;
-    if (this._hasMaxArea) {
-      return area > this.MAX_AREA;
-    }
-    if (area < this.#goodSquareLength ** 2) {
-      return false;
-    }
-    if (this._areGoodDims(width, height)) {
-      this.#goodSquareLength = Math.max(this.#goodSquareLength, Math.floor(Math.sqrt(width * height)));
-      return false;
-    }
-    this.#goodSquareLength = this._guessMax(this.#goodSquareLength, MAX_DIM, MAX_ERROR, 0);
-    const maxArea = this.MAX_AREA = this.#goodSquareLength ** 2;
-    return area > maxArea;
-  }
-  static getReducePower(width, height, maxArea = Infinity) {
-    if (!Number.isInteger(width) || width <= 0 || !Number.isInteger(height) || height <= 0) {
-      return 0;
-    }
-    const area = width * height;
-    if (!this.needsToBeResized(width, height)) {
-      return area > maxArea ? Math.ceil(Math.log2(area / maxArea)) : 0;
-    }
-    const {
-      MAX_DIM,
-      MAX_AREA
-    } = this;
-    const minFactor = Math.max(width / MAX_DIM, height / MAX_DIM, Math.sqrt(area / Math.min(maxArea, MAX_AREA)));
-    return Math.max(0, Math.ceil(Math.log2(minFactor)));
-  }
-  static getReducePowerForJPX(width, height, componentsCount) {
-    return this.getReducePower(width, height, 2 ** 30 / (componentsCount * 4));
-  }
-  static get MAX_DIM() {
-    return (0,_shared_util_js__WEBPACK_IMPORTED_MODULE_0__.shadow)(this, "MAX_DIM", this._guessMax(MIN_IMAGE_DIM, MAX_IMAGE_DIM, 0, 1));
-  }
-  static get MAX_AREA() {
-    this._hasMaxArea = true;
-    return (0,_shared_util_js__WEBPACK_IMPORTED_MODULE_0__.shadow)(this, "MAX_AREA", this._guessMax(this.#goodSquareLength, this.MAX_DIM, MAX_ERROR, 0) ** 2);
-  }
-  static set MAX_AREA(area) {
-    if (area >= 0) {
-      this._hasMaxArea = true;
-      (0,_shared_util_js__WEBPACK_IMPORTED_MODULE_0__.shadow)(this, "MAX_AREA", area);
-    }
-  }
-  static setOptions({
-    canvasMaxAreaInBytes = -1,
-    isImageDecoderSupported = false
-  }) {
-    if (!this._hasMaxArea) {
-      this.MAX_AREA = canvasMaxAreaInBytes >> 2;
-    }
-    this.#isImageDecoderSupported = isImageDecoderSupported;
-  }
-  static _areGoodDims(width, height) {
-    try {
-      const canvas = new OffscreenCanvas(width, height);
-      const ctx = canvas.getContext("2d");
-      ctx.fillRect(0, 0, 1, 1);
-      const opacity = ctx.getImageData(0, 0, 1, 1).data[3];
-      canvas.width = canvas.height = 1;
-      return opacity !== 0;
-    } catch {
-      return false;
-    }
-  }
-  static _guessMax(start, end, tolerance, defaultHeight) {
-    while (start + tolerance + 1 < end) {
-      const middle = Math.floor((start + end) / 2);
-      const height = defaultHeight || middle;
-      if (this._areGoodDims(middle, height)) {
-        start = middle;
-      } else {
-        end = middle;
-      }
-    }
-    return start;
-  }
-  static async createImage(imgData, isMask = false) {
-    return new ImageResizer(imgData, isMask)._createImage();
-  }
-  async _createImage() {
-    const {
-      _imgData: imgData
-    } = this;
-    const {
-      width,
-      height
-    } = imgData;
-    if (width * height * 4 > _core_utils_js__WEBPACK_IMPORTED_MODULE_2__.MAX_INT_32) {
-      const result = this._rescaleImageData();
-      if (result) {
-        return result;
-      }
-    }
-    const data = this._encodeBMP();
-    let decoder, imagePromise;
-    if (await ImageResizer.canUseImageDecoder) {
-      decoder = new ImageDecoder({
-        data,
-        type: "image/bmp",
-        preferAnimation: false,
-        transfer: [data.buffer]
-      });
-      imagePromise = decoder.decode().catch(reason => {
-        (0,_shared_util_js__WEBPACK_IMPORTED_MODULE_0__.warn)(`BMP image decoding failed: ${reason}`);
-        return createImageBitmap(new Blob([this._encodeBMP().buffer], {
-          type: "image/bmp"
-        }));
-      }).finally(() => {
-        decoder.close();
-      });
-    } else {
-      imagePromise = createImageBitmap(new Blob([data.buffer], {
-        type: "image/bmp"
-      }));
-    }
-    const {
-      MAX_AREA,
-      MAX_DIM
-    } = ImageResizer;
-    const minFactor = Math.max(width / MAX_DIM, height / MAX_DIM, Math.sqrt(width * height / MAX_AREA));
-    const firstFactor = Math.max(minFactor, 2);
-    const factor = Math.round(10 * (minFactor + 1.25)) / 10 / firstFactor;
-    const N = Math.floor(Math.log2(factor));
-    const steps = new Array(N + 2).fill(2);
-    steps[0] = firstFactor;
-    steps.splice(-1, 1, factor / (1 << N));
-    let newWidth = width;
-    let newHeight = height;
-    const result = await imagePromise;
-    let bitmap = result.image || result;
-    for (const step of steps) {
-      const prevWidth = newWidth;
-      const prevHeight = newHeight;
-      newWidth = Math.floor(newWidth / step);
-      newHeight = Math.floor(newHeight / step);
-      const canvas = new OffscreenCanvas(newWidth, newHeight);
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(bitmap, 0, 0, prevWidth, prevHeight, 0, 0, newWidth, newHeight);
-      bitmap.close();
-      bitmap = canvas.transferToImageBitmap();
-    }
-    imgData.data = null;
-    imgData.bitmap = bitmap;
-    imgData.width = newWidth;
-    imgData.height = newHeight;
-    return imgData;
-  }
-  _rescaleImageData(maxSize = _core_utils_js__WEBPACK_IMPORTED_MODULE_2__.MAX_INT_32) {
-    const {
-      _imgData: imgData
-    } = this;
-    const {
-      data,
-      width,
-      height,
-      kind
-    } = imgData;
-    const rgbaSize = width * height * 4;
-    const K = Math.ceil(Math.log2(rgbaSize / maxSize));
-    const newWidth = width >> K;
-    const newHeight = height >> K;
-    let rgbaData;
-    let maxHeight = height;
-    try {
-      rgbaData = new Uint8Array(rgbaSize);
-    } catch {
-      let n = Math.floor(Math.log2(rgbaSize + 1));
-      while (true) {
-        try {
-          rgbaData = new Uint8Array(2 ** n - 1);
-          break;
-        } catch {
-          n -= 1;
-        }
-      }
-      maxHeight = Math.floor((2 ** n - 1) / (width * 4));
-      if (maxHeight === 0) {
-        return null;
-      }
-      if (maxHeight >= 4) {
-        maxHeight -= maxHeight % 4;
-      }
-      const newSize = width * maxHeight * 4;
-      if (newSize < rgbaData.length) {
-        rgbaData = new Uint8Array(newSize);
-      }
-    }
-    const src32 = new Uint32Array(rgbaData.buffer);
-    const dest32 = new Uint32Array(newWidth * newHeight);
-    let srcPos = 0;
-    let newIndex = 0;
-    const lastRow = newHeight << K;
-    let row = 0;
-    for (let y = 0; y < height; y += maxHeight) {
-      const h = Math.min(maxHeight, height - y);
-      ({
-        srcPos
-      } = (0,_shared_image_utils_js__WEBPACK_IMPORTED_MODULE_1__.convertToRGBA)({
-        kind,
-        src: data,
-        dest: src32,
-        width,
-        height: h,
-        inverseDecode: this._isMask,
-        srcPos
-      }));
-      for (const end = Math.min(y + h, lastRow); row < end; row += 1 << K) {
-        const buf = src32.subarray((row - y) * width);
-        for (let j = 0; j < newWidth; j++) {
-          dest32[newIndex++] = buf[j << K];
-        }
-      }
-    }
-    if (ImageResizer.needsToBeResized(newWidth, newHeight)) {
-      imgData.data = dest32;
-      imgData.width = newWidth;
-      imgData.height = newHeight;
-      imgData.kind = _shared_util_js__WEBPACK_IMPORTED_MODULE_0__.ImageKind.RGBA_32BPP;
-      return null;
-    }
-    const canvas = new OffscreenCanvas(newWidth, newHeight);
-    const ctx = canvas.getContext("2d", {
-      willReadFrequently: true
-    });
-    ctx.putImageData(new ImageData(new Uint8ClampedArray(dest32.buffer), newWidth, newHeight), 0, 0);
-    imgData.data = null;
-    imgData.bitmap = canvas.transferToImageBitmap();
-    imgData.width = newWidth;
-    imgData.height = newHeight;
-    return imgData;
-  }
-  _encodeBMP() {
-    const {
-      width,
-      height,
-      kind
-    } = this._imgData;
-    let data = this._imgData.data;
-    let bitPerPixel;
-    let colorTable = new Uint8Array(0);
-    let maskTable = colorTable;
-    let compression = 0;
-    switch (kind) {
-      case _shared_util_js__WEBPACK_IMPORTED_MODULE_0__.ImageKind.GRAYSCALE_1BPP:
-        {
-          bitPerPixel = 1;
-          colorTable = new Uint8Array(this._isMask ? [255, 255, 255, 255, 0, 0, 0, 0] : [0, 0, 0, 0, 255, 255, 255, 255]);
-          const rowLen = width + 7 >> 3;
-          const rowSize = rowLen + 3 & -4;
-          if (rowLen !== rowSize) {
-            const newData = new Uint8Array(rowSize * height);
-            let k = 0;
-            for (let i = 0, ii = height * rowLen; i < ii; i += rowLen, k += rowSize) {
-              newData.set(data.subarray(i, i + rowLen), k);
-            }
-            data = newData;
-          }
-          break;
-        }
-      case _shared_util_js__WEBPACK_IMPORTED_MODULE_0__.ImageKind.RGB_24BPP:
-        {
-          bitPerPixel = 24;
-          if (width & 3) {
-            const rowLen = 3 * width;
-            const rowSize = rowLen + 3 & -4;
-            const extraLen = rowSize - rowLen;
-            const newData = new Uint8Array(rowSize * height);
-            let k = 0;
-            for (let i = 0, ii = height * rowLen; i < ii; i += rowLen) {
-              const row = data.subarray(i, i + rowLen);
-              for (let j = 0; j < rowLen; j += 3) {
-                newData[k++] = row[j + 2];
-                newData[k++] = row[j + 1];
-                newData[k++] = row[j];
-              }
-              k += extraLen;
-            }
-            data = newData;
-          } else {
-            for (let i = 0, ii = data.length; i < ii; i += 3) {
-              const tmp = data[i];
-              data[i] = data[i + 2];
-              data[i + 2] = tmp;
-            }
-          }
-          break;
-        }
-      case _shared_util_js__WEBPACK_IMPORTED_MODULE_0__.ImageKind.RGBA_32BPP:
-        bitPerPixel = 32;
-        compression = 3;
-        maskTable = new Uint8Array(4 + 4 + 4 + 4 + 52);
-        const view = new DataView(maskTable.buffer);
-        if (_shared_util_js__WEBPACK_IMPORTED_MODULE_0__.FeatureTest.isLittleEndian) {
-          view.setUint32(0, 0x000000ff, true);
-          view.setUint32(4, 0x0000ff00, true);
-          view.setUint32(8, 0x00ff0000, true);
-          view.setUint32(12, 0xff000000, true);
-        } else {
-          view.setUint32(0, 0xff000000, true);
-          view.setUint32(4, 0x00ff0000, true);
-          view.setUint32(8, 0x0000ff00, true);
-          view.setUint32(12, 0x000000ff, true);
-        }
-        break;
-      default:
-        throw new Error("invalid format");
-    }
-    let i = 0;
-    const headerLength = 40 + maskTable.length;
-    const fileLength = 14 + headerLength + colorTable.length + data.length;
-    const bmpData = new Uint8Array(fileLength);
-    const view = new DataView(bmpData.buffer);
-    view.setUint16(i, 0x4d42, true);
-    i += 2;
-    view.setUint32(i, fileLength, true);
-    i += 4;
-    view.setUint32(i, 0, true);
-    i += 4;
-    view.setUint32(i, 14 + headerLength + colorTable.length, true);
-    i += 4;
-    view.setUint32(i, headerLength, true);
-    i += 4;
-    view.setInt32(i, width, true);
-    i += 4;
-    view.setInt32(i, -height, true);
-    i += 4;
-    view.setUint16(i, 1, true);
-    i += 2;
-    view.setUint16(i, bitPerPixel, true);
-    i += 2;
-    view.setUint32(i, compression, true);
-    i += 4;
-    view.setUint32(i, 0, true);
-    i += 4;
-    view.setInt32(i, 0, true);
-    i += 4;
-    view.setInt32(i, 0, true);
-    i += 4;
-    view.setUint32(i, colorTable.length / 4, true);
-    i += 4;
-    view.setUint32(i, 0, true);
-    i += 4;
-    bmpData.set(maskTable, i);
-    i += maskTable.length;
-    bmpData.set(colorTable, i);
-    i += colorTable.length;
-    bmpData.set(data, i);
-    return bmpData;
   }
 }
 
@@ -39282,29 +38888,23 @@ class GlobalImageCache {
 /* harmony import */ var _decode_stream_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(4563);
 /* harmony import */ var _primitives_js__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(5632);
 /* harmony import */ var _jpeg_utils_js__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(2478);
-/* harmony import */ var _image_resizer_js__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(2320);
-
 
 
 
 
 
 class JpegStream extends _decode_stream_js__WEBPACK_IMPORTED_MODULE_2__.DecodeStream {
-  static #isImageDecoderSupported = _shared_util_js__WEBPACK_IMPORTED_MODULE_0__.FeatureTest.isImageDecoderSupported;
-  constructor(stream, maybeLength, params) {
+  #pdfManager;
+  constructor(stream, maybeLength, params, pdfManager) {
     super(maybeLength);
     this.stream = stream;
     this.dict = stream.dict;
     this.maybeLength = maybeLength;
     this.params = params;
+    this.#pdfManager = pdfManager;
   }
   static get canUseImageDecoder() {
-    return (0,_shared_util_js__WEBPACK_IMPORTED_MODULE_0__.shadow)(this, "canUseImageDecoder", this.#isImageDecoderSupported ? ImageDecoder.isTypeSupported("image/jpeg") : Promise.resolve(false));
-  }
-  static setOptions({
-    isImageDecoderSupported = false
-  }) {
-    this.#isImageDecoderSupported = isImageDecoderSupported;
+    return (0,_shared_util_js__WEBPACK_IMPORTED_MODULE_0__.shadow)(this, "canUseImageDecoder", ImageDecoder.isTypeSupported("image/jpeg"));
   }
   get bytes() {
     return (0,_shared_util_js__WEBPACK_IMPORTED_MODULE_0__.shadow)(this, "bytes", this.stream.getBytes(this.maybeLength));
@@ -39371,7 +38971,7 @@ class JpegStream extends _decode_stream_js__WEBPACK_IMPORTED_MODULE_2__.DecodeSt
     return this.stream.isAsync;
   }
   async getTransferableImage(width, height) {
-    if (!(await JpegStream.canUseImageDecoder)) {
+    if (!this.#pdfManager.evaluatorOptions.isImageDecoderSupported || !(await JpegStream.canUseImageDecoder)) {
       return null;
     }
     const jpegOptions = this.jpegOptions;
@@ -39392,7 +38992,7 @@ class JpegStream extends _decode_stream_js__WEBPACK_IMPORTED_MODULE_2__.DecodeSt
         exifStart,
         exifEnd
       } = info;
-      const reducePower = _image_resizer_js__WEBPACK_IMPORTED_MODULE_5__.ImageResizer.getReducePower(frameWidth, frameHeight);
+      const reducePower = this.#pdfManager.imageResizer.getReducePower(frameWidth, frameHeight);
       if ((frameWidth !== width || frameHeight !== height) && (reducePower || !frameHeight)) {
         return null;
       }
@@ -40562,7 +40162,7 @@ class JpxImage extends _wasm_image_js__WEBPACK_IMPORTED_MODULE_1__.WasmImage {
   static get instance() {
     return (0,_shared_util_js__WEBPACK_IMPORTED_MODULE_0__.shadow)(this, "instance", new JpxImage("openjpeg.wasm", "openjpeg_nowasm_fallback.js"));
   }
-  async decode(bytes, {
+  async decode(context, bytes, {
     numComponents,
     isIndexedColormap = false,
     smaskInData = false,
@@ -40570,7 +40170,7 @@ class JpxImage extends _wasm_image_js__WEBPACK_IMPORTED_MODULE_1__.WasmImage {
   } = {}) {
     const padComponents = numComponents !== undefined;
     numComponents ??= 4;
-    const module = await this._getModule(() => Promise.resolve(/* import() */).then(() => (__webpack_require__(3530))));
+    const module = await this._getModule(context, () => Promise.resolve(/* import() */).then(() => (__webpack_require__(3530))));
     if (!module) {
       throw new JpxError("OpenJPEG failed to initialize");
     }
@@ -44658,14 +44258,14 @@ class NullOptimizer {
   reset() {}
 }
 class QueueOptimizer extends NullOptimizer {
-  constructor(queue) {
+  constructor(queue, isOffscreenCanvasSupported) {
     super(queue);
     this.state = null;
     this.context = {
       iCurr: 0,
       fnArray: queue.fnArray,
       argsArray: queue.argsArray,
-      isOffscreenCanvasSupported: OperatorList.isOffscreenCanvasSupported
+      isOffscreenCanvasSupported
     };
     this.match = null;
     this.lastProcessed = 0;
@@ -44732,20 +44332,16 @@ class QueueOptimizer extends NullOptimizer {
 class OperatorList {
   static CHUNK_SIZE = 1000;
   static CHUNK_SIZE_ABOUT = this.CHUNK_SIZE - 5;
-  static isOffscreenCanvasSupported = false;
-  constructor(intent = 0, streamSink) {
+  constructor(intent = 0, streamSink, {
+    isOffscreenCanvasSupported = false
+  } = {}) {
     this._streamSink = streamSink;
     this.fnArray = [];
     this.argsArray = [];
-    this.optimizer = streamSink && !(intent & _shared_util_js__WEBPACK_IMPORTED_MODULE_0__.RenderingIntentFlag.OPLIST) ? new QueueOptimizer(this) : new NullOptimizer(this);
+    this.optimizer = streamSink && !(intent & _shared_util_js__WEBPACK_IMPORTED_MODULE_0__.RenderingIntentFlag.OPLIST) ? new QueueOptimizer(this, isOffscreenCanvasSupported) : new NullOptimizer(this);
     this.dependencies = new Set();
     this.weight = 0;
     this._resolved = streamSink ? null : Promise.resolve();
-  }
-  static setOptions({
-    isOffscreenCanvasSupported
-  }) {
-    this.isOffscreenCanvasSupported = isOffscreenCanvasSupported;
   }
   get length() {
     return this.argsArray.length;
@@ -45051,8 +44647,8 @@ class JBig2CCITTFaxImage extends wasm_image.WasmImage {
   static get instance() {
     return (0,util.shadow)(this, "instance", new JBig2CCITTFaxImage("jbig2.wasm", "jbig2_nowasm_fallback.js"));
   }
-  async decode(bytes, width, height, globals, CCITTOptions) {
-    const module = await this._getModule(() => Promise.resolve(/* import() */).then(() => (__webpack_require__(2708))));
+  async decode(context, bytes, width, height, globals, CCITTOptions) {
+    const module = await this._getModule(context, () => Promise.resolve(/* import() */).then(() => (__webpack_require__(2708))));
     if (!module) {
       throw new Jbig2Error("JBig2 failed to initialize");
     }
@@ -45096,11 +44692,13 @@ class JBig2CCITTFaxImage extends wasm_image.WasmImage {
 
 
 class CCITTFaxStream extends decode_stream.DecodeStream {
-  constructor(str, maybeLength, params) {
+  #pdfManager;
+  constructor(str, maybeLength, params, pdfManager) {
     super(maybeLength);
     this.stream = str;
     this.maybeLength = maybeLength;
     this.dict = str.dict;
+    this.#pdfManager = pdfManager;
     if (!(params instanceof primitives.Dict)) {
       params = primitives.Dict.empty;
     }
@@ -45128,7 +44726,7 @@ class CCITTFaxStream extends decode_stream.DecodeStream {
       return this.buffer;
     }
     bytes ??= this.stream.isAsync ? (await this.stream.asyncGetBytes()) || this.bytes : this.bytes;
-    this.buffer = await JBig2CCITTFaxImage.instance.decode(bytes, this.dict.get("W", "Width"), this.dict.get("H", "Height"), null, this.params);
+    this.buffer = await JBig2CCITTFaxImage.instance.decode(this.#pdfManager.binaryDataContext, bytes, this.dict.get("W", "Width"), this.dict.get("H", "Height"), null, this.params);
     this.bufferLength = this.buffer.length;
     this.eof = true;
     return this.buffer;
@@ -45439,12 +45037,14 @@ var base_stream = __webpack_require__(1834);
 
 
 class Jbig2Stream extends decode_stream.DecodeStream {
-  constructor(stream, maybeLength, params) {
+  #pdfManager;
+  constructor(stream, maybeLength, params, pdfManager) {
     super(maybeLength);
     this.stream = stream;
     this.dict = stream.dict;
     this.maybeLength = maybeLength;
     this.params = params;
+    this.#pdfManager = pdfManager;
   }
   get bytes() {
     return (0,util.shadow)(this, "bytes", this.stream.getBytes(this.maybeLength));
@@ -45475,7 +45075,7 @@ class Jbig2Stream extends decode_stream.DecodeStream {
         globals = Jbig2Stream.stripFileHeader(globalsStream.getBytes());
       }
     }
-    this.buffer = await JBig2CCITTFaxImage.instance.decode(bytes, this.dict.get("Width"), this.dict.get("Height"), globals);
+    this.buffer = await JBig2CCITTFaxImage.instance.decode(this.#pdfManager.binaryDataContext, bytes, this.dict.get("Width"), this.dict.get("Height"), globals);
     this.bufferLength = this.buffer.length;
     this.eof = true;
     return this.buffer;
@@ -45494,11 +45094,13 @@ var jpx = __webpack_require__(4242);
 
 
 class JpxStream extends decode_stream.DecodeStream {
-  constructor(stream, maybeLength) {
+  #pdfManager;
+  constructor(stream, maybeLength, pdfManager) {
     super(maybeLength);
     this.stream = stream;
     this.dict = stream.dict;
     this.maybeLength = maybeLength;
+    this.#pdfManager = pdfManager;
   }
   get bytes() {
     return (0,util.shadow)(this, "bytes", this.stream.getBytes(this.maybeLength));
@@ -45512,7 +45114,7 @@ class JpxStream extends decode_stream.DecodeStream {
       return this.buffer;
     }
     bytes ||= this.bytes;
-    this.buffer = await jpx.JpxImage.instance.decode(bytes, decoderOptions);
+    this.buffer = await jpx.JpxImage.instance.decode(this.#pdfManager.binaryDataContext, bytes, decoderOptions);
     this.bufferLength = this.buffer.length;
     this.eof = true;
     return this.buffer;
@@ -46399,6 +46001,7 @@ class Parser {
       (0,util.warn)(`Empty "${name}" stream.`);
       return new core_stream.NullStream();
     }
+    const pdfManager = this.xref?.pdfManager;
     try {
       switch (name) {
         case "Fl":
@@ -46419,10 +46022,10 @@ class Parser {
           return new LZWStream(stream, maybeLength, earlyChange);
         case "DCT":
         case "DCTDecode":
-          return new jpeg_stream.JpegStream(stream, maybeLength, params);
+          return new jpeg_stream.JpegStream(stream, maybeLength, params, pdfManager);
         case "JPX":
         case "JPXDecode":
-          return new JpxStream(stream, maybeLength);
+          return new JpxStream(stream, maybeLength, pdfManager);
         case "A85":
         case "ASCII85Decode":
           return new Ascii85Stream(stream, maybeLength);
@@ -46431,12 +46034,12 @@ class Parser {
           return new AsciiHexStream(stream, maybeLength);
         case "CCF":
         case "CCITTFaxDecode":
-          return new CCITTFaxStream(stream, maybeLength, params);
+          return new CCITTFaxStream(stream, maybeLength, params, pdfManager);
         case "RL":
         case "RunLengthDecode":
           return new RunLengthStream(stream, maybeLength);
         case "JBIG2Decode":
-          return new Jbig2Stream(stream, maybeLength, params);
+          return new Jbig2Stream(stream, maybeLength, params, pdfManager);
         case "BrotliDecode":
           if (params) {
             return new PredictorStream(new brotli_stream.BrotliStream(stream, maybeLength), maybeLength, params);
@@ -53393,31 +52996,13 @@ function clearUnicodeCaches() {
 
 class WasmImage {
   static #instances = new Set();
-  static #options = {
-    useWasm: true,
-    useWorkerFetch: true,
-    wasmUrl: null
-  };
-  #modulePromise = null;
-  static setOptions({
-    getHandler,
-    useWasm,
-    useWorkerFetch,
-    wasmUrl
-  }) {
-    WasmImage.#options = {
-      getHandler,
-      useWasm,
-      useWorkerFetch,
-      wasmUrl
-    };
-  }
+  #modulePromises = new WeakMap();
   static get instance() {
-    ;(0,_shared_util_js__WEBPACK_IMPORTED_MODULE_0__.unreachable)("Abstract getter `instance` accessed");
+    (0,_shared_util_js__WEBPACK_IMPORTED_MODULE_0__.unreachable)("Abstract getter `instance` accessed");
   }
-  static cleanup() {
+  static cleanup(context) {
     for (const instance of WasmImage.#instances) {
-      instance.#modulePromise = null;
+      instance.#modulePromises.delete(context);
     }
   }
   constructor(filename, noWasmFilename) {
@@ -53425,33 +53010,29 @@ class WasmImage {
     this._noWasmFilename = noWasmFilename;
     WasmImage.#instances.add(this);
   }
-  async #instantiateWasm(failureCallback, imports, successCallback) {
-    const loaded = await _wasm_loader_js__WEBPACK_IMPORTED_MODULE_1__.WasmLoader.load({
-      handler: WasmImage.#options.getHandler?.(),
-      options: WasmImage.#options
-    }, this._filename, this._noWasmFilename, instantiate => successCallback({
+  async #instantiateWasm(context, failureCallback, imports, successCallback) {
+    const loaded = await _wasm_loader_js__WEBPACK_IMPORTED_MODULE_1__.WasmLoader.load(context, this._filename, this._noWasmFilename, instantiate => successCallback({
       exports: instantiate(imports)
     }));
     if (!loaded) {
       failureCallback(null);
     }
   }
-  _getModule(loadDecoder) {
-    if (!this.#modulePromise) {
+  _getModule(context, loadDecoder) {
+    return this.#modulePromises.getOrInsertComputed(context, () => {
       const {
         promise,
         resolve
       } = (0,_shared_util_js__WEBPACK_IMPORTED_MODULE_0__.createPromiseCapability)();
-      this.#modulePromise = Promise.race([promise, loadDecoder().then(({
+      return Promise.race([promise, loadDecoder().then(({
         default: createDecoder
       }) => createDecoder({
         warn: _shared_util_js__WEBPACK_IMPORTED_MODULE_0__.warn,
-        instantiateWasm: this.#instantiateWasm.bind(this, resolve)
+        instantiateWasm: this.#instantiateWasm.bind(this, context, resolve)
       }))]);
-    }
-    return this.#modulePromise;
+    });
   }
-  async decode(bytes, _params) {
+  async decode(context, bytes, _params) {
     ;(0,_shared_util_js__WEBPACK_IMPORTED_MODULE_0__.unreachable)("Abstract method `decode` called");
   }
 }
@@ -66971,23 +66552,394 @@ class ChunkedStreamManager {
   }
 }
 
-// EXTERNAL MODULE: ./src/core/image_resizer.js
-var image_resizer = __webpack_require__(2320);
-// EXTERNAL MODULE: ./src/core/jpeg_stream.js
-var jpeg_stream = __webpack_require__(5495);
-// EXTERNAL MODULE: ./src/core/operator_list.js
-var operator_list = __webpack_require__(8857);
+// EXTERNAL MODULE: ./src/shared/image_utils.js
+var image_utils = __webpack_require__(8609);
+;// ./src/core/image_resizer.js
+
+
+
+const MIN_IMAGE_DIM = 2048;
+const MAX_IMAGE_DIM = 32768;
+const MAX_ERROR = 128;
+class ImageResizer {
+  static #goodSquareLength = MIN_IMAGE_DIM;
+  #isImageDecoderSupported;
+  #maxArea;
+  constructor({
+    canvasMaxAreaInBytes = -1,
+    isImageDecoderSupported = false
+  } = {}) {
+    this.#maxArea = canvasMaxAreaInBytes < 0 ? null : Math.floor(canvasMaxAreaInBytes / 4);
+    this.#isImageDecoderSupported = isImageDecoderSupported;
+  }
+  static get canUseImageDecoder() {
+    return (0,util.shadow)(this, "canUseImageDecoder", ImageDecoder.isTypeSupported("image/bmp"));
+  }
+  needsToBeResized(width, height) {
+    if (this.#maxArea === null) {
+      return ImageResizer.#needsToBeResized(width, height);
+    }
+    if (width <= MIN_IMAGE_DIM && height <= MIN_IMAGE_DIM) {
+      return false;
+    }
+    const {
+      MAX_DIM
+    } = this;
+    return width > MAX_DIM || height > MAX_DIM || width * height > this.#maxArea;
+  }
+  static #needsToBeResized(width, height) {
+    if (width <= this.#goodSquareLength && height <= this.#goodSquareLength) {
+      return false;
+    }
+    const {
+      MAX_DIM
+    } = this;
+    if (width > MAX_DIM || height > MAX_DIM) {
+      return true;
+    }
+    const area = width * height;
+    if (this._hasMaxArea) {
+      return area > this.MAX_AREA;
+    }
+    if (area < this.#goodSquareLength ** 2) {
+      return false;
+    }
+    if (this._areGoodDims(width, height)) {
+      this.#goodSquareLength = Math.max(this.#goodSquareLength, Math.floor(Math.sqrt(width * height)));
+      return false;
+    }
+    this.#goodSquareLength = this._guessMax(this.#goodSquareLength, MAX_DIM, MAX_ERROR, 0);
+    const maxArea = this.#goodSquareLength ** 2;
+    this._hasMaxArea = true;
+    (0,util.shadow)(this, "MAX_AREA", maxArea);
+    return area > maxArea;
+  }
+  getReducePower(width, height, maxArea = Infinity) {
+    if (!Number.isInteger(width) || width <= 0 || !Number.isInteger(height) || height <= 0) {
+      return 0;
+    }
+    const area = width * height;
+    if (!this.needsToBeResized(width, height)) {
+      return area > maxArea ? Math.ceil(Math.log2(area / maxArea)) : 0;
+    }
+    const {
+      MAX_DIM,
+      MAX_AREA
+    } = this;
+    const minFactor = Math.max(width / MAX_DIM, height / MAX_DIM, Math.sqrt(area / Math.min(maxArea, MAX_AREA)));
+    return Math.max(0, Math.ceil(Math.log2(minFactor)));
+  }
+  getReducePowerForJPX(width, height, componentsCount) {
+    return this.getReducePower(width, height, 2 ** 30 / (componentsCount * 4));
+  }
+  static get MAX_DIM() {
+    return (0,util.shadow)(this, "MAX_DIM", this._guessMax(MIN_IMAGE_DIM, MAX_IMAGE_DIM, 0, 1));
+  }
+  static get MAX_AREA() {
+    this._hasMaxArea = true;
+    return (0,util.shadow)(this, "MAX_AREA", this._guessMax(this.#goodSquareLength, this.MAX_DIM, MAX_ERROR, 0) ** 2);
+  }
+  get MAX_DIM() {
+    return ImageResizer.MAX_DIM;
+  }
+  get MAX_AREA() {
+    return this.#maxArea ?? ImageResizer.MAX_AREA;
+  }
+  static _areGoodDims(width, height) {
+    try {
+      const canvas = new OffscreenCanvas(width, height);
+      const ctx = canvas.getContext("2d");
+      ctx.fillRect(0, 0, 1, 1);
+      const opacity = ctx.getImageData(0, 0, 1, 1).data[3];
+      canvas.width = canvas.height = 1;
+      return opacity !== 0;
+    } catch {
+      return false;
+    }
+  }
+  static _guessMax(start, end, tolerance, defaultHeight) {
+    while (start + tolerance + 1 < end) {
+      const middle = Math.floor((start + end) / 2);
+      const height = defaultHeight || middle;
+      if (this._areGoodDims(middle, height)) {
+        start = middle;
+      } else {
+        end = middle;
+      }
+    }
+    return start;
+  }
+  async createImage(imgData, isMask = false) {
+    const {
+      width,
+      height
+    } = imgData;
+    if (width * height * 4 > core_utils.MAX_INT_32) {
+      const result = this._rescaleImageData(imgData, isMask);
+      if (result) {
+        return result;
+      }
+    }
+    const data = this._encodeBMP(imgData, isMask);
+    let decoder, imagePromise;
+    if (this.#isImageDecoderSupported && (await ImageResizer.canUseImageDecoder)) {
+      decoder = new ImageDecoder({
+        data,
+        type: "image/bmp",
+        preferAnimation: false,
+        transfer: [data.buffer]
+      });
+      imagePromise = decoder.decode().catch(reason => {
+        (0,util.warn)(`BMP image decoding failed: ${reason}`);
+        return createImageBitmap(new Blob([this._encodeBMP(imgData, isMask).buffer], {
+          type: "image/bmp"
+        }));
+      }).finally(() => {
+        decoder.close();
+      });
+    } else {
+      imagePromise = createImageBitmap(new Blob([data.buffer], {
+        type: "image/bmp"
+      }));
+    }
+    const {
+      MAX_AREA,
+      MAX_DIM
+    } = this;
+    const minFactor = Math.max(width / MAX_DIM, height / MAX_DIM, Math.sqrt(width * height / MAX_AREA));
+    const firstFactor = Math.max(minFactor, 2);
+    const factor = Math.round(10 * (minFactor + 1.25)) / 10 / firstFactor;
+    const N = Math.floor(Math.log2(factor));
+    const steps = new Array(N + 2).fill(2);
+    steps[0] = firstFactor;
+    steps.splice(-1, 1, factor / (1 << N));
+    let newWidth = width;
+    let newHeight = height;
+    const result = await imagePromise;
+    let bitmap = result.image || result;
+    for (const step of steps) {
+      const prevWidth = newWidth;
+      const prevHeight = newHeight;
+      newWidth = Math.floor(newWidth / step);
+      newHeight = Math.floor(newHeight / step);
+      const canvas = new OffscreenCanvas(newWidth, newHeight);
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(bitmap, 0, 0, prevWidth, prevHeight, 0, 0, newWidth, newHeight);
+      bitmap.close();
+      bitmap = canvas.transferToImageBitmap();
+    }
+    imgData.data = null;
+    imgData.bitmap = bitmap;
+    imgData.width = newWidth;
+    imgData.height = newHeight;
+    return imgData;
+  }
+  _rescaleImageData(imgData, isMask, maxSize = core_utils.MAX_INT_32) {
+    const {
+      data,
+      width,
+      height,
+      kind
+    } = imgData;
+    const rgbaSize = width * height * 4;
+    const K = Math.ceil(Math.log2(rgbaSize / maxSize));
+    const newWidth = width >> K;
+    const newHeight = height >> K;
+    let rgbaData;
+    let maxHeight = height;
+    try {
+      rgbaData = new Uint8Array(rgbaSize);
+    } catch {
+      let n = Math.floor(Math.log2(rgbaSize + 1));
+      while (true) {
+        try {
+          rgbaData = new Uint8Array(2 ** n - 1);
+          break;
+        } catch {
+          n -= 1;
+        }
+      }
+      maxHeight = Math.floor((2 ** n - 1) / (width * 4));
+      if (maxHeight === 0) {
+        return null;
+      }
+      if (maxHeight >= 4) {
+        maxHeight -= maxHeight % 4;
+      }
+      const newSize = width * maxHeight * 4;
+      if (newSize < rgbaData.length) {
+        rgbaData = new Uint8Array(newSize);
+      }
+    }
+    const src32 = new Uint32Array(rgbaData.buffer);
+    const dest32 = new Uint32Array(newWidth * newHeight);
+    let srcPos = 0;
+    let newIndex = 0;
+    const lastRow = newHeight << K;
+    let row = 0;
+    for (let y = 0; y < height; y += maxHeight) {
+      const h = Math.min(maxHeight, height - y);
+      ({
+        srcPos
+      } = (0,image_utils.convertToRGBA)({
+        kind,
+        src: data,
+        dest: src32,
+        width,
+        height: h,
+        inverseDecode: isMask,
+        srcPos
+      }));
+      for (const end = Math.min(y + h, lastRow); row < end; row += 1 << K) {
+        const buf = src32.subarray((row - y) * width);
+        for (let j = 0; j < newWidth; j++) {
+          dest32[newIndex++] = buf[j << K];
+        }
+      }
+    }
+    if (this.needsToBeResized(newWidth, newHeight)) {
+      imgData.data = dest32;
+      imgData.width = newWidth;
+      imgData.height = newHeight;
+      imgData.kind = util.ImageKind.RGBA_32BPP;
+      return null;
+    }
+    const canvas = new OffscreenCanvas(newWidth, newHeight);
+    const ctx = canvas.getContext("2d", {
+      willReadFrequently: true
+    });
+    ctx.putImageData(new ImageData(new Uint8ClampedArray(dest32.buffer), newWidth, newHeight), 0, 0);
+    imgData.data = null;
+    imgData.bitmap = canvas.transferToImageBitmap();
+    imgData.width = newWidth;
+    imgData.height = newHeight;
+    return imgData;
+  }
+  _encodeBMP(imgData, isMask) {
+    const {
+      width,
+      height,
+      kind
+    } = imgData;
+    let {
+      data
+    } = imgData;
+    let bitPerPixel;
+    let colorTable = new Uint8Array(0);
+    let maskTable = colorTable;
+    let compression = 0;
+    switch (kind) {
+      case util.ImageKind.GRAYSCALE_1BPP:
+        {
+          bitPerPixel = 1;
+          colorTable = new Uint8Array(isMask ? [255, 255, 255, 255, 0, 0, 0, 0] : [0, 0, 0, 0, 255, 255, 255, 255]);
+          const rowLen = width + 7 >> 3;
+          const rowSize = rowLen + 3 & -4;
+          if (rowLen !== rowSize) {
+            const newData = new Uint8Array(rowSize * height);
+            let k = 0;
+            for (let i = 0, ii = height * rowLen; i < ii; i += rowLen, k += rowSize) {
+              newData.set(data.subarray(i, i + rowLen), k);
+            }
+            data = newData;
+          }
+          break;
+        }
+      case util.ImageKind.RGB_24BPP:
+        {
+          bitPerPixel = 24;
+          if (width & 3) {
+            const rowLen = 3 * width;
+            const rowSize = rowLen + 3 & -4;
+            const extraLen = rowSize - rowLen;
+            const newData = new Uint8Array(rowSize * height);
+            let k = 0;
+            for (let i = 0, ii = height * rowLen; i < ii; i += rowLen) {
+              const row = data.subarray(i, i + rowLen);
+              for (let j = 0; j < rowLen; j += 3) {
+                newData[k++] = row[j + 2];
+                newData[k++] = row[j + 1];
+                newData[k++] = row[j];
+              }
+              k += extraLen;
+            }
+            data = newData;
+          } else {
+            for (let i = 0, ii = data.length; i < ii; i += 3) {
+              const tmp = data[i];
+              data[i] = data[i + 2];
+              data[i + 2] = tmp;
+            }
+          }
+          break;
+        }
+      case util.ImageKind.RGBA_32BPP:
+        bitPerPixel = 32;
+        compression = 3;
+        maskTable = new Uint8Array(4 + 4 + 4 + 4 + 52);
+        const view = new DataView(maskTable.buffer);
+        if (util.FeatureTest.isLittleEndian) {
+          view.setUint32(0, 0x000000ff, true);
+          view.setUint32(4, 0x0000ff00, true);
+          view.setUint32(8, 0x00ff0000, true);
+          view.setUint32(12, 0xff000000, true);
+        } else {
+          view.setUint32(0, 0xff000000, true);
+          view.setUint32(4, 0x00ff0000, true);
+          view.setUint32(8, 0x0000ff00, true);
+          view.setUint32(12, 0x000000ff, true);
+        }
+        break;
+      default:
+        throw new Error("invalid format");
+    }
+    let i = 0;
+    const headerLength = 40 + maskTable.length;
+    const fileLength = 14 + headerLength + colorTable.length + data.length;
+    const bmpData = new Uint8Array(fileLength);
+    const view = new DataView(bmpData.buffer);
+    view.setUint16(i, 0x4d42, true);
+    i += 2;
+    view.setUint32(i, fileLength, true);
+    i += 4;
+    view.setUint32(i, 0, true);
+    i += 4;
+    view.setUint32(i, 14 + headerLength + colorTable.length, true);
+    i += 4;
+    view.setUint32(i, headerLength, true);
+    i += 4;
+    view.setInt32(i, width, true);
+    i += 4;
+    view.setInt32(i, -height, true);
+    i += 4;
+    view.setUint16(i, 1, true);
+    i += 2;
+    view.setUint16(i, bitPerPixel, true);
+    i += 2;
+    view.setUint32(i, compression, true);
+    i += 4;
+    view.setUint32(i, 0, true);
+    i += 4;
+    view.setInt32(i, 0, true);
+    i += 4;
+    view.setInt32(i, 0, true);
+    i += 4;
+    view.setUint32(i, colorTable.length / 4, true);
+    i += 4;
+    view.setUint32(i, 0, true);
+    i += 4;
+    bmpData.set(maskTable, i);
+    i += maskTable.length;
+    bmpData.set(colorTable, i);
+    i += colorTable.length;
+    bmpData.set(data, i);
+    return bmpData;
+  }
+}
+
 // EXTERNAL MODULE: ./src/core/document.js + 4 modules
 var core_document = __webpack_require__(9397);
-// EXTERNAL MODULE: ./src/core/function.js
-var core_function = __webpack_require__(4950);
-// EXTERNAL MODULE: ./src/core/wasm_image.js
-var wasm_image = __webpack_require__(5412);
 ;// ./src/core/pdf_manager.js
-
-
-
-
 
 
 
@@ -67005,7 +66957,6 @@ function parseDocBaseUrl(url) {
   return null;
 }
 class BasePdfManager {
-  static #handlers = new Map();
   constructor({
     docBaseUrl,
     docId,
@@ -67018,7 +66969,6 @@ class BasePdfManager {
     this._docId = docId;
     this._password = password;
     this.enableXfa = enableXfa;
-    BasePdfManager.#handlers.set(this, handler);
     evaluatorOptions.isOffscreenCanvasSupported &&= util.FeatureTest.isOffscreenCanvasSupported;
     evaluatorOptions.isImageDecoderSupported &&= util.FeatureTest.isImageDecoderSupported;
     this.evaluatorOptions = Object.freeze(evaluatorOptions);
@@ -67026,15 +66976,7 @@ class BasePdfManager {
       handler,
       options: this.evaluatorOptions
     };
-    image_resizer.ImageResizer.setOptions(evaluatorOptions);
-    jpeg_stream.JpegStream.setOptions(evaluatorOptions);
-    operator_list.OperatorList.setOptions(evaluatorOptions);
-    const options = {
-      ...evaluatorOptions,
-      getHandler: () => BasePdfManager.#handlers.values().find(h => !h.destroyed)
-    };
-    core_function.PDFFunctionFactory.setOptions(options);
-    wasm_image.WasmImage.setOptions(options);
+    this.imageResizer = new ImageResizer(this.evaluatorOptions);
   }
   get docId() {
     return this._docId;
@@ -67091,9 +67033,7 @@ class BasePdfManager {
     this._password = password;
     this.pdfDocument.xref.encrypt?.setPassword(password);
   }
-  terminate(reason) {
-    BasePdfManager.#handlers.delete(this);
-  }
+  terminate(reason) {}
 }
 class LocalPdfManager extends BasePdfManager {
   constructor(args) {
@@ -67554,9 +67494,6 @@ class MessageHandler {
   destroy() {
     this.#messageAC?.abort();
     this.#messageAC = null;
-  }
-  get destroyed() {
-    return !this.#messageAC;
   }
 }
 
