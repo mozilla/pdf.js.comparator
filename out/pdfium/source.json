@@ -22,8 +22,8 @@
     "highway": {
       "repo": "https://github.com/google/highway.git",
       "ref": "HEAD",
-      "commit": "7224de78ddb7de49ce4b01c1795e43e33b1f153f"
+      "commit": "8f8bf36356112b68692fcf6d0f2cad24c6617ec4"
     }
   },
-  "fingerprint": "pdfium=25ff9814ceca2ecbfac94d21b3cf29e4b524c7d0;fast_float=517e6b8e008341fc4ebf80cc709d8b51610a888e;abseil=1c2ce23ea1fea0d9833876697603f00f84b97527;dragonbox=beeeef91cf6fef89a4d4ba5e95d47ca64ccb3a44;highway=7224de78ddb7de49ce4b01c1795e43e33b1f153f"
+  "fingerprint": "pdfium=25ff9814ceca2ecbfac94d21b3cf29e4b524c7d0;fast_float=517e6b8e008341fc4ebf80cc709d8b51610a888e;abseil=1c2ce23ea1fea0d9833876697603f00f84b97527;dragonbox=beeeef91cf6fef89a4d4ba5e95d47ca64ccb3a44;highway=8f8bf36356112b68692fcf6d0f2cad24c6617ec4"
 }
