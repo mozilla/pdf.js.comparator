@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = 9810062
+ * pdfjsBuild = 8081861
  */
 /******/ var __webpack_modules__ = ({
 
@@ -9027,9 +9027,11 @@ class Catalog {
     this.pageIndexCache.clear();
     this.pageDictCache.clear();
     this.nonBlendModesSet.clear();
+    const fonts = await Promise.all(this.fontCache);
+    await Promise.all(fonts.map(font => font.sent));
     for (const {
       dict
-    } of await Promise.all(this.fontCache)) {
+    } of fonts) {
       delete dict.cacheKey;
     }
     this.fontCache.clear();
@@ -20240,19 +20242,21 @@ function initJs(instantiate) {
 const FAMILIES = new Map([["Courier", 2], ["Helvetica", 0], ["Times", 1]]);
 const MAX_GLYPHS = 65534;
 const PRIVATE_USE_START = 0xf0000;
+function getCodePoints(glyphs) {
+  return Uint32Array.from(glyphs, glyph => glyph.codePoint);
+}
 class Hellbox {
   static #isLoaded = false;
   static #loadPromises = new WeakMap();
   static #pendingData = new WeakMap();
+  static #hasRequiredUrls({
+    useWorkerFetch,
+    wasmUrl,
+    standardFontDataUrl
+  }) {
+    return !useWorkerFetch || !!(wasmUrl && standardFontDataUrl);
+  }
   static async #load(context) {
-    const {
-      standardFontDataUrl,
-      useWorkerFetch,
-      wasmUrl
-    } = context.options;
-    if (useWorkerFetch && (!wasmUrl || !standardFontDataUrl)) {
-      return false;
-    }
     return this.#isLoaded || this.#loadPromises.getOrInsertComputed(context.handler, () => wasm_loader.WasmLoader.load(context, "hellbox_bg.wasm", "hellbox_nowasm_fallback.js", instantiate => {
       initJs(instantiate);
       this.#isLoaded = true;
@@ -20271,25 +20275,52 @@ class Hellbox {
       }).finally(() => pending.delete(file)));
     }));
   }
-  static async generate(context, font) {
+  static async prepare(context, font) {
+    const {
+      options
+    } = context;
     const {
       standardFontName
     } = font;
-    if (!standardFontName || font.vertical || font.cssFontInfo) {
-      return;
+    if (!standardFontName || font.vertical || font.cssFontInfo || !this.#hasRequiredUrls(options)) {
+      return null;
     }
     const replacesFont = !font.systemFontInfo || standardFontName === "Symbol" || standardFontName === "ZapfDingbats";
-    if (context.options.disableFontFace && !replacesFont) {
-      return;
+    if (!replacesFont && options.disableFontFace) {
+      return null;
     }
+    if (replacesFont || !options.isOffscreenCanvasSupported) {
+      await this.#generate(context, font, replacesFont);
+    } else if (font.fontExtraProperties) {
+      await this.#prepareFallback(context, font);
+    } else {
+      return () => this.#prepareFallback(context, font);
+    }
+    return null;
+  }
+  static async #prepareFallback(context, font) {
+    const glyphs = font.getMissingFileGlyphs(false);
+    const codePoints = getCodePoints(glyphs);
+    const covered = await context.handler.sendWithPromise("LoadSystemFont", {
+      systemFontInfo: font.systemFontInfo,
+      codePoints
+    }, [codePoints.buffer]).catch(() => false);
+    if (!covered) {
+      await this.#generate(context, font, false, glyphs);
+    }
+  }
+  static async #generate(context, font, replacesFont, glyphs) {
     if (!(await this.#load(context))) {
       return;
     }
+    glyphs ??= font.getMissingFileGlyphs(replacesFont);
+    const {
+      standardFontName
+    } = font;
     const weight = font.black ? 900 : 0;
     const family = weight ? FAMILIES.get(standardFontName.split("-", 1)[0]) : undefined;
     const italic = /Oblique|Italic/.test(standardFontName);
-    const glyphs = font.getMissingFileGlyphs(replacesFont);
-    const codePoints = Uint32Array.from(glyphs, glyph => glyph.codePoint);
+    const codePoints = getCodePoints(glyphs);
     const lengths = new Uint32Array(codePoints.length).fill(1);
     try {
       const files = family === undefined ? standard_font_data_files(standardFontName) : [...font_data_files(family, false, false, 0, 0, 0), ...font_data_files(family, false, italic, weight, 0, 0)];
@@ -20315,7 +20346,7 @@ class Hellbox {
         }
         return privateUseCode++;
       });
-      const args = [Uint32Array.from(available, glyph => glyph.codePoint), lengths.subarray(0, available.length), Float64Array.from(available, glyph => glyph.width ?? NaN), fontCharCodes];
+      const args = [getCodePoints(available), lengths.subarray(0, available.length), Float64Array.from(available, glyph => glyph.width ?? NaN), fontCharCodes];
       const data = family === undefined ? generate_standard_font(...args, standardFontName) : generate_font(...args, family, false, italic, weight, 0, 0, 0);
       font.setGeneratedFont({
         data,
@@ -20327,7 +20358,7 @@ class Hellbox {
     }
   }
   static async generateXfaFont(context, standardFontName, widths) {
-    if (!(await this.#load(context))) {
+    if (!this.#hasRequiredUrls(context.options) || !(await this.#load(context))) {
       return null;
     }
     try {
@@ -21044,7 +21075,10 @@ class PartialEvaluator {
       operatorList.addDependencies(translated.type3Dependencies);
     }
     state.font = translated.font;
-    translated.send(this.handler);
+    const sent = translated.send(this.handler);
+    if (!operatorList.isStreamingToRenderer) {
+      await sent;
+    }
     return translated.loadedName;
   }
   handleText(chars, state) {
@@ -21254,6 +21288,10 @@ class PartialEvaluator {
     const loadedName = `${this.idFactory.getDocId()}_${fontID}`;
     this.translateFont(preEvaluatedFont, loadedName).then(async translatedFont => {
       const translated = new TranslatedFont({
+        prepareSystemFont: await Hellbox.prepare({
+          handler: this.handler,
+          options: this.options
+        }, translatedFont),
         loadedName,
         font: translatedFont,
         dict: font
@@ -22139,25 +22177,40 @@ class PartialEvaluator {
     const emptyXObjectCache = new image_utils.LocalImageCache();
     const emptyGStateCache = new image_utils.LocalGStateCache();
     const preprocessor = new EvaluatorPreprocessor(stream, xref, stateManager);
-    let textState, currentTextState;
+    let textState;
+    let {
+      font: currentFont,
+      fontName: currentFontName,
+      fontSize: currentFontSize
+    } = stateManager.state;
+    const textSpaceMatrix = new Float32Array(6);
+    const glyphTransform = new Float32Array(6);
     let lastFakeSpaceExtraCharId = -1;
     let hScaleChanged = false;
-    function getUnmirroredTransform([a, b, c, d, e, f], width) {
+    function unmirrorTransform(transform, width) {
+      const a = transform[0];
+      const b = transform[1];
+      const c = transform[2];
+      const d = transform[3];
       if (a * d - b * c >= 0 || d <= 0) {
-        return null;
+        return false;
       }
       const scale = width / Math.hypot(a, b);
-      return [-a, -b, c, d, e + a * scale, f + b * scale];
+      transform[0] = -a;
+      transform[1] = -b;
+      transform[4] += a * scale;
+      transform[5] += b * scale;
+      return true;
     }
     function pushWhitespace({
       width = 0,
       height = 0,
-      transform = textContentItem.prevTransform,
       fontName = textContentItem.fontName
     }) {
       intersector?.addExtraChar(" ");
+      const transform = textContentItem.prevTransform.slice();
       if (width) {
-        transform = getUnmirroredTransform(transform, width) || transform;
+        unmirrorTransform(transform, width);
       }
       textContent.items.push({
         str: " ",
@@ -22183,9 +22236,12 @@ class PartialEvaluator {
       }
       return 1;
     }
-    function getCurrentTextTransform() {
-      const tsm = [textState.fontSize * textState.textHScale, 0, 0, textState.fontSize * getType3HeightScale(), 0, textState.textRise];
-      return util.Util.transform(textState.ctm, util.Util.transform(textState.textMatrix, tsm));
+    function getCurrentTextTransform(result = new Float32Array(6)) {
+      textSpaceMatrix[0] = textState.fontSize * textState.textHScale;
+      textSpaceMatrix[3] = textState.fontSize * getType3HeightScale();
+      textSpaceMatrix[5] = textState.textRise;
+      util.Util.transform(textState.textMatrix, textSpaceMatrix, result);
+      return util.Util.transform(textState.ctm, result, result);
     }
     function ensureTextContentItem() {
       if (textContentItem.initialized) {
@@ -22266,25 +22322,28 @@ class PartialEvaluator {
       textContentItem.textAdvanceScale = scaleFactor;
     }
     function runBidiTransform(textChunk) {
-      let {
+      const {
         str,
-        transform
+        transform,
+        vertical
       } = textChunk;
       const width = Math.abs(textChunk.totalWidth);
-      const unmirrored = !textChunk.vertical && getUnmirroredTransform(transform, width);
+      const unmirrored = !vertical && unmirrorTransform(transform, width);
       if (unmirrored) {
-        str = str.toReversed();
-        transform = unmirrored;
+        str.reverse();
       }
-      const bidiResult = (0,bidi.bidi)(str, -1, textChunk.vertical, textLayerFonts ? (glyph, unicode) => {
+      const bidiResult = (0,bidi.bidi)(str, -1, vertical, textLayerFonts ? (glyph, unicode) => {
         glyph.unicode = unicode;
       } : null);
       if (textLayerFonts) {
+        if (unmirrored) {
+          str.reverse();
+        }
         for (const {
           font,
           unicode,
           advance
-        } of textChunk.str) {
+        } of str) {
           if (font) {
             textLayerFonts.addGlyph(font, unicode, advance);
           }
@@ -22305,10 +22364,6 @@ class PartialEvaluator {
       textState.loadedName = translated.loadedName;
       textState.font = translated.font;
       textState.fontMatrix = translated.font.fontMatrix || util.FONT_IDENTITY_MATRIX;
-    }
-    function applyInverseRotation(x, y, matrix) {
-      const scale = Math.hypot(matrix[0], matrix[1]);
-      return [(matrix[0] * x + matrix[1] * y) / scale, (matrix[2] * x + matrix[3] * y) / scale];
     }
     function getTrackingSpaceMin(glyphWidth) {
       if (textContentItem.useCharWidthThreshold && glyphWidth) {
@@ -22378,7 +22433,7 @@ class PartialEvaluator {
       }
     }
     function compareWithLastPosition(glyphWidth) {
-      const currentTransform = getCurrentTextTransform();
+      const currentTransform = getCurrentTextTransform(glyphTransform);
       let posX = currentTransform[4];
       let posY = currentTransform[5];
       if (textState.font?.vertical) {
@@ -22388,11 +22443,14 @@ class PartialEvaluator {
       } else if (posX + glyphWidth < viewBox[0] || posX > viewBox[2] || posY < viewBox[1] || posY > viewBox[3]) {
         return false;
       }
-      if (!textState.font || !textContentItem.prevTransform) {
+      const {
+        prevTransform
+      } = textContentItem;
+      if (!textState.font || !prevTransform) {
         return true;
       }
-      let lastPosX = textContentItem.prevTransform[4];
-      let lastPosY = textContentItem.prevTransform[5];
+      let lastPosX = prevTransform[4];
+      let lastPosY = prevTransform[5];
       if (lastPosX === posX && lastPosY === posY) {
         textContentItem.minAdvance = Infinity;
         return true;
@@ -22403,23 +22461,38 @@ class PartialEvaluator {
       } else if (currentTransform[1] && currentTransform[0] === 0 && currentTransform[3] === 0) {
         rotate = currentTransform[1] > 0 ? 90 : 270;
       }
+      const x = posX;
+      const lastX = lastPosX;
       switch (rotate) {
         case 0:
           break;
         case 90:
-          [posX, posY] = [posY, posX];
-          [lastPosX, lastPosY] = [lastPosY, lastPosX];
+          posX = posY;
+          posY = x;
+          lastPosX = lastPosY;
+          lastPosY = lastX;
           break;
         case 180:
-          [posX, posY, lastPosX, lastPosY] = [-posX, -posY, -lastPosX, -lastPosY];
+          posX = -posX;
+          posY = -posY;
+          lastPosX = -lastPosX;
+          lastPosY = -lastPosY;
           break;
         case 270:
-          [posX, posY] = [-posY, -posX];
-          [lastPosX, lastPosY] = [-lastPosY, -lastPosX];
+          posX = -posY;
+          posY = -x;
+          lastPosX = -lastPosY;
+          lastPosY = -lastX;
           break;
         default:
-          [posX, posY] = applyInverseRotation(posX, posY, currentTransform);
-          [lastPosX, lastPosY] = applyInverseRotation(lastPosX, lastPosY, textContentItem.prevTransform);
+          {
+            const scale = Math.hypot(currentTransform[0], currentTransform[1]);
+            posX = (currentTransform[0] * x + currentTransform[1] * posY) / scale;
+            posY = (currentTransform[2] * x + currentTransform[3] * posY) / scale;
+            const lastScale = Math.hypot(prevTransform[0], prevTransform[1]);
+            lastPosX = (prevTransform[0] * lastX + prevTransform[1] * lastPosY) / lastScale;
+            lastPosY = (prevTransform[2] * lastX + prevTransform[3] * lastPosY) / lastScale;
+          }
       }
       if (textState.font.vertical) {
         const advanceY = (lastPosY - posY) / textContentItem.textAdvanceScale;
@@ -22538,9 +22611,11 @@ class PartialEvaluator {
       chars,
       extraSpacing
     }) {
-      if (currentTextState !== textState && (currentTextState.fontSize !== textState.fontSize || currentTextState.fontName !== textState.fontName && (currentTextState.font?.name !== textState.font.name || currentTextState.font.vertical !== textState.font.vertical))) {
+      if (currentFontSize !== textState.fontSize || currentFontName !== textState.fontName && (currentFont?.name !== textState.font.name || currentFont.vertical !== textState.font.vertical)) {
         flushTextContentItem();
-        currentTextState = textState.clone();
+        currentFont = textState.font;
+        currentFontName = textState.fontName;
+        currentFontSize = textState.fontSize;
       }
       const font = textState.font;
       const baseCharSpacing = font.vertical ? -textState.charSpacing : textState.charSpacing;
@@ -22608,17 +22683,18 @@ class PartialEvaluator {
         const glyphUnicode = isInvisibleFormatMark ? "" : glyph.unicode;
         if (!font.vertical) {
           scaledDim *= textState.textHScale;
-          intersector?.addGlyph(getCurrentTextTransform(), scaledDim, 0, glyphUnicode);
+          intersector?.addGlyph(getCurrentTextTransform(glyphTransform), scaledDim, 0, glyphUnicode);
           textState.translateTextMatrix(scaledDim, 0);
           textChunk.width += scaledDim;
         } else {
-          intersector?.addGlyph(getCurrentTextTransform(), 0, scaledDim, glyphUnicode);
+          intersector?.addGlyph(getCurrentTextTransform(glyphTransform), 0, scaledDim, glyphUnicode);
           textState.translateTextMatrix(0, scaledDim);
           scaledDim = Math.abs(scaledDim);
           textChunk.height += scaledDim;
         }
         if (scaledDim) {
-          textChunk.prevTransform = getCurrentTextTransform();
+          textChunk.prevTransform ??= new Float32Array(6);
+          getCurrentTextTransform(textChunk.prevTransform);
           textChunk.prevGlyphWidth = scaledDim;
           textChunk.prevTextRise = textState.textRise;
         }
@@ -22682,8 +22758,7 @@ class PartialEvaluator {
           textContentItem.str.push(" ");
           lastFakeSpaceExtraCharId = intersector?.addExtraChar(" ") ?? -1;
           if (textLayerFonts && !textContentItem.vertical && !hScaleChanged) {
-            const [a, b] = currentTransform;
-            const emLength = Math.hypot(a, b) * Math.abs(getType3HeightScale());
+            const emLength = Math.hypot(currentTransform[0], currentTransform[1]) * Math.abs(getType3HeightScale());
             if (emLength > 0) {
               textLayerFonts.addSpaceGap(textContentItem.fontName, 1000 * Math.abs(width) * textContentItem.textAdvanceScale / emLength);
             }
@@ -22769,7 +22844,6 @@ class PartialEvaluator {
           break;
         }
         textState = stateManager.state;
-        currentTextState ||= textState.clone();
         const fn = operation.fn;
         args = operation.args;
         switch (fn | 0) {
@@ -22876,7 +22950,8 @@ class PartialEvaluator {
               continue;
             }
             if (fn === util.OPS.nextLineSetSpacingShowText) {
-              [textState.wordSpacing, textState.charSpacing] = args;
+              textState.wordSpacing = args[0];
+              textState.charSpacing = args[1];
             }
             moveText(0, -textState.leading);
             buildTextContentItem({
@@ -23732,9 +23807,7 @@ class PartialEvaluator {
         } else {
           newProperties.widths = this.buildCharCodeToWidth(metrics.widths, newProperties);
         }
-        const font = new fonts.Font(baseFontName, null, newProperties, this.options);
-        await Hellbox.generate(this, font);
-        return font;
+        return new fonts.Font(baseFontName, null, newProperties, this.options);
       }
     }
     let fontName = descriptor.get("FontName");
@@ -23902,7 +23975,6 @@ class PartialEvaluator {
         font.systemFontInfo = substitution;
       }
     }
-    await Hellbox.generate(this, font);
     return font;
   }
   static buildFontPaths(font, glyphs, handler, evaluatorOptions) {
@@ -23940,26 +24012,37 @@ class PartialEvaluator {
   }
 }
 class TranslatedFont {
-  #sent = false;
+  #prepareSystemFont;
+  sent = null;
   #type3Loaded = null;
   constructor({
     loadedName,
     font,
-    dict
+    dict,
+    prepareSystemFont
   }) {
+    this.#prepareSystemFont = prepareSystemFont;
     this.loadedName = loadedName;
     this.font = font;
     this.dict = dict;
     this.type3Dependencies = font.isType3Font ? new Set() : null;
   }
   send(handler) {
-    if (this.#sent) {
-      return;
+    return this.sent ??= this.#send(handler);
+  }
+  async #send(handler) {
+    let fontData;
+    try {
+      if (this.#prepareSystemFont) {
+        const prepare = this.#prepareSystemFont;
+        this.#prepareSystemFont = null;
+        await prepare();
+      }
+      fontData = this.font.exportData();
+    } catch (reason) {
+      fontData = new fonts.ErrorFont(reason.message).exportData();
     }
-    this.#sent = true;
-    const fontData = this.font.exportData(),
-      transfers = fontData.buffer ? [fontData.buffer] : null;
-    handler.send("commonobj", [this.loadedName, "Font", fontData], transfers);
+    handler.send("commonobj", [this.loadedName, "Font", fontData], fontData.buffer ? [fontData.buffer] : null);
   }
   fallback(handler, evaluatorOptions) {
     if (!this.font.data || this.font.missingFile) {
@@ -24138,24 +24221,18 @@ class TextState {
   loadedName = null;
   font = null;
   fontMatrix = util.FONT_IDENTITY_MATRIX;
-  textMatrix = core_utils.IDENTITY_MATRIX.slice();
-  textLineMatrix = core_utils.IDENTITY_MATRIX.slice();
+  textMatrix = new Float32Array(core_utils.IDENTITY_MATRIX);
+  textLineMatrix = new Float32Array(core_utils.IDENTITY_MATRIX);
   charSpacing = 0;
   wordSpacing = 0;
   leading = 0;
   textHScale = 1;
   textRise = 0;
   setTextMatrix(matrix) {
-    const m = this.textMatrix;
-    for (let i = 0; i < 6; i++) {
-      m[i] = matrix[i];
-    }
+    this.textMatrix.set(matrix);
   }
   setTextLineMatrix(matrix) {
-    const m = this.textLineMatrix;
-    for (let i = 0; i < 6; i++) {
-      m[i] = matrix[i];
-    }
+    this.textLineMatrix.set(matrix);
   }
   translateTextMatrix(x, y) {
     const m = this.textMatrix;
@@ -24171,7 +24248,6 @@ class TextState {
     const clone = Object.assign(Object.create(this), this);
     clone.textMatrix = this.textMatrix.slice();
     clone.textLineMatrix = this.textLineMatrix.slice();
-    clone.fontMatrix = this.fontMatrix.slice();
     return clone;
   }
 }
@@ -30812,6 +30888,7 @@ class Font {
       this.toFontChar.set(charCode, fontCharCode);
     }
     this.#glyphCache.clear();
+    this.#charsCache.clear();
     if (replacesFont) {
       this.systemFontInfo = null;
       this.loadedName = name;
@@ -44557,7 +44634,8 @@ class OperatorList {
     this._streamSink = streamSink;
     this.fnArray = [];
     this.argsArray = [];
-    this.optimizer = streamSink && !(intent & _shared_util_js__WEBPACK_IMPORTED_MODULE_0__.RenderingIntentFlag.OPLIST) ? new QueueOptimizer(this, isOffscreenCanvasSupported) : new NullOptimizer(this);
+    this.isStreamingToRenderer = !!streamSink && !(intent & _shared_util_js__WEBPACK_IMPORTED_MODULE_0__.RenderingIntentFlag.OPLIST);
+    this.optimizer = this.isStreamingToRenderer ? new QueueOptimizer(this, isOffscreenCanvasSupported) : new NullOptimizer(this);
     this.dependencies = new Set();
     this.weight = 0;
     this._resolved = streamSink ? null : Promise.resolve();
@@ -66026,8 +66104,23 @@ class Util {
       length: 256
     }, (_, i) => i));
   }
-  static transform(m1, m2) {
-    return [m1[0] * m2[0] + m1[2] * m2[1], m1[1] * m2[0] + m1[3] * m2[1], m1[0] * m2[2] + m1[2] * m2[3], m1[1] * m2[2] + m1[3] * m2[3], m1[0] * m2[4] + m1[2] * m2[5] + m1[4], m1[1] * m2[4] + m1[3] * m2[5] + m1[5]];
+  static transform(m1, m2, result) {
+    const a = m1[0] * m2[0] + m1[2] * m2[1];
+    const b = m1[1] * m2[0] + m1[3] * m2[1];
+    const c = m1[0] * m2[2] + m1[2] * m2[3];
+    const d = m1[1] * m2[2] + m1[3] * m2[3];
+    const e = m1[0] * m2[4] + m1[2] * m2[5] + m1[4];
+    const f = m1[1] * m2[4] + m1[3] * m2[5] + m1[5];
+    if (!result) {
+      return [a, b, c, d, e, f];
+    }
+    result[0] = a;
+    result[1] = b;
+    result[2] = c;
+    result[3] = d;
+    result[4] = e;
+    result[5] = f;
+    return result;
   }
   static multiplyByDOMMatrix(m, md) {
     return [m[0] * md.a + m[2] * md.b, m[1] * md.a + m[3] * md.b, m[0] * md.c + m[2] * md.d, m[1] * md.c + m[3] * md.d, m[0] * md.e + m[2] * md.f + m[4], m[1] * md.e + m[3] * md.f + m[5]];
