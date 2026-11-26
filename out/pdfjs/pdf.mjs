@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = ac7d371
+ * pdfjsBuild = e473982
  */
 
 ;// ./src/shared/util.js
@@ -2056,7 +2056,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "8d034099-0bec-409c-a2c4-14febbd7ea45";
+const INTERNAL_EVT = "d9809d19-8d8f-4a33-9919-53bfc675a667";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -15942,6 +15942,7 @@ class RendererWorker {
 
 const MAX_TEXT_DIVS_TO_RENDER = 100000;
 const DEFAULT_FONT_SIZE = 30;
+const TX = new Float32Array(6);
 class TextLayer {
   #capability = createPromiseCapability();
   #container = null;
@@ -16003,7 +16004,7 @@ class TextLayer {
       pageX,
       pageY
     } = viewport.rawDims;
-    this.#transform = [1, 0, 0, -1, -pageX, pageY + pageHeight];
+    this.#transform = new Float32Array([1, 0, 0, -1, -pageX, pageY + pageHeight]);
     this.#pageWidth = pageWidth;
     this.#pageHeight = pageHeight;
     TextLayer.#ensureMinFontSizeComputed();
@@ -16172,8 +16173,8 @@ class TextLayer {
       fontSize: 0
     };
     this.#textDivs.push(textDiv);
-    const tx = Util.transform(this.#transform, geom.transform);
-    let angle = Math.atan2(tx[1], tx[0]);
+    Util.transform(this.#transform, geom.transform, TX);
+    let angle = Math.atan2(TX[1], TX[0]);
     const style = this.#styleCache[geom.fontName];
     if (style.vertical) {
       angle += Math.PI / 2;
@@ -16190,15 +16191,15 @@ class TextLayer {
       ascent = textLayerFont.ascent;
       shouldScaleText ||= textLayerFont.advanceScale !== 1;
     }
-    const fontHeight = Math.hypot(tx[2], tx[3]);
+    const fontHeight = Math.hypot(TX[2], TX[3]);
     const fontAscent = fontHeight * (ascent ?? TextLayer.#getAscent(fontFamily, style, this.#layoutTextParams.ctx));
     let left, top;
     if (angle === 0) {
-      left = tx[4];
-      top = tx[5] - fontAscent;
+      left = TX[4];
+      top = TX[5] - fontAscent;
     } else {
-      left = tx[4] + fontAscent * Math.sin(angle);
-      top = tx[5] - fontAscent * Math.cos(angle);
+      left = TX[4] + fontAscent * Math.sin(angle);
+      top = TX[5] - fontAscent * Math.cos(angle);
     }
     const divStyle = textDiv.style;
     divStyle.left = `${(100 * left / this.#pageWidth).toFixed(3)}%`;
@@ -18255,7 +18256,7 @@ class InternalRenderTask {
   }
 }
 const version = "7.0.0";
-const build = "ac7d371";
+const build = "e473982";
 
 ;// ./src/display/editor/color_picker.js
 
