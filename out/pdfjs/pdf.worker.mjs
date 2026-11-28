@@ -21,7 +21,7 @@
 
 /**
  * pdfjsVersion = 7.0.0
- * pdfjsBuild = e530237
+ * pdfjsBuild = 9548d30
  */
 /******/ var __webpack_modules__ = ({
 
